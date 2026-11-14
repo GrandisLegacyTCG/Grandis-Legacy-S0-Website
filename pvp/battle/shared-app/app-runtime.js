@@ -1456,13 +1456,20 @@ function describeResolvedManaShards(shards){
     parts.length===2?parts.join(' and '):parts[0]||'';
 }
 function presentPvpManaLossNotice(event){
+  const ownAbility=event?.source_side==='PLAYER'&&event?.loss_kind==='ABILITY_SPEND';
   if(window.GL_APP_MODE!=='PVP'||event?.type!=='MANA_LOSS_COMMITTED'||
-      event.side!=='PLAYER'||event.source_side!=='AI'||
+      event.side!=='PLAYER'||(!ownAbility&&event.source_side!=='AI')||
       Number(event.removed_count||0)<=0)return;
   const name=event.effect_card_id?cv(event.effect_card_id)?.name||event.effect_name:event.effect_name;
   const effect=String(name||'Mana Burn').trim();
   const count=Math.max(0,Math.min(12,Number(event.removed_count)||0));
   const label=describeResolvedManaShards(event.removed_shards)||count+' Mana Shard'+(count===1?'':'s');
+  if(ownAbility){
+    // Only the paying player sees their own resolved Class Ability cost.
+    // No fake opponent action and no normal PAY MANA popup.
+    queuePresentationNotice('mana','You used '+effect+'.','Spent '+label+'.',pvpNoticeMs(2000));
+    return;
+  }
   // A committed post-choice receipt: never infer a color from the source's
   // public Mana Pool order or show this detail to the selecting player.
   const sourceActions=st()?.pvpActionEventsBySide?.AI||[];
@@ -1475,9 +1482,16 @@ function presentPvpManaLossAfterReveal(event){
   // Server authority has already committed the exact blind choice. Animate
   // its actual face(s) to the target's Shard Deck, then notify the TARGET.
   // This runs locally from the existing snapshot without a new request.
-  if(window.GL_APP_MODE!=='PVP'||event?.side!=='PLAYER'||event?.source_side!=='AI')return;
+  if(window.GL_APP_MODE!=='PVP'||event?.side!=='PLAYER')return;
   const epoch=glPresentationEpoch;
   const show=()=>{if(epoch===glPresentationEpoch)presentPvpManaLossNotice(event);};
+  if(event.source_side==='PLAYER'&&event.loss_kind==='ABILITY_SPEND'){
+    // Paladin/Crusader cost is already resolved by the authoritative engine.
+    // No opponent blind-selection flight is appropriate for a self payment.
+    setTimeout(show,180);
+    return;
+  }
+  if(event.source_side!=='AI')return;
   const shards=(Array.isArray(event.removed_shards)?event.removed_shards:[])
     .filter(x=>x&&['MANA','CLASS'].includes(x.kind)).slice(0,12);
   const source=playerManaHost?.querySelector('.mana-card')||playerManaHost;
@@ -3381,7 +3395,16 @@ function activeTargetContexts(s,chain){
   if(rw?.card_id){
     const rwFamily=String(rawCardDef(rw.card_id)?.family||cv(rw.card_id)?.family||'').toLowerCase();
     if(rwFamily==='item'||rwFamily==='event'){
-      const rwAction=normalizeAction(rw.action||rw,rw.card_id),rwContexts=itemEventArrowContexts(rwAction);
+      // Response Window target_side points to the RESPONDER, not the Item
+      // recipient. Both seats must resolve the same real target in their own
+      // PLAYER/AI coordinate systems; never infer a facing enemy Hero.
+      const rwAction=normalizeAction(rw.action||rw,rw.card_id);
+      const declared=rw.public_card_target||rw.action||null;
+      rwAction.target_side=declared?.target_side||null;
+      rwAction.target_lane=declared?.target_lane||null;
+      rwAction.target_hero_card_id=declared?.target_hero_card_id||null;
+      rwAction.target_lanes=Array.isArray(declared?.target_lanes)?declared.target_lanes.slice():null;
+      const rwContexts=itemEventArrowContexts(rwAction);
       if(rwContexts.length)return rwContexts;
       // A Protection Item protects the targeted defender, never the opposing
       // front Hero merely because an Attack remains underneath this Response.
