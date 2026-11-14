@@ -694,6 +694,8 @@ function renderInspectModal(){
   if(inspectState.instruction){const p=document.createElement('p');p.className='choice-instruction';p.textContent=inspectState.instruction;body.appendChild(p)}
   if(inspectState.ids.length){const grid=document.createElement('div');grid.className='choice-grid inspect-card-grid';inspectState.ids.forEach(id=>{const v=cv(id),b=document.createElement('button');b.type='button';b.className='gl-inspect-card';const im=document.createElement('img');im.src=art(id);im.alt=v?.name||id;im.draggable=false;const sp=document.createElement('span');sp.textContent=v?.name||id;b.append(im,sp);grid.appendChild(b);bindChoicePreview(im,id,inspectState.previewMode||'contextual')});body.appendChild(grid)}
   else{const e=document.createElement('div');e.className='gl-inspect-empty';e.textContent='This pile is empty.';body.appendChild(e)}
+  const cancel=choiceOverlay.querySelector('.gl-choice-cancel');
+  if(cancel){cancel.hidden=true;cancel.onclick=null;}
   confirm.textContent='CLOSE';confirm.disabled=false;confirm.onclick=closeInspectModal;
 }
 // Part 5: music remains OFF by default; the existing engine SFX switch remains ON by default.
@@ -842,10 +844,10 @@ function renderCoinResult(){
     if(openingChosenOrder!=='SECOND')openingChosenOrder='FIRST';
     openingFirstSide=openingChosenOrder==='FIRST'?'AI':'PLAYER';
   }
-  const winner='<div class="gl-coin-winner '+(won?'player-wins':'ai-wins')+'"><span>WINNER</span><strong>'+(won?'YOU WON THE COIN FLIP':'LOCAL AI WON THE COIN FLIP')+'</strong>'+(won?'<p>Choose whether to take the first or second turn.</p>':'')+'</div>';
+  const winner='<div class="gl-coin-winner '+(won?'player-wins':'ai-wins')+'"><span>Winner</span><strong>'+(won?'You won the coin flip':'Local AI won the coin flip')+'</strong>'+(won?'<p>Choose whether to take the first or second turn.</p>':'')+'</div>';
   const art='<div class="gl-coin-result gl-coin-single-result"><img src="'+coinFaceSrc(openingOutcome)+'" alt="Coin result: '+(openingOutcome==='TAILS'?'Tails':'Heads')+'"></div>';
-  const actions=won?'<div class="gl-coin-turn-actions"><button class="gl-coin-start" type="button" data-gl-coin-order="FIRST">GO FIRST</button><button class="gl-coin-start" type="button" data-gl-coin-order="SECOND">GO SECOND</button></div>':
-    '<p class="gl-coin-ai-decision">AI CHOSE TO <strong>GO '+openingChosenOrder+'</strong></p>';
+  const actions=won?'<div class="gl-coin-turn-actions"><button class="gl-coin-start" type="button" data-gl-coin-order="FIRST">Go first</button><button class="gl-coin-start" type="button" data-gl-coin-order="SECOND">Go second</button></div>':
+    '<p class="gl-coin-ai-decision">AI chose to <strong>go '+openingChosenOrder.toLowerCase()+'</strong></p>';
   body.innerHTML=winner+art+actions;
   body.querySelectorAll('[data-gl-coin-order]').forEach(btn=>btn.onclick=()=>chooseCoinTurnOrder(btn.dataset.glCoinOrder));
   if(!won){
@@ -892,10 +894,10 @@ function beginOpeningPresentation(){
   handRenderKey='';opponentHandRenderKey='';manaRenderKey='';renderNow();
   requestAnimationFrame(()=>requestAnimationFrame(()=>{syncPlayerManaPoolToHeroLeft();syncPlayerHandToHeroCenter();syncOpponentHand();appRoot?.classList.remove('gl-lobby-hidden');runOpeningHandGroups(r.handEvents||[],r.manaEvents||[])}));
 }
-function runPairMotions(parts,duration,done){let left=parts.length;if(!left){done();return}parts.forEach((part,i)=>{const finish=()=>{left--;if(left<=0)done()};if(!flyBetween(part.src,part.from,part.to,duration,finish,i===0))finish()})}
+function runPairMotions(parts,duration,done){let left=parts.length;if(!left){done();return}parts.forEach((part,i)=>{const finish=()=>{left--;if(left<=0)done()};if(!flyBetween(part.src,part.from,part.to,duration,finish,i===0,false,part.front||null))finish()})}
 function runOpeningHandGroups(events,manaEvents){
   const groups=[];for(let i=0;i<6;i++)groups.push((events||[]).filter(e=>Number(e.group_index)===i));let gi=0;
-  const next=()=>{if(gi>=groups.length){runOpeningShardGroups(manaEvents);return}const group=groups[gi++],parts=[];group.forEach(e=>{const side=e.side==='AI'?'AI':'PLAYER',hand=side==='PLAYER'?playerHandTrack:oppHandTrack,to=hand?.querySelector('.hand-card[data-hand-index="'+Number(e.hand_index)+'"]'),from=zoneEl(side,'Main Deck');parts.push({src:'assets/ui/back-main.webp',from:from?.querySelector('.zoneCard')||from,to});});runPairMotions(parts,220,()=>{group.forEach(e=>glHiddenCommittedDrawSlots[e.side==='AI'?'AI':'PLAYER'].delete(Number(e.hand_index)));handRenderKey='';opponentHandRenderKey='';renderHand(st());renderOpponentHand(st());requestAnimationFrame(()=>setTimeout(next,20))})};next();
+  const next=()=>{if(gi>=groups.length){runOpeningShardGroups(manaEvents);return}const group=groups[gi++],parts=[];group.forEach(e=>{const side=e.side==='AI'?'AI':'PLAYER',hand=side==='PLAYER'?playerHandTrack:oppHandTrack,to=hand?.querySelector('.hand-card[data-hand-index="'+Number(e.hand_index)+'"]'),from=zoneEl(side,'Main Deck');parts.push({src:'assets/ui/back-main.webp',front:side==='PLAYER'&&e.card_id?art(e.card_id):null,from:from?.querySelector('.zoneCard')||from,to});});runPairMotions(parts,220,()=>{group.forEach(e=>glHiddenCommittedDrawSlots[e.side==='AI'?'AI':'PLAYER'].delete(Number(e.hand_index)));handRenderKey='';opponentHandRenderKey='';renderHand(st());renderOpponentHand(st());requestAnimationFrame(()=>setTimeout(next,20))})};next();
 }
 function runOpeningShardGroups(events){
   const groups=[];for(let i=0;i<3;i++)groups.push((events||[]).filter(e=>Number(e.group_index)===i));let gi=0;
@@ -907,12 +909,27 @@ function visualStateOf(s){
 }
 function multisetAdded(before,after){const counts=new Map();(before||[]).forEach(id=>counts.set(String(id),(counts.get(String(id))||0)+1));const out=[];(after||[]).forEach(id=>{const k=String(id),n=counts.get(k)||0;if(n>0)counts.set(k,n-1);else out.push(id)});return out;}
 function battlefieldPresentationBusy(){return glRankPresentationRunning>0||glPresentationActive>0||Date.now()<glPresentationBusyUntil;}
-function flyBetween(src,fromEl,toEl,duration=380,onFinish,playSound=true,ghost=false){
+function flyBetween(src,fromEl,toEl,duration=380,onFinish,playSound=true,ghost=false,frontSrc=null){
   if(!src||!fromEl||!toEl)return false;const fr=uiRect(fromEl),tr=uiRect(toEl);if(fr.width<1||tr.width<1)return false;
   glPresentationActive++;glPresentationBusyUntil=Math.max(glPresentationBusyUntil,Date.now()+60);
-  const im=document.createElement('img');im.className='gl-flying-card'+(ghost?' gl-return-ghost':'');im.src=src;if(ghost)im.style.opacity='.55';im.style.left=fr.left+'px';im.style.top=fr.top+'px';im.style.width=fr.width+'px';im.style.height=fr.height+'px';animationLayer.appendChild(im);if(playSound)E()?.playCardMotionSound?.();
-  requestAnimationFrame(()=>requestAnimationFrame(()=>{im.style.transition='transform '+duration+'ms cubic-bezier(.2,.75,.2,1),opacity '+duration+'ms ease,width '+duration+'ms ease,height '+duration+'ms ease';im.style.transform='translate('+(tr.left-fr.left)+'px,'+(tr.top-fr.top)+'px)';im.style.width=tr.width+'px';im.style.height=tr.height+'px';im.style.opacity=ghost?'.42':'.72'}));
-  setTimeout(()=>{im.remove();glPresentationActive=Math.max(0,glPresentationActive-1);glPresentationBusyUntil=Math.max(glPresentationBusyUntil,Date.now()+60);if(typeof onFinish==='function')onFinish(true)},duration+20);return true;
+  // Only the local player's DRAW has a front. A separate inner face allows
+  // a physical 3D card flip without interrupting the outer flight transform.
+  const reveal=!!(frontSrc&&!ghost),flyer=reveal?document.createElement('span'):document.createElement('img');
+  flyer.className='gl-flying-card'+(ghost?' gl-return-ghost':'')+(reveal?' gl-draw-flip-flight':'');
+  const im=reveal?document.createElement('img'):flyer;
+  im.src=src;im.alt='';if(reveal)flyer.appendChild(im);
+  if(ghost)flyer.style.opacity='.55';flyer.style.left=fr.left+'px';flyer.style.top=fr.top+'px';flyer.style.width=fr.width+'px';flyer.style.height=fr.height+'px';animationLayer.appendChild(flyer);
+  if(playSound)E()?.playCardMotionSound?.();
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{flyer.style.transition='transform '+duration+'ms cubic-bezier(.2,.75,.2,1),opacity '+duration+'ms ease,width '+duration+'ms ease,height '+duration+'ms ease';flyer.style.transform='translate('+(tr.left-fr.left)+'px,'+(tr.top-fr.top)+'px)';flyer.style.width=tr.width+'px';flyer.style.height=tr.height+'px';flyer.style.opacity=ghost?'.42':'.88'}));
+  if(reveal){
+    const half=Math.max(35,Math.min(65,Math.round(duration*.17))),start=Math.max(25,Math.round(duration*.38));
+    setTimeout(()=>{if(!flyer.isConnected)return;im.style.transition='transform '+half+'ms ease-in';im.style.transform='rotateY(90deg)';
+      setTimeout(()=>{if(!flyer.isConnected)return;im.src=frontSrc;im.style.transition='none';im.style.transform='rotateY(-90deg)';void im.offsetWidth;
+        im.style.transition='transform '+half+'ms ease-out';im.style.transform='rotateY(0deg)';
+      },half);
+    },start);
+  }
+  setTimeout(()=>{flyer.remove();glPresentationActive=Math.max(0,glPresentationActive-1);glPresentationBusyUntil=Math.max(glPresentationBusyUntil,Date.now()+60);if(typeof onFinish==='function')onFinish(true)},duration+20);return true;
 }
 function flyPublicSelectedPickup(event,fromEl,toEl,onFinish){
   if(!event?.card_id||!toEl)return false;
@@ -1418,7 +1435,7 @@ function runPresentationPlan(plan,s){
       if(to)to.classList.remove('gl-presentation-hidden');
       requestAnimationFrame(()=>setTimeout(()=>runDrawSequence(index+1),28));
     };
-    if(!flyBetween('assets/ui/back-main.webp',from?.querySelector('.zoneCard')||from,to,360,done))done();
+    if(!flyBetween('assets/ui/back-main.webp',from?.querySelector('.zoneCard')||from,to,360,done,true,false,side==='PLAYER'&&e.card_id?art(e.card_id):null))done();
   }
 
   // Public REVEAL for a specific selected card taken from Main Deck/Discard.
@@ -2242,8 +2259,14 @@ function renderCenterChoiceStage(s){
         if(expReturn&&selectedCount>0){animateTrialExpChoiceCommit(p,cardsHost,otherTarget);return;}
         const keys=new Set(cards.filter(c=>c.selected).map(c=>c.key));
         if(await animateCenterChoiceExit(keys,selectedTarget,otherTarget)){
-          if(response)intent('commitResponsePaymentChoice',[]);
-          else intent('handleChoiceConfirm',[]);
+          const committed=intent(response?'commitResponsePaymentChoice':'handleChoiceConfirm',[]),live=st()?.pending;
+          // An invalid/stale physical choice remains pending. Reopen the same
+          // selector and preserve the user's selections instead of freezing it.
+          if(committed===false||(live&&live.type===p.type&&
+            (response?live.response_option?.card_id===p.response_option?.card_id:
+              legacy?live.card_id===p.card_id:true))){
+            resetCenterChoiceVisualState();centerChoiceRenderSig='';renderCenterChoiceStage(st());
+          }
         }
       });
   }else if(mode==='draw-replacement'){
@@ -2299,7 +2322,7 @@ function renderCenterChoiceStage(s){
         }
       }
     }
-    makeBtn('PAY','gl-center-choice-primary',!(planReady&&discardReady),async()=>{if(centerChoiceBusy)return;const liveInfo=E().getManaPlan?.()||{},live=liveInfo.plan||{},keys=new Set((live.selected_shard_uids||live.shards?.map(x=>x.uid)||[]).map(String));if(liveInfo.surge?.selected&&liveInfo.surge.surge_mana_uid)keys.add(String(liveInfo.surge.surge_mana_uid));if(await animateCenterChoiceExit(keys,selectedTarget,otherTarget,{returnSide:'PLAYER'}))intent(responsePay?'commitResponsePaymentChoice':'commitManaShardPaymentChoice',[])});
+    makeBtn('PAY','gl-center-choice-primary',!(planReady&&discardReady),async()=>{if(centerChoiceBusy)return;const liveInfo=E().getManaPlan?.()||{},live=liveInfo.plan||{},keys=new Set((live.selected_shard_uids||live.shards?.map(x=>x.uid)||[]).map(String));if(liveInfo.surge?.selected&&liveInfo.surge.surge_mana_uid)keys.add(String(liveInfo.surge.surge_mana_uid));if(await animateCenterChoiceExit(keys,selectedTarget,otherTarget,{returnSide:'PLAYER'})){const result=intent(responsePay?'commitResponsePaymentChoice':'commitManaShardPaymentChoice',[]),live=st()?.pending;if(result===false||(live&&live.type===p.type)){resetCenterChoiceVisualState();centerChoiceRenderSig='';renderCenterChoiceStage(st())}}});
   }else if(mode==='opponent-shard'){
     cardsHost.querySelectorAll('.gl-center-choice-card').forEach(c=>c.onclick=()=>{if(!centerChoiceBusy)intent('selectOpponentManaChoice',[Number(c.dataset.choiceIndex)])});
     const required=Math.min(Number(p.required_count||1),(p.candidates||[]).length),ready=(p.selected_indices||[]).length===required;
@@ -3529,7 +3552,7 @@ function queueBattlefieldReservedDraw(reservation,commit){
   const run=()=>new Promise(resolve=>{requestAnimationFrame(()=>requestAnimationFrame(()=>{
     const from=zoneEl(side,'Main Deck'),hand=side==='PLAYER'?playerHandTrack:oppHandTrack,to=hand?.querySelector('.gl-draw-reservation-slot[data-draw-reservation-id="'+CSS.escape(String(reservation.id||''))+'"]');
     const finish=()=>{try{commit()}finally{markReservedDrawEventHandled(reservation);const at=list.findIndex(x=>String(x.id)===String(reservation.id));if(at>=0)list.splice(at,1);invalidateHandRender(side);renderNow();resolve()}};
-    if(!flyBetween('assets/ui/back-main.webp',from?.querySelector('.zoneCard')||from,to,360,finish))finish();
+    if(!flyBetween('assets/ui/back-main.webp',from?.querySelector('.zoneCard')||from,to,360,finish,true,false,side==='PLAYER'&&reservation.card_id?art(reservation.card_id):null))finish();
   }))});
   glExternalDrawSequence=glExternalDrawSequence.then(run,run);return true;
 }

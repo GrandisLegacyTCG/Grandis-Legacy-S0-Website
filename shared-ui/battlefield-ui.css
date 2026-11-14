@@ -2313,3 +2313,9 @@ html.gl-mobile-landscape-lobby .gl-lobby-picker select{
   line-height:1!important;
   vertical-align:top!important;
 }
+
+/* RC40: browser CSS must never override the semantic hidden attribute. */
+.gl-vsai-choice-overlay .gl-choice-cancel[hidden]{display:none!important}
+/* Local DRAW: face-up before the flying card reaches the Hand; AI stays face-down. */
+.gl-flying-card.gl-draw-flip-flight{display:block;perspective:600px;transform-style:preserve-3d;overflow:visible}
+.gl-draw-flip-flight>img{display:block;width:100%;height:100%;object-fit:cover;border-radius:5px;backface-visibility:hidden;transform-origin:center;will-change:transform}
