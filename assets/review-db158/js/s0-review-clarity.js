@@ -2,6 +2,9 @@
    official Player Rulebook v3.3 EN (2026-11-14), pages 13–14.
    Printed card RULES footer descriptions remain sourced from approved artwork.
    MANA COST +1/+2 are printed card-specific labels, not Rulebook keywords.
+   For Mana terminology: Mana cards = physical cards taken/drawn/moved;
+   Mana Shards = those cards when spent/removed as resources; Mana = value.
+   Printed card text is not automatically rewritten to match these explanations.
    Display only; no changes to deck legality, card effects, gameplay or OSA. */
 (function(root){'use strict';
  const EXPLANATIONS=Object.freeze({
@@ -20,7 +23,7 @@
   'ALL OPPONENTS':'Affects all opposing active Heroes, ignoring normal Area of Attack.',
   'REFLECT':'When this Hero is hit by an Attack, deal damage to the attacker as stated on the card.',
   'MANA BURN':"Remove as many Mana Shards as possible from your opponent's Mana Pool, up to the number stated on the card.",
-  'MANA STEAL':"Remove as many Mana Shards as possible from your opponent's Mana Pool, up to the number stated on the card. Then take as many Mana Shards as possible from your Mana Deck into your Mana Pool, up to the number removed.",
+  'MANA STEAL':"Remove as many Mana Shards as possible from your opponent's Mana Pool, up to the number stated on the card. Then take as many Mana cards as possible from your Mana Deck into your Mana Pool, up to the number removed.",
   'MANA COST +1':'The required Mana is 1 higher than the printed Mana Cost.',
   'MANA COST +2':'The required Mana is 2 higher than the printed Mana Cost.'
  });

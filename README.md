@@ -1,6 +1,6 @@
 # Grandis Legacy — Season 0 RC40 + Deck Builder v1.66 (PvP-ready navigation)
 
-**Production static-site package, runtime only, generated 2026-11-14.** No development/QA/history files or PvP gameplay/server code are included.
+**Production static-site package, runtime only, RC40 minor integration 2026-11-14.** No development/QA/history files or PvP gameplay/server code are included.
 
 ## Latest verified source packages
 
@@ -38,3 +38,16 @@ Exactly 248 WebP files are shipped in the root `card-art/` folder (242 cards + 6
 ## Integrity and scope
 
 All RC40 core engine/data/authority/UI scripts are copied without modification, except the outer VS AI index and integration-only `shared-app/app-runtime.js` (lobby buttons and card loading). Deck Builder v1.66 behavior and card data source remain current; only index navigation and the runtime image URL resolver in `deck-builder/js/data-s0.js` are changed. All current active CSS/JS and required UI/audio, review and keyword assets are retained. No PvP gameplay/network code, QA logs, developer dumps, source snapshots or test fixtures. No GitHub operations performed by the assistant.
+
+## RC40 in-place minor update (2026-11-14)
+
+This build incorporates the latest VS AI RC40 source contents while preserving the already-deployed RC40 + Deck Builder v1.66 website's integration. Changed published files: `engine/shared-app/app.bundle.js`, `engine/js/static-data.js`, `assets/review-db158/js/db166-view-model.js`, `assets/review-db158/js/s0-review-clarity.js`, `shared-app/db158-card-review.js`, `index.html` (versioned script URLs), and this README.
+
+- **Card Played:** active Attachment and Casting descriptions show readable player effects instead of internal slot/role/expiry/counter metadata.
+- **Intermediate AI Defensive Formation:** waits for opponent Mana Regen >=4, plus a critical allied Hero or sufficiently threatening visible opposing board (no hidden-Hand access).
+- **Intermediate AI Coordination Attack:** commits only with two distinct legal Hand Attacks affordable across the current and next AI turns; the second Attack is reserved.
+- **Ancestral Focus and Card Review:** printed wording uses '2 Mana cards' (the gameplay still gains 2 physical Mana Shards). MANA STEAL explanation is aligned with current source.
+- No rulebook, Deck Builder behavior, card artwork, shared artwork path, navigation to external PvP, or deployment configuration changes were required.
+- Source release gate: 373/373 assertions, 25/25 seeded AI games with 0 recorded engine errors. This is source-level regression evidence, not a guarantee of flawless live gameplay.
+
+The GitHub Pages source remains **Deploy from a branch -> main -> /(root)** with `CNAME=grandislegacytcg.web.id`. For an existing RC40 + Deck Builder v1.66 repository that matches the 2026-11-14 baseline, the optional patch ZIP contains only the seven changed files. Otherwise replace the FULL REPO's entire root.
