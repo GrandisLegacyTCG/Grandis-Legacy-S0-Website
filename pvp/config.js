@@ -1,5 +1,5 @@
-/* Grandis Legacy S0 PvP RC40 Patch 3.1: static website -> Node backend.
- * Update wsBase ONLY when the Northflank public hostname changes.
+/* Grandis Legacy S0 PvP RC40 Patch 3.2: static website -> Node backend.
+ * Current approved Northflank hostname (confirmed by project owner via /health).
  * Static GitHub Pages cannot proxy /ws; use WSS on the backend host.
  */
 window.GL_PVP_CONFIG=Object.assign({

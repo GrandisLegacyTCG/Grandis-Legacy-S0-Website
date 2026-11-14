@@ -1,1 +1,1 @@
-window.GL_PVP_BUILD_META=Object.freeze({"version":"S0-RC40-PVP-NET-RC6-STAGE2-PATCH3.1","versionLabel":"Grandis Legacy PvP · Season 0 RC40 Patch 3.1 · VS AI Card Played · Network RC6 Stage 2","buildId":"gl-s0-pvp-rc40-patch31-vsai-cardplayed-2026-11-14"});
+window.GL_PVP_BUILD_META=Object.freeze({"version":"S0-RC40-PVP-NET-RC6-STAGE2-PATCH3.2","versionLabel":"Grandis Legacy PvP · Season 0 RC40 Patch 3.2 · Item/Discard Source Validator · Network RC6 Stage 2","buildId":"gl-s0-pvp-rc40-patch32-item-discard-2026-11-14"});

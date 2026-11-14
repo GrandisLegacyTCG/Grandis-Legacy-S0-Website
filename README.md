@@ -1,4 +1,4 @@
-# Grandis Legacy — Season 0 RC40 + Deck Builder v1.66 + PvP RC40 Static Frontend
+# Grandis Legacy — Season 0 RC40 + Deck Builder v1.66 + PvP RC40 Patch 3.2 Static Frontend
 
 **Production static-site package, runtime only, RC40 minor integration 2026-11-14.** No development/QA/history files or authoritative PvP Node server code are included.
 
@@ -23,8 +23,8 @@
 
 - `/pvp/` is a **real static page** under this GitHub Pages site, and `/pvp/battle/` is the PvP battlefield.
 - `GrandisLegacyTCG/Grandis-Legacy-PvP-Trial` contains the **independent authoritative Node.js/WebSocket server** and tests; backend code and secrets do not belong in this Website repo.
-- PvP is not playable until a matching backend is deployed and its WSS endpoint is reachable. The client uses `pvp/config.js` for `wsBase` and `wsPath` (currently the previously known Northflank hostname; unverified live).
-- This frontend corresponds to **PvP RC40 Patch 3.1**, build ID `gl-s0-pvp-rc40-patch31-vsai-cardplayed-2026-11-14`. The backend must implement the matching protocol/build ID. Future backend changes to that contract may require a future frontend update; otherwise no Website rebuild is required.
+- PvP is not playable until a matching backend is deployed and its WSS endpoint is reachable. The client uses `pvp/config.js` for `wsBase` and `wsPath` (currently the current Northflank hostname, confirmed reachable by the user with /health on Patch 3.2).
+- This frontend corresponds to **PvP RC40 Patch 3.2**, build ID `gl-s0-pvp-rc40-patch32-item-discard-2026-11-14`. The backend must implement the matching protocol/build ID. Future backend changes to that contract may require a future frontend update; otherwise no Website rebuild is required.
 - GitHub Pages serves static assets only. **Do not deploy `server.js` or attempt `/ws` at the Website domain.**
 
 ## Artwork integrity and caching
@@ -75,10 +75,28 @@ No changes to Deck Builder v1.66, shared `card-art/` (248 WebP), rulebook, CNAME
 
 - **VS AI:** latest RC40 source engine (including Item Class, physical Discard, Coin Flip and Draw UI maintenance).
 - **Deck Builder:** v1.66, both Style 1 and Style 2 unchanged from the prior Website package.
-- **PvP:** RC40 Patch 3.1 frontend at `/pvp/`, with independent backend `Grandis-Legacy-PvP-Trial`.
+- **PvP:** RC40 Patch 3.2 frontend at `/pvp/`, with independent backend `Grandis-Legacy-PvP-Trial`.
 - **Artwork:** exactly 248 shared `card-art/*.webp` (242 unique cards + six Mana); no duplicate copies under `pvp/` or `deck-builder/`.
 - **Routing:** Website main page `/`, Builder `/deck-builder/`, PvP `/pvp/`, PvP battle `/pvp/battle/`.
 - **Backend default:** `pvp/config.js` uses `wss://p01--grandis-legacy-pvp-room2--2kwws8nzlcc2.code.run/ws`, pending live verification. If Northflank hostname changes, that single config file must be updated and redeployed.
-- **Required backend config:** allow origin `https://grandislegacytcg.web.id`; preserve build ID/protocol for Patch 3.1 frontend; use one replica while game rooms are in-memory.
+- **Required backend config:** allow origin `https://grandislegacytcg.web.id`; preserve build ID/protocol for Patch 3.2 frontend; use one replica while game rooms are in-memory.
 - **Live checks after manual deployment:** Pages success; all four entry pages load; no missing art; backend `/health` returns `transport=ws` and expected build ID; two browsers connect, coin flip, play Response, reconnect; no hidden opponent Hand or Mana identities exposed.
 - **No GitHub or Northflank writes performed by this build.**
+
+
+## PvP RC40 Patch 3.2 Website integration (2026-11-15)
+
+This Website build synchronizes the current **PvP-Trial commit `6e16d410617aace6d8190e31af448e35b3ee4dba`** (RC40 Patch 3.2) with the Northflank `/health` report shared by the project owner:
+
+- `buildId`: `gl-s0-pvp-rc40-patch32-item-discard-2026-11-14`
+- `transport`: native `ws`
+- `architecture`: `s1-v38017-lite-lobby__s0-rc40-authority`
+- WSS base host (existing service): `wss://p01--grandis-legacy-pvp-room2--2kwws8nzlcc2.code.run`
+
+Five source files were reconstructed against the source-controlled Patch 3.2 diff and a sixth latest Card Review CSS file was hash-verified and independently verified to match the exact Git SHA blobs in the PvP-Trial repo **before** reapplying the Website's `/pvp/`, `/pvp/battle/`, and shared `/card-art/` asset integrations.
+
+**Additional browser stability fix:** PvP Patch 3.2 source invokes `glBindPlayerHandArtwork()` when rendering player Hand, but lacks its definition in the shipped PvP runtime. The Website integrates the earlier VS AI RC40 decode-aware implementation to prevent an undefined-function runtime error; notify the PvP-Trial maintainer to include the equivalent fix upstream. No authoritative gameplay or server files are included.
+
+**Important:** The Northflank health report confirms the server is active and serves native WebSocket transport. It does NOT prove that two public browser sessions can connect and finish a match. The PvP-Trial GitHub Actions **Run #47 passed all steps**, including full historical regression, Docker image build, and native `ws` health. Website smoke checks and real hosted multiplayer must still be distinguished.
+
+To deploy: unzip this FULL REPO into existing `GrandisLegacyTCG/Grandis-Legacy-Website` `main` root (replace existing files, not a ZIP blob). No GitHub Pages settings changes. If the PvP backend moves beyond Patch 3.2, replace this frontend with a tested handoff matching the new build ID; changing only `build-meta.js` is not sufficient to guarantee compatibility.
