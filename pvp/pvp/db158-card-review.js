@@ -2,7 +2,7 @@
    Read-only presentation. Uses read-only Deck Builder v1.66 printed card data; gameplay stays server-authoritative.
    Kept isolated in an iframe to avoid changing the v6.91.9 battlefield CSS. */
 (function(g){'use strict';
-  var files=['app.css','s0-enhancements-v1.32.2.css','s0-shared-header-review.css','s0-part7-revision-v1.36.css','s0-part7-revision-v1.38.css','s0-part7-revision-v1.39.css','s0-review-v1.41.css','s0-review-v1.42.css','s0-review-v1.43.css','s0-review-v1.44.css','s0-ui-v1.49.css','s0-hotfix-v1.49.1.css','s0-layout-v1.50.css','s0-modal-parity-v1.52.css','s0-review-v1.54.css','s0-review-v1.56.css','s0-review-v1.57.css','s0-launch-v1.58.css','s0-rulebook-v2.9-review-v1.58.css'];
+  var files=['pvp-review-bundle-rc40-20261116.css'];
   function escape(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
   function source(id){var d=g.GL_CARD_DEFINITIONS||{};return(d.cards||[]).find(function(c){return c.card_id===id;})||null;}
   function rankRoman(v){var m=String(v||'').match(/(?:Rank\s*)?(I{1,3}|[123])\b/i);return m?({1:'I',2:'II',3:'III'}[m[1]]||m[1].toUpperCase()):'I';}
@@ -106,8 +106,9 @@
     });
   }
   function scheduleWarmup(){
-    if(typeof g.requestIdleCallback==='function')g.requestIdleCallback(warmStyles,{timeout:5500});
-    else setTimeout(warmStyles,3000);
+    // Match VS AI's early stylesheet warming; still idle on slow devices.
+    if(typeof g.requestIdleCallback==='function')g.requestIdleCallback(warmStyles,{timeout:1200});
+    else setTimeout(warmStyles,300);
   }
   if(g.document.readyState==='loading')g.document.addEventListener('DOMContentLoaded',scheduleWarmup,{once:true});
   else scheduleWarmup();

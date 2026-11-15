@@ -846,8 +846,8 @@ function renderCoinResult(){
   }
   const winner='<div class="gl-coin-winner '+(won?'player-wins':'ai-wins')+'"><span>Winner</span><strong>'+(won?'You won the coin flip':'Local AI won the coin flip')+'</strong>'+(won?'<p>Choose whether to take the first or second turn.</p>':'')+'</div>';
   const art='<div class="gl-coin-result gl-coin-single-result"><img src="'+coinFaceSrc(openingOutcome)+'" alt="Coin result: '+(openingOutcome==='TAILS'?'Tails':'Heads')+'"></div>';
-  const actions=won?'<div class="gl-coin-turn-actions"><button class="gl-coin-start" type="button" data-gl-coin-order="FIRST">Go first</button><button class="gl-coin-start" type="button" data-gl-coin-order="SECOND">Go second</button></div>':
-    '<p class="gl-coin-ai-decision">AI chose to <strong>go '+openingChosenOrder.toLowerCase()+'</strong></p>';
+  const actions=won?'<div class="gl-coin-turn-actions"><button class="gl-coin-start" type="button" data-gl-coin-order="FIRST">Go First</button><button class="gl-coin-start" type="button" data-gl-coin-order="SECOND">Go Second</button></div>':
+    '<p class="gl-coin-ai-decision">AI chose to <strong>Go '+openingChosenOrder.charAt(0)+openingChosenOrder.slice(1).toLowerCase()+'</strong></p>';
   body.innerHTML=winner+art+actions;
   body.querySelectorAll('[data-gl-coin-order]').forEach(btn=>btn.onclick=()=>chooseCoinTurnOrder(btn.dataset.glCoinOrder));
   if(!won){
@@ -861,25 +861,37 @@ function chooseCoinTurnOrder(order){
   coinOverlay.querySelectorAll('[data-gl-coin-order]').forEach(btn=>{btn.disabled=true;});
   return beginOpeningPresentation();
 }
-// RC35.5: schedule a single lobby cleanup after the authoritative game-over result.
-// No timer is started during active play, an unfinished Response or coin flip.
+// Result-only auto-return; never starts during gameplay or an unresolved action.
+const GL_RESULT_AUTO_LOBBY_DELAY_MS=15000;
 let glCompletedMatchRefreshTimer=null;
+let glCompletedMatchCountdownTimer=null;
+let glCompletedMatchRefreshDeadline=0;
+function updateCompletedMatchCountdown(){
+  const label=resultOverlay?.querySelector('.gl-result-countdown');
+  if(!label||!glCompletedMatchRefreshDeadline)return;
+  const seconds=Math.max(0,Math.ceil((glCompletedMatchRefreshDeadline-Date.now())/1000));
+  label.textContent='Returning to Lobby in '+seconds+'s';
+}
 function cancelCompletedMatchRefresh(){
   if(glCompletedMatchRefreshTimer!==null){clearTimeout(glCompletedMatchRefreshTimer);glCompletedMatchRefreshTimer=null;}
+  if(glCompletedMatchCountdownTimer!==null){clearInterval(glCompletedMatchCountdownTimer);glCompletedMatchCountdownTimer=null;}
+  glCompletedMatchRefreshDeadline=0;
 }
 function scheduleCompletedMatchRefresh(s){
   if(!s?.gameOver||glCompletedMatchRefreshTimer!==null||lobbyIsOpen)return;
+  glCompletedMatchRefreshDeadline=Date.now()+GL_RESULT_AUTO_LOBBY_DELAY_MS;
   glCompletedMatchRefreshTimer=setTimeout(()=>{
-    glCompletedMatchRefreshTimer=null;
-    const final=st();
-    if(final?.gameOver&&!lobbyIsOpen){window.location.reload();}
-  },60000);
+    if(!st()?.gameOver||lobbyIsOpen){cancelCompletedMatchRefresh();return;}
+    returnToLobbyAfterResult();
+  },GL_RESULT_AUTO_LOBBY_DELAY_MS);
+  glCompletedMatchCountdownTimer=setInterval(updateCompletedMatchCountdown,250);
+  updateCompletedMatchCountdown();
 }
 function resetPresentationState(){
   glPresentationEpoch++;
   for(const batch of [...glTrialReturnBatches])batch.cancel();
   glTrialReturnBatches.clear();animationLayer.querySelectorAll('.gl-trial-exp-flight').forEach(x=>x.remove());
-  if(expInspectorLocation)closeExpInspector();glPresentationActive=0;glPresentationBusyUntil=0;glRankPresentationRunning=0;if(openingAiDecisionTimer!==null){clearTimeout(openingAiDecisionTimer);openingAiDecisionTimer=null;}openingCoinWinner=null;openingChosenOrder=null;cancelCompletedMatchRefresh();seenCounterMessages.clear();seenRacialMessages.clear();seenManaLossMessages.clear();seenDiscardMessages.clear();shownCompletedCounterChains.clear();currentCounterChainId='';counterChainRenderedSig='';clearTimeout(counterChainHoldTimer);counterChainHoldTimer=null;counterChainBanner.classList.remove('show');counterChainBanner.replaceChildren();presentationNoticeQueue.length=0;presentationNoticeActive=false;clearTimeout(counterBannerTimer);counterBanner.classList.remove('show','is-racial','is-mana','is-discard');counterBanner.style.removeProperty('--gl-notice-duration');presentationPrimed=false;previousVisualState=null;glDeferredTrialRankTransitions.length=0;glTrialHandFlightKeys.clear();glManualTrialReturnEventIds.clear();glPresentedTrialReturnEventIds.clear();seenPresentationEvents.clear();resolvedHistory=[];historyKnown.clear();activeCardHold=null;glPendingDrawReservations.PLAYER.length=0;glPendingDrawReservations.AI.length=0;glHiddenCommittedDrawSlots.PLAYER.clear();glHiddenCommittedDrawSlots.AI.clear();glOpeningHiddenShardUids.clear();glExternalDrawSequence=Promise.resolve();glExternalManaDrawSequence=Promise.resolve();glExternallyPresentedShardUids.clear();resultShown=false;resultOverlay.classList.remove('open');syncMatchActionButton(null);closeLobbyProgression();resetMatchTimer()}
+  if(expInspectorLocation)closeExpInspector();glPresentationActive=0;glPresentationBusyUntil=0;glRankPresentationRunning=0;if(openingAiDecisionTimer!==null){clearTimeout(openingAiDecisionTimer);openingAiDecisionTimer=null;}openingCoinWinner=null;openingChosenOrder=null;cancelCompletedMatchRefresh();seenCounterMessages.clear();seenRacialMessages.clear();seenManaLossMessages.clear();seenDiscardMessages.clear();shownCompletedCounterChains.clear();currentCounterChainId='';counterChainRenderedSig='';clearTimeout(counterChainHoldTimer);counterChainHoldTimer=null;counterChainBanner.classList.remove('show');counterChainBanner.replaceChildren();presentationNoticeQueue.length=0;presentationNoticeActive=false;clearTimeout(counterBannerTimer);counterBanner.classList.remove('show','is-racial','is-mana','is-discard','is-card-art');counterBanner.style.removeProperty('--gl-notice-duration');presentationPrimed=false;previousVisualState=null;glDeferredTrialRankTransitions.length=0;glTrialHandFlightKeys.clear();glManualTrialReturnEventIds.clear();glPresentedTrialReturnEventIds.clear();seenPresentationEvents.clear();resolvedHistory=[];historyKnown.clear();activeCardHold=null;glPendingDrawReservations.PLAYER.length=0;glPendingDrawReservations.AI.length=0;glHiddenCommittedDrawSlots.PLAYER.clear();glHiddenCommittedDrawSlots.AI.clear();glOpeningHiddenShardUids.clear();glExternalDrawSequence=Promise.resolve();glExternalManaDrawSequence=Promise.resolve();glExternallyPresentedShardUids.clear();resultShown=false;resultOverlay.classList.remove('open');syncMatchActionButton(null);closeLobbyProgression();resetMatchTimer()}
 function startMatchFromLobby(){
   lobbyErrorText='';syncS0MusicForGameState();const r=E().prepareLocalMatch?.();if(!r?.ok){lobbyErrorText=r?.error||'Could not start match.';renderLobby();return}
   resetPresentationState();lobbyIsOpen=false;lobbyOverlay.classList.remove('open');appRoot?.classList.add('gl-lobby-hidden');renderCoinChoice();syncS0MusicForGameState();
@@ -1219,30 +1231,49 @@ function runTributeLikeHeroAction(p,side,lane){
 // COUNTERED and Racial Token notifications use one visual queue to avoid overlap.
 // They are sourced only from committed presentation events, never from preview,
 // pending choices, or an inferred drop in the token count.
+function glPublicCardArtwork(cardId){
+  const img=document.createElement('img');img.className='gl-public-card-art';img.draggable=false;
+  img.src=art(cardId);img.alt=cv(cardId)?.name||'Card';img.title=img.alt;
+  img.addEventListener('error',()=>{if(img.dataset.fallback==='1')return;img.dataset.fallback='1';img.src='assets/ui/back-main.webp'});
+  return img;
+}
 function showNextPresentationNotice(){
   if(presentationNoticeActive||!presentationNoticeQueue.length)return;
   const item=presentationNoticeQueue.shift();presentationNoticeActive=true;
   counterBanner.replaceChildren();
   const header=document.createElement('strong');header.textContent=item.title;
-  const desc=document.createElement('small');desc.textContent=item.detail;
-  counterBanner.append(header,desc);
+  counterBanner.append(header);
+  if(item.kind==='card-art'){
+    const gallery=document.createElement('div');gallery.className='gl-card-notice-gallery';
+    item.cardIds.forEach(id=>gallery.appendChild(glPublicCardArtwork(id)));
+    counterBanner.append(gallery);
+  }
+  if(item.detail){const desc=document.createElement('small');desc.textContent=item.detail;counterBanner.append(desc)}
   counterBanner.classList.toggle('is-racial',item.kind==='racial');
-  // Part 5: turn notice shares the owner colors with Card Played badges.
-  // Leave Countered, Racial, Mana and Discard banners untouched.
   counterBanner.classList.toggle('is-turn-player',item.kind==='turn'&&item.title==='YOUR TURN');
   counterBanner.classList.toggle('is-turn-ai',item.kind==='turn'&&item.title==='AI TURN');
   counterBanner.classList.toggle('is-mana',item.kind==='mana');
   counterBanner.classList.toggle('is-discard',item.kind==='discard');
-  counterBanner.style.setProperty('--gl-notice-duration',item.duration+'ms');
+  counterBanner.classList.toggle('is-card-art',item.kind==='card-art');
+  const duration=Number(item.duration)||2000;
+  counterBanner.style.setProperty('--gl-notice-duration',duration+'ms');
   counterBanner.classList.remove('show');void counterBanner.offsetWidth;counterBanner.classList.add('show');
   clearTimeout(counterBannerTimer);
   counterBannerTimer=setTimeout(()=>{
     counterBanner.classList.remove('show');presentationNoticeActive=false;
     showNextPresentationNotice();
-  },item.duration);
+  },duration);
 }
 function queuePresentationNotice(kind,title,detail,duration){
   presentationNoticeQueue.push({kind,title,detail,duration:2000});
+  showNextPresentationNotice();
+}
+// Public-by-rule artwork only. The human UI is the PLAYER viewer, so show an
+// AI Search/Return to the human opponent, never the Player's own acquisition.
+// Draw Phase, ordinary Draw effects, and Opening Hand NEVER call this helper.
+function queuePublicArtworkNotice(title,cardIds,detail){
+  const ids=(cardIds||[]).filter(Boolean);if(!ids.length||!presentationPrimed||openingPresentationActive)return;
+  presentationNoticeQueue.push({kind:'card-art',title,detail,cardIds:ids,duration:2700});
   showNextPresentationNotice();
 }
 // Render a committed chain as individual boxes, one per played card.
@@ -1261,13 +1292,15 @@ function renderCounterChainNotification(state){
     counterChainRenderedSig=sig;currentCounterChainId=trace.id;
     const row=document.createElement('div');row.className='gl-counter-chain-row';
     trace.steps.forEach((step,index)=>{
-      if(index){const link=document.createElement('span');link.className='gl-counter-chain-link';link.textContent='→ COUNTER →';row.appendChild(link);}
+      if(index){const link=document.createElement('span');link.className='gl-counter-chain-link';link.textContent='→';link.setAttribute('aria-label','Counter');row.appendChild(link);}
       const box=document.createElement('div');box.className='gl-counter-chain-card '+(step.side==='PLAYER'?'is-player':'is-ai');
-      box.textContent=cv(step.card_id)?.name||String(step.card_id||'Card');
-      box.title=(step.outcome==='PENDING'?'Response pending':String(step.outcome))+' — '+box.textContent;
-      row.appendChild(box);
+      const name=cv(step.card_id)?.name||String(step.card_id||'Card');
+      box.title=(step.outcome==='PENDING'?'Response pending':String(step.outcome))+' — '+name;
+      box.setAttribute('aria-label',name);
+      box.appendChild(glPublicCardArtwork(step.card_id));row.appendChild(box);
     });
-    counterChainBanner.replaceChildren(row);counterChainBanner.classList.add('show');
+    const title=document.createElement('div');title.className='gl-counter-chain-title';title.textContent='Chain Result';
+    counterChainBanner.replaceChildren(title,row);counterChainBanner.classList.add('show');
     requestAnimationFrame(()=>{row.scrollLeft=row.scrollWidth;});
   }
   if(trace.complete&&!shownCompletedCounterChains.has(trace.id)){
@@ -1308,7 +1341,16 @@ function showCommittedManaLossBanner(evt){
   queuePresentationNotice('mana',effect,desc,2000);
 }
 function showCommittedDiscardBanner(evt){
-  if(!evt||evt.type!=='CARDS_DISCARDED_RESOLVED'||evt.target_side!=='PLAYER')return;
+  if(!evt||evt.type!=='CARDS_DISCARDED_RESOLVED')return;
+  if(evt.source_card_id==='S0-THF-029'&&evt.from_zone==='HAND'&&
+      evt.source_side!==evt.target_side){
+    // A Plan-discarded card is public AFTER the authoritative action committed.
+    // This is not a generic Discard Pile difference notification.
+    queuePublicArtworkNotice('CALCULATED PLAN — DISCARD',evt.card_ids||[],
+      'CARD DISCARDED FROM '+(evt.target_side==='AI'?'AI':'YOUR')+' HAND');
+    return;
+  }
+  if(evt.target_side!=='PLAYER')return;
   const count=Number(evt.discard_count||(evt.card_names||[]).length||0);
   if(!count)return;
   const source=cv(evt.source_card_id)?.name||'Card Effect';
@@ -1393,10 +1435,9 @@ function buildPresentationPlan(s){
     const side=e.side==='AI'?'AI':'PLAYER',idx=Number(e.hand_index);
     if(Number.isInteger(idx)&&idx>=0)glHiddenCommittedDrawSlots[side].set(idx,String(e.id||side+'-'+idx));
   });
-  (plan.picks||[]).forEach(e=>{
-    const side=e.side==='AI'?'AI':'PLAYER',idx=Number(e.hand_index);
-    if(Number.isInteger(idx)&&idx>=0)glHiddenCommittedDrawSlots[side].set(idx,String(e.id));
-  });
+  // Public Search/Return pickups appear in Hand immediately. Do NOT mask
+  // them as DRAW slots, animate a card flight, or change Opening Hand.
+  // Other branches (ordinary Draw and Rank-Up) keep their RC40 behavior.
   previousVisualState=cur;if(!presentationPrimed)presentationPrimed=true;return plan;
 }
 function preparePresentationTargets(plan){
@@ -1438,22 +1479,22 @@ function runPresentationPlan(plan,s){
     if(!flyBetween('assets/ui/back-main.webp',from?.querySelector('.zoneCard')||from,to,360,done,true,false,side==='PLAYER'&&e.card_id?art(e.card_id):null))done();
   }
 
-  // Public REVEAL for a specific selected card taken from Main Deck/Discard.
-  // Draw effects are intentionally excluded. Face-up display lasts 2 seconds,
-  // then the card flips to a back and enters Hand in its usual orientation.
+  // ONLY a deliberate public Search/Return pickup (CARD_PUBLIC_PICKUP).
+  // The owner sees their own Hand directly; the human opponent is notified
+  // of cards the AI searches/returns to its Hand. No regular Draw is affected.
   function runPublicPickupSequence(index){
     if(index>=picks.length){runShardSequence(0);return;}
-    const e=picks[index],side=e.side==='AI'?'AI':'PLAYER',idx=Number(e.hand_index);
-    const from=zoneEl(side,e.from_zone==='Discard'?'Discard Pile':'Main Deck');
-    const hand=side==='PLAYER'?playerHandTrack:oppHandTrack;
-    const to=hand?.querySelector('.hand-card[data-hand-index="'+idx+'"]');
-    if(to)to.classList.add('gl-presentation-hidden');
-    const done=()=>{
-      if(glHiddenCommittedDrawSlots[side].get(idx)===String(e.id))glHiddenCommittedDrawSlots[side].delete(idx);
-      if(to)to.classList.remove('gl-presentation-hidden');
-      requestAnimationFrame(()=>setTimeout(()=>runPublicPickupSequence(index+1),35));
-    };
-    if(!flyPublicSelectedPickup(e,from?.querySelector('.zoneCard')||from,to||hand,done))done();
+    const first=picks[index];
+    if(first.side!=='AI'){
+      runPublicPickupSequence(index+1);return;
+    }
+    const group=[first];let next=index+1;
+    while(next<picks.length&&picks[next].side==='AI'&&
+      picks[next].source_card_id===first.source_card_id&&
+      picks[next].from_zone===first.from_zone){group.push(picks[next]);next++}
+    queuePublicArtworkNotice('AI ADDED TO HAND',group.map(e=>e.card_id),
+      first.from_zone==='Discard'?'RETURNED FROM DISCARD':'SEARCHED FROM MAIN DECK');
+    runPublicPickupSequence(next);
   }
   // Both 2-card and 3-card automatic returns use the SAME visual transaction.
   // Human returns are owned by the selector-to-Hand batch; they must never be
@@ -1927,8 +1968,11 @@ function centerChoiceDestinationForZone(side,type){
   if(type==='Shard Pool')return side==='PLAYER'?document.querySelector('.player-mana-pool'):document.querySelector('.opponent-mana-pool');
   return zoneEl(side,type);
 }
-function centerChoiceCardHtml({key,front,back,faceUp=false,selected=false,clickable=false,label='',idx=-1,uid=''}) {
-  return '<button type="button" class="gl-center-choice-card'+(faceUp?' is-face-up':'')+(selected?' is-selected':'')+(clickable?' is-clickable':'')+'" data-choice-key="'+esc(key)+'" data-choice-index="'+idx+'" data-choice-uid="'+esc(uid)+'" '+(clickable?'':'tabindex="-1"')+' aria-label="'+esc(label||'Card')+'"><span class="gl-center-choice-flip"><span class="gl-center-choice-face gl-center-choice-back"><img src="'+esc(back||'assets/ui/back-main.webp')+'" alt=""></span><span class="gl-center-choice-face gl-center-choice-front"><img src="'+esc(front||back||'assets/ui/back-main.webp')+'" alt="'+esc(label||'Card')+'"></span></span></button>';
+function centerChoiceCardHtml({key,front,back,faceUp=false,selected=false,clickable=false,concealed=false,label='',idx=-1,uid=''}) {
+  // Concealed opponent Hand choices are single-sided: a hidden Card ID must
+  // never generate or load a front-face image, even on selection/hover.
+  const frontHtml=concealed?'':'<span class="gl-center-choice-face gl-center-choice-front"><img src="'+esc(front||back||'assets/ui/back-main.webp')+'" alt="'+esc(label||'Card')+'"></span>';
+  return '<button type="button" class="gl-center-choice-card'+(faceUp?' is-face-up':'')+(selected?' is-selected':'')+(clickable?' is-clickable':'')+(concealed?' is-concealed':'')+'" data-choice-key="'+esc(key)+'" data-choice-index="'+idx+'" data-choice-uid="'+esc(uid)+'" '+(clickable?'':'tabindex="-1"')+' aria-label="'+esc(label||'Card')+'"><span class="gl-center-choice-flip"><span class="gl-center-choice-face gl-center-choice-back"><img src="'+esc(back||'assets/ui/back-main.webp')+'" alt=""></span>'+frontHtml+'</span></button>';
 }
 function animateCenterChoiceEntrance(origin,mode='',p=null){
   if(!origin)return;
@@ -2142,7 +2186,7 @@ function renderCenterChoiceStage(s){
     identity='opp-hand|'+target+'|'+(p.candidates||[]).map(x=>x.card_id+':'+x.hand_index).join('|')+'|'+String(p.resolve_to||'');
     sig=identity+'|'+String(sel)+'|'+String(revealed);
     titleText=p.resolve_to==='opponent_deck'?'CHOOSE OPPONENT CARD':'CHOOSE A CARD TO DISCARD';helperText=revealed?'Cards are revealed by the current effect.':'Choose one face-down card.';statusText=(sel==null?0:1)+' / 1 SELECTED';
-    cards=(p.candidates||[]).map((c,i)=>{const key=String(i);if(sel===i)selectedKeys.add(key);return{key,idx:i,front:art(c.card_id),back:'assets/ui/back-main.webp',faceUp:revealed,selected:sel===i,clickable:true,label:revealed?(cv(c.card_id)?.name||'Opponent card'):'Face-down opponent card'}});
+    cards=(p.candidates||[]).map((c,i)=>{const key=String(i);if(sel===i)selectedKeys.add(key);return{key,idx:i,front:revealed?art(c.card_id):'assets/ui/back-main.webp',back:'assets/ui/back-main.webp',faceUp:revealed,concealed:!revealed,selected:sel===i,clickable:true,label:revealed?(cv(c.card_id)?.name||'Opponent card'):'Face-down opponent card'}});
     selectedTarget=p.resolve_to==='opponent_deck'?centerChoiceDestinationForZone(target,'Main Deck'):centerChoiceDestinationForZone(target,'Discard Pile');otherTarget=centerChoiceDestinationForZone(target,'Hand');
   }else{
     const ids=p.revealed_cards||[];
@@ -2330,7 +2374,7 @@ function renderCenterChoiceStage(s){
   }else if(mode==='opponent-hand'){
     cardsHost.querySelectorAll('.gl-center-choice-card').forEach(c=>c.onclick=()=>{if(!centerChoiceBusy)intent('selectOpponentHandChoice',[Number(c.dataset.choiceIndex)])});
     const ready=p.selected_index!=null&&Number.isInteger(Number(p.selected_index))&&Number(p.selected_index)>=0;
-    makeBtn('CONFIRM','gl-center-choice-primary',!ready,async()=>{if(centerChoiceBusy)return;const key=String(Number(p.selected_index)),keys=new Set([key]);if(await animateCenterChoiceExit(keys,selectedTarget,otherTarget,{revealSelected:!p.reveal_cards}))intent('commitOpponentHandChoice',[])});
+    makeBtn('CONFIRM','gl-center-choice-primary',!ready,()=>{if(centerChoiceBusy)return;intent('commitOpponentHandChoice',[])});
   }else{
     cardsHost.querySelectorAll('.gl-center-choice-card').forEach((c,i)=>{const id=(p.revealed_cards||[])[i];const front=c.querySelector('.gl-center-choice-front img');if(front)bindContextualModalPreview(front,id)});
     makeBtn('CLOSE','gl-center-choice-primary',false,async()=>{if(centerChoiceBusy)return;centerChoiceBusy=true;centerChoiceStage.classList.add('is-busy');const all=[...cardsHost.querySelectorAll('.gl-center-choice-card')];await animateCenterChoiceFlip(all,false);await animateCenterChoiceShuffle(all);await Promise.all(all.map(c=>animateCenterChoiceTo(c,otherTarget)));intent('handleChoiceConfirm',[])});
@@ -3139,15 +3183,29 @@ function renderOpponentHand(s){
   updateCommittedHandSlotVisibility('AI');
   const p=s.pending,choice=p?.type==='opponent_hand_choice'&&pendingOwner(p)==='PLAYER',scopeReveal=p?.type==='magic_scope_reveal'&&pendingOwner(p)==='PLAYER',reveal=choice?!!p.reveal_cards:scopeReveal;
   const pendingDraws=glPendingDrawReservations.AI||[];
-  const key=JSON.stringify([s.aiHand||[],p?.type,choice?(p.candidates||[]):null,scopeReveal?(p.revealed_cards||[]):null,reveal,pendingDraws.map(x=>x.id)]);
+  const finalReveal=!!s.gameOver;
+  // Include lifecycle state in the memo key: the same Hand must flip to public
+  // artwork when a match ends, even when no cards were added or removed.
+  const key=JSON.stringify([s.aiHand||[],finalReveal,p?.type,choice?(p.candidates||[]):null,scopeReveal?(p.revealed_cards||[]):null,reveal,pendingDraws.map(x=>x.id)]);
   if(key===opponentHandRenderKey)return;opponentHandRenderKey=key;
   oppHandTrack.innerHTML='';document.querySelector('.gl-magic-scope-done')?.remove();
-  if(choice){
+  if(finalReveal){
+    // Game Over reveals BOTH Hands on the battlefield, not in the Result popup.
+    // Player Hand already displays its card fronts; expose AI Hand only now.
+    (s.aiHand||[]).forEach((id,i)=>{
+      const card=document.createElement('div');card.className='hand-card';card.dataset.handIndex=i;
+      const im=document.createElement('img');im.className='hand-art';im.src=art(id);im.alt=cv(id)?.name||'AI Hand card';im.draggable=false;
+      im.addEventListener('error',()=>{if(im.dataset.fallback==='1')return;im.dataset.fallback='1';im.src='assets/ui/back-main.webp'});
+      card.appendChild(im);card.ondblclick=e=>{e.preventDefault();e.stopPropagation();openCardReview(id)};
+      oppHandTrack.appendChild(card);bindPreview(im);
+    });
+  }else if(choice){
     (p.candidates||[]).forEach((x,i)=>{const card=document.createElement('div');card.className='hand-card';card.dataset.handIndex=i;const im=document.createElement('img');im.className='hand-art';im.src=reveal?art(x.card_id):'assets/ui/back-main.webp';card.appendChild(im);card.style.cursor='pointer';card.onclick=e=>{if(e.detail>1)return;intent('selectOpponentHandChoice',[i])};if(reveal)card.ondblclick=e=>{e.preventDefault();e.stopPropagation();openCardReview(x.card_id)};oppHandTrack.appendChild(card);if(reveal)bindPreview(im)});
   }else if(scopeReveal){
     (p.revealed_cards||[]).forEach((id,i)=>{const card=document.createElement('div');card.className='hand-card';card.dataset.handIndex=i;const im=document.createElement('img');im.className='hand-art';im.src=art(id);card.appendChild(im);card.ondblclick=e=>{e.preventDefault();e.stopPropagation();openCardReview(id)};oppHandTrack.appendChild(card);bindPreview(im)});
   }else{
-    (s.aiHand||[]).forEach((_,i)=>{const card=document.createElement('div');card.className='hand-card';card.dataset.handIndex=i;if(glHiddenCommittedDrawSlots.AI.has(i))card.classList.add('gl-presentation-hidden');const im=document.createElement('img');im.className='hand-art';im.src='assets/ui/back-main.webp';card.appendChild(im);oppHandTrack.appendChild(card)});
+    // Normal Draw and all other non-reveal states still show card backs only.
+    (s.aiHand||[]).forEach((_,i)=>{const card=document.createElement('div');card.className='hand-card';card.dataset.handIndex=i;if(glHiddenCommittedDrawSlots.AI.has(i))card.classList.add('gl-presentation-hidden');const im=document.createElement('img');im.className='hand-art';im.src='assets/ui/back-main.webp';im.alt='Hidden card';card.appendChild(im);oppHandTrack.appendChild(card)});
     pendingDraws.forEach((r,i)=>{const idx=(s.aiHand||[]).length+i,slot=document.createElement('div');slot.className='hand-card gl-draw-reservation-slot gl-presentation-hidden';slot.dataset.handIndex=idx;slot.dataset.drawReservationId=String(r.id||'');const im=document.createElement('img');im.className='hand-art';im.src='assets/ui/back-main.webp';im.alt='Incoming card';slot.appendChild(im);oppHandTrack.appendChild(slot)});
   }
   applyHandFan(oppHandTrack,'AI');
@@ -3450,7 +3508,7 @@ function repairBlockingStateIfNeeded(s){
   const rv=E()?.intent?.('repairOrphanBlockingState',[]);
   return !!rv?.ok;
 }
-function returnToLobbyAfterResult(){resultOverlay.classList.remove('open');try{window.location.reload()}catch{location.href=location.href}}
+function returnToLobbyAfterResult(){cancelCompletedMatchRefresh();resultOverlay.classList.remove('open');try{window.location.reload()}catch{location.href=location.href}}
 function syncMatchActionButton(s){
   if(!matchActionBtn)return;
   const finished=!!s?.gameOver;
@@ -3475,7 +3533,8 @@ function showGameResult(s){
   const phase=phaseName(s.phase)||'Unknown';
   const body=resultOverlay.querySelector('.gl-result-body');
   resultOverlay.querySelector('#glResultTitle').textContent='Game Result';
-  body.innerHTML='<div class="gl-result-summary"><section class="gl-result-winner"><span>Winner</span><strong>'+esc(winner)+'</strong></section><section class="gl-result-reason"><span>Reason</span><strong>'+esc(reason)+'</strong></section><section class="gl-result-round"><span>Round</span><strong>'+Number(s.round||1)+'</strong><small>'+esc((s.turn==='PLAYER'?'Player':s.turn==='AI'?'Local AI':String(s.turn||''))+' · '+phase+' Phase')+'</small></section></div><div class="gl-result-actions"><div class="gl-result-buttons"><button type="button" class="gl-result-close">CLOSE</button><button type="button" class="gl-result-back">BACK TO LOBBY</button></div><small>Reopen this popup anytime using Match Result.</small></div>';
+  body.innerHTML='<div class="gl-result-summary"><section class="gl-result-winner"><span>Winner</span><strong>'+esc(winner)+'</strong></section><section class="gl-result-reason"><span>Reason</span><strong>'+esc(reason)+'</strong></section><section class="gl-result-round"><span>Round</span><strong>'+Number(s.round||1)+'</strong><small>'+esc((s.turn==='PLAYER'?'Player':s.turn==='AI'?'Local AI':String(s.turn||''))+' &middot; '+phase+' Phase')+'</small></section></div><div class="gl-result-actions"><div class="gl-result-buttons"><button type="button" class="gl-result-close">CLOSE</button><button type="button" class="gl-result-back">BACK TO LOBBY</button></div><small class="gl-result-countdown">Returning to Lobby in 15s</small></div>';
+  updateCompletedMatchCountdown();
   body.querySelector('.gl-result-close').onclick=()=>resultOverlay.classList.remove('open');
   body.querySelector('.gl-result-back').onclick=returnToLobbyAfterResult;
   resultOverlay.classList.add('open');

@@ -2254,3 +2254,11 @@ body.gl-center-legacy .gl-center-choice-card{width:min(clamp(68px,10vw,144px),ca
 .gl-vsai-choice-overlay .gl-choice-cancel[hidden]{display:none!important}
 .gl-flying-card.gl-draw-flip-flight{display:block;perspective:600px;transform-style:preserve-3d;overflow:visible}
 .gl-draw-flip-flight>img{display:block;width:100%;height:100%;object-fit:cover;border-radius:5px;backface-visibility:hidden;transform-origin:center;will-change:transform}
+
+/* VS AI RC40 public selected-card notice: donor-compatible CSS. */
+.gl-counter-banner.is-card-art{box-sizing:border-box;width:max-content;max-width:min(94vw,780px);padding:11px 14px;gap:7px;border-color:#bc964b;background:rgba(7,17,29,.98);box-shadow:0 10px 36px rgba(0,0,0,.82)}
+.gl-counter-banner.is-card-art>strong{font-size:clamp(12px,1.7vw,17px);letter-spacing:.07em;color:#f4d35e;text-shadow:none}
+.gl-counter-banner.is-card-art>small{font-size:clamp(9px,1.2vw,12px);color:#d5e1ef;letter-spacing:.04em}
+.gl-card-notice-gallery{display:flex;flex-flow:row nowrap;align-items:center;justify-content:center;gap:6px;max-width:calc(94vw - 32px);overflow-x:auto;overflow-y:hidden;padding:3px;scrollbar-width:thin}
+.gl-public-card-art{display:block;flex:0 0 auto;width:clamp(62px,8vw,105px);aspect-ratio:5/7;height:auto;object-fit:contain;border-radius:6px;box-shadow:0 3px 10px rgba(0,0,0,.74)}
+@media(max-width:620px){.gl-counter-banner.is-card-art{padding:8px;max-width:96vw}.gl-public-card-art{width:clamp(50px,14vw,75px)}}

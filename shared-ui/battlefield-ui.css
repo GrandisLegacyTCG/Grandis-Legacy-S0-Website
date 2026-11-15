@@ -2319,3 +2319,31 @@ html.gl-mobile-landscape-lobby .gl-lobby-picker select{
 /* Local DRAW: face-up before the flying card reaches the Hand; AI stays face-down. */
 .gl-flying-card.gl-draw-flip-flight{display:block;perspective:600px;transform-style:preserve-3d;overflow:visible}
 .gl-draw-flip-flight>img{display:block;width:100%;height:100%;object-fit:cover;border-radius:5px;backface-visibility:hidden;transform-origin:center;will-change:transform}
+
+/* Scoped RC40 corrective presentation: public opponent Search/Return + Plan Discard only. */
+.gl-counter-banner.is-card-art{box-sizing:border-box;width:max-content;max-width:min(94vw,780px);padding:11px 14px;gap:7px;border-color:#bc964b;background:rgba(7,17,29,.98);box-shadow:0 10px 36px rgba(0,0,0,.82)}
+.gl-counter-banner.is-card-art>strong{font-size:clamp(12px,1.7vw,17px);letter-spacing:.07em;color:#f4d35e;text-shadow:none}
+.gl-counter-banner.is-card-art>small{font-size:clamp(9px,1.2vw,12px);color:#d5e1ef;letter-spacing:.04em}
+.gl-card-notice-gallery{display:flex;flex-flow:row nowrap;align-items:center;justify-content:center;gap:6px;max-width:calc(94vw - 32px);overflow-x:auto;overflow-y:hidden;padding:3px;scrollbar-width:thin}
+.gl-public-card-art{display:block;flex:0 0 auto;width:clamp(62px,8vw,105px);aspect-ratio:5/7;height:auto;object-fit:contain;border-radius:6px;box-shadow:0 3px 10px rgba(0,0,0,.74)}
+.gl-counter-chain-card{display:grid;place-items:center;width:clamp(64px,9vw,113px);max-width:none;min-width:0;padding:4px;overflow:hidden}
+.gl-counter-chain-card .gl-public-card-art{width:100%;max-width:106px;box-shadow:none}
+.gl-counter-chain-link{font-size:clamp(15px,2.4vw,25px);font-weight:700;letter-spacing:0}
+.gl-counter-chain-row{gap:clamp(4px,.9vw,9px);max-width:calc(96vw - 48px);padding:5px}
+.gl-counter-chain-banner{max-width:calc(100vw - 14px)}
+.gl-counter-chain-title{
+  text-align:center;color:#f4d35e;font-weight:900;
+  font-size:clamp(13px,1.6vw,18px);letter-spacing:.06em;
+  line-height:1.3;margin:0 2px 6px;
+}
+/* No 3D flip/front for a face-down opponent Hand selection. The CSS back is
+   a visual safety net if an image element fails to decode on a client. */
+.gl-center-mode-opponent-hand .gl-center-choice-card.is-concealed .gl-center-choice-flip{transform:none!important}
+.gl-center-mode-opponent-hand .gl-center-choice-card.is-concealed .gl-center-choice-back{
+  backface-visibility:visible;-webkit-backface-visibility:visible;
+  background:#071019 url('../assets/ui/back-main.webp') center/100% 100% no-repeat;
+}
+/* RC40 compact Result remains the original width; show only a return countdown. */
+.gl-result-countdown{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+.gl-card-review-overlay.open{z-index:29500}
+@media(max-width:620px){.gl-counter-banner.is-card-art{padding:8px;max-width:96vw}.gl-public-card-art{width:clamp(50px,14vw,75px)}.gl-counter-chain-card{flex:0 0 auto;width:clamp(49px,16vw,83px);padding:2px}.gl-counter-chain-card .gl-public-card-art{width:100%}.gl-result-actions{flex-wrap:wrap}.gl-result-countdown{width:100%;text-align:left}}

@@ -2169,6 +2169,18 @@
       source_hero_card_id:hero?heroIdFrom(hero):'',token_cost:amount,sequence:state.presentationEventSequence});
     if(state.presentationEvents.length>160)state.presentationEvents=state.presentationEvents.slice(-160);
   }
+  // RC40 Part 5: only deliberately selected cards from Main Deck or Discard to Hand
+  // are publicly revealed. Draw Phase and ordinary Draw effects remain hidden.
+  function recordPublicSelectedPickup(state,side,cardId,sourceZone,sourceCardId,handIndex){
+    if(!state||!cardId||['Main Deck','Discard'].indexOf(sourceZone)===-1)return;
+    state.presentationEvents=Array.isArray(state.presentationEvents)?state.presentationEvents:[];
+    state.presentationEventSequence=Number(state.presentationEventSequence||0)+1;
+    state.presentationEvents.push({id:'PICKUP-'+state.presentationEventSequence,
+      type:'CARD_PUBLIC_PICKUP',side:side,card_id:cardId,from_zone:sourceZone,
+      source_card_id:sourceCardId||null,hand_index:Number(handIndex),
+      sequence:state.presentationEventSequence});
+    if(state.presentationEvents.length>160)state.presentationEvents=state.presentationEvents.slice(-160);
+  }
   function recordCardNegationPresentation(state,counterSide,counterCardId,targetSide,targetCardId){
     if(!state||!targetCardId)return;
     state.presentationEvents=Array.isArray(state.presentationEvents)?state.presentationEvents:[];
@@ -8544,7 +8556,7 @@
     var committedCardMoves=[];
     if(p.zone==='deck'){
       var deck=deckForSide(appState,p.side);
-      picked.sort(function(a,b){ return b.deck_index-a.deck_index; }).forEach(function(cand){ var idx=cand.deck_index;  if(idx>=0&&deck[idx]===cand.card_id){ var id=deck.splice(idx,1)[0]; sideHand(appState,p.side).push(id); pushLog(appState, cardName(card(p.source_card_id))+' adds chosen '+cardName(card(id))+' from deck to hand.'); } else pushLog(appState, cardName(card(p.source_card_id))+' chosen card was not found in deck at resolution.'); });
+      picked.sort(function(a,b){ return b.deck_index-a.deck_index; }).forEach(function(cand){ var idx=cand.deck_index;  if(idx>=0&&deck[idx]===cand.card_id){ var id=deck.splice(idx,1)[0]; var chosenHand=sideHand(appState,p.side);chosenHand.push(id);recordPublicSelectedPickup(appState,p.side,id,'Main Deck',p.source_card_id,chosenHand.length-1); pushLog(appState, cardName(card(p.source_card_id))+' adds chosen '+cardName(card(id))+' from deck to hand.'); } else pushLog(appState, cardName(card(p.source_card_id))+' chosen card was not found in deck at resolution.'); });
       committedCardMoves.push({from:'Main Deck',to:'Hand',count:picked.length,known:false});
       shufflePile(deck); pushLog(appState,'Deck shuffled after '+cardName(card(p.source_card_id))+' search/open.');
     } else if(p.zone==='hand'){
@@ -8563,7 +8575,7 @@
       });
     } else if(p.zone==='discard'){
       var pile=sideDiscard(appState,p.side), destinationDeck=deckForSide(appState,p.side),returnedToDeck=0;
-      picked.sort(function(a,b){ return b.discard_index-a.discard_index; }).forEach(function(cand){ var pidx=cand.discard_index;  if(pidx>=0&&pile[pidx]===cand.card_id){ var pid=pile.splice(pidx,1)[0]; if(p.resolve_to==='replenish_to_deck'){ destinationDeck.push(pid);returnedToDeck++; pushLog(appState, cardName(card(p.source_card_id))+' returns chosen '+cardName(card(pid))+' from Discard Pile to deck.'); } else { sideHand(appState,p.side).push(pid); pushLog(appState, cardName(card(p.source_card_id))+' returns chosen '+cardName(card(pid))+' from Discard Pile to hand.'); } } });
+      picked.sort(function(a,b){ return b.discard_index-a.discard_index; }).forEach(function(cand){ var pidx=cand.discard_index;  if(pidx>=0&&pile[pidx]===cand.card_id){ var pid=pile.splice(pidx,1)[0]; if(p.resolve_to==='replenish_to_deck'){ destinationDeck.push(pid);returnedToDeck++; pushLog(appState, cardName(card(p.source_card_id))+' returns chosen '+cardName(card(pid))+' from Discard Pile to deck.'); } else { var chosenHand=sideHand(appState,p.side);chosenHand.push(pid);recordPublicSelectedPickup(appState,p.side,pid,'Discard',p.source_card_id,chosenHand.length-1); pushLog(appState, cardName(card(p.source_card_id))+' returns chosen '+cardName(card(pid))+' from Discard Pile to hand.'); } } });
       if(p.resolve_to==='replenish_to_deck'){ shufflePile(destinationDeck);queueDiscardToDeckGhosts(appState,p.side,returnedToDeck); pushLog(appState,'Replenish shuffles the Main Deck after returning 2 cards.'); var handBeforeDraw=sideHand(appState,p.side).length;drawOne(appState,p.side,false,{reason:'CARD_EFFECT'});committedCardMoves.push({from:'Main Deck',to:'Hand',count:Math.max(0,sideHand(appState,p.side).length-handBeforeDraw),known:false});pushLog(appState,'Replenish draws 1 card after the shuffle.'); }
       if(picked.length)committedCardMoves.unshift({from:'Discard',to:p.resolve_to==='replenish_to_deck'?'Main Deck':'Hand',card_ids:picked.map(function(x){return x.card_id;}),known:true});
     }
@@ -8603,14 +8615,14 @@
         // Allow any combination (including two identical notes) as printed by DEV45.
       }
       if(zone==='deck'){
-        var deck=deckForSide(state,side); picks.sort(function(a,b){return b.deck_index-a.deck_index;}).forEach(function(pick){var id=deck.splice(pick.deck_index,1)[0];if(id)sideHand(state,side).push(id);}); shufflePile(deck); pushLog(state,cardName(sourceCard)+' auto-selects '+picks.length+' legal deck card(s) and shuffles deck.');
+        var deck=deckForSide(state,side); picks.sort(function(a,b){return b.deck_index-a.deck_index;}).forEach(function(pick){var id=deck.splice(pick.deck_index,1)[0];if(id){var chosenHand=sideHand(state,side);chosenHand.push(id);recordPublicSelectedPickup(state,side,id,'Main Deck',sourceCard.card_id,chosenHand.length-1);}}); shufflePile(deck); pushLog(state,cardName(sourceCard)+' auto-selects '+picks.length+' legal deck card(s) and shuffles deck.');
       } else if(zone==='hand'){
         var hnd=sideHand(state,side); picks.sort(function(a,b){return b.hand_index-a.hand_index;}).forEach(function(pick){var idx=pick.hand_index;if(hnd[idx]!==pick.card_id)idx=hnd.indexOf(pick.card_id);if(idx<0)return;var hid=hnd.splice(idx,1)[0];
           if(opts.resolve_to==='source_exp'&&opts.host_side&&opts.host_lane){var hero=sideHeroes(state,opts.host_side)[opts.host_lane];if(heroCanReceiveExpCard(hero,card(hid))){hero.exp_cards=hero.exp_cards||[];hero.exp_cards.push(hid);hero.exp_total=Number(hero.exp_total||0)+tributeExpValue(card(hid));pushLog(state,cardName(sourceCard)+' adds '+cardName(card(hid))+' as EXP to '+cardName(card(hero.card_id))+'.');checkAndApplyRankUp(state,opts.host_side,opts.host_lane);}else hnd.push(hid);}
           else hnd.push(hid);
         });
       } else {
-        var pile=sideDiscard(state,side), dest=deckForSide(state,side),returnedToDeck=0; picks.sort(function(a,b){return b.discard_index-a.discard_index;}).forEach(function(pick){var idx=pick.discard_index;if(pile[idx]!==pick.card_id)idx=pile.indexOf(pick.card_id);if(idx<0)return;var did=pile.splice(idx,1)[0];if(opts.resolve_to==='replenish_to_deck'){dest.push(did);returnedToDeck++;}else sideHand(state,side).push(did);});
+        var pile=sideDiscard(state,side), dest=deckForSide(state,side),returnedToDeck=0; picks.sort(function(a,b){return b.discard_index-a.discard_index;}).forEach(function(pick){var idx=pick.discard_index;if(pile[idx]!==pick.card_id)idx=pile.indexOf(pick.card_id);if(idx<0)return;var did=pile.splice(idx,1)[0];if(opts.resolve_to==='replenish_to_deck'){dest.push(did);returnedToDeck++;}else{var chosenHand=sideHand(state,side);chosenHand.push(did);recordPublicSelectedPickup(state,side,did,'Discard',sourceCard.card_id,chosenHand.length-1);}});
         if(opts.resolve_to==='replenish_to_deck'){shufflePile(dest);queueDiscardToDeckGhosts(state,side,returnedToDeck);drawOne(state,side,false,{reason:'CARD_EFFECT'});pushLog(state,cardName(sourceCard)+' auto-selects '+picks.length+' legal Discard card(s), shuffles the Main Deck, then draws 1 card.');}
         else pushLog(state,cardName(sourceCard)+' auto-selects '+picks.length+' legal Discard card(s).');
       }
@@ -9520,11 +9532,11 @@
     }else if(type==='SEARCH_DECK_TO_HAND'){
       var dc=choices[0],di=dc&&Number(dc.deck_index);if(!dc){showInfo('Legacy Ability','Choose a legal Main Deck card.');return false;}
       if(deck[di]!==dc.card_id)di=deck.indexOf(dc.card_id);if(di<0){showInfo('Legacy Ability','Chosen deck card is no longer available.');return false;}
-      var found=deck.splice(di,1)[0];hand.push(found);publicMoves.push({from:'Main Deck',to:'Hand',count:1,known:true,card_ids:[found]});shufflePile(deck);pushLog(state,cardName(c)+' adds '+cardName(card(found))+' to hand and shuffles the Main Deck under the hidden-information rule.');
+      var found=deck.splice(di,1)[0];hand.push(found);recordPublicSelectedPickup(state,side,found,'Main Deck',c.card_id,hand.length-1);publicMoves.push({from:'Main Deck',to:'Hand',count:1,known:true,card_ids:[found]});shufflePile(deck);pushLog(state,cardName(c)+' adds '+cardName(card(found))+' to hand and shuffles the Main Deck under the hidden-information rule.');
     }else if(type==='RETURN_DISCARD_TO_DECK'||type==='RETURN_DISCARD_TO_HAND'){
       choices.slice().sort(function(a,b){return Number(b.discard_index)-Number(a.discard_index);}).forEach(function(ch){var idx=Number(ch.discard_index);if(pile[idx]===ch.card_id)picked.unshift(pile.splice(idx,1)[0]);});
       if(picked.length!==choices.length||picked.length!==count){showInfo('Legacy Ability','Chosen post-cost Discard Pile cards are no longer available.');return false;}
-      if(type==='RETURN_DISCARD_TO_HAND'){picked.forEach(function(id){hand.push(id);});publicMoves.push({from:'Discard',to:'Hand',card_ids:picked.slice(),known:true});pushLog(state,cardName(c)+' returns '+picked.map(function(id){return cardName(card(id));}).join(', ')+' to hand.');}
+      if(type==='RETURN_DISCARD_TO_HAND'){picked.forEach(function(id){hand.push(id);recordPublicSelectedPickup(state,side,id,'Discard',c.card_id,hand.length-1);});publicMoves.push({from:'Discard',to:'Hand',card_ids:picked.slice(),known:true});pushLog(state,cardName(c)+' returns '+picked.map(function(id){return cardName(card(id));}).join(', ')+' to hand.');}
       else{deck.push.apply(deck,picked);publicMoves.push({from:'Discard',to:'Main Deck',card_ids:picked.slice(),known:true});shufflePile(deck);queueDiscardToDeckGhosts(state,side,picked.length);pushLog(state,cardName(c)+' returns '+picked.map(function(id){return cardName(card(id));}).join(', ')+' to Main Deck and shuffles.');}
     }else{showInfo('Legacy Ability','No latest resolver for '+abilityId+'.');return false;}
     markLegacyAbilityUsed(state,side,lane,ability);pushLog(state,side+' uses Legacy Ability '+cardName(c)+'.');

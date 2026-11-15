@@ -652,7 +652,10 @@ function pvpCanonicalPlayedEvent(e){
     summary:{...x.summary,damage_type:x.summary?.damage_type||e.damage_type||undefined},modifiers:x.modifiers||[]}));
   event.healing_breakdown=(e.healing_by_hero||[]).map(x=>({name:x.name,side:x.side,lane:x.lane,healed:x.healed}));
   event.status_breakdown=(e.status_by_hero||[]).map(x=>({name:x.name,side:x.side,lane:x.lane,
-    status:x.status,previous_duration:x.before,final_duration:x.after}));
+    status:x.status,previous_duration:x.before,final_duration:x.after,
+    base_duration:x.base_duration??Math.max(0,(x.after||0)-(x.before||0)),
+    bonus_duration:x.bonus_duration||0,duration_applied:x.duration_applied??Math.max(0,(x.after||0)-(x.before||0)),
+    bonus_name:x.bonus_name||'',limit:x.limit||0}));
   event.effect_breakdown_by_hero=(e.effect_breakdown_by_hero||[]).map(x=>({...x}));
   if(e.discard_origin)event.discard_from={HAND:'Hand',MAIN_DECK:'Main Deck',FIELD:'Field',EXP:'EXP'}[e.discard_origin]||'Hand';
   // Mana identity can be published ONLY when the target-only committed
@@ -1213,7 +1216,16 @@ function showNextPresentationNotice(){
   counterBanner.replaceChildren();
   const header=document.createElement('strong');header.textContent=item.title;
   const desc=document.createElement('small');desc.textContent=item.detail;
-  if(item.kind==='counter'&&Array.isArray(item.cards)&&item.cards.length>=2){
+  if(item.kind==='card-art'&&Array.isArray(item.cardIds)&&item.cardIds.length){
+    const gallery=document.createElement('div');gallery.className='gl-card-notice-gallery';
+    for(const cardId of item.cardIds){
+      const img=document.createElement('img');img.className='gl-public-card-art';img.draggable=false;
+      img.src=art(cardId);img.alt=cv(cardId)?.name||'Card';img.title=img.alt;
+      img.addEventListener('error',()=>{if(img.dataset.fallback==='1')return;img.dataset.fallback='1';img.src='assets/ui/back-main.webp'});
+      gallery.appendChild(img);
+    }
+    counterBanner.append(header,gallery,desc);
+  }else if(item.kind==='counter'&&Array.isArray(item.cards)&&item.cards.length>=2){
     const row=document.createElement('div');row.className='gl-pvp-counter-chain-row';
     item.cards.forEach((card,index)=>{
       if(index){const separator=document.createElement('span');separator.className='gl-pvp-counter-chain-link';separator.textContent='→ COUNTER →';row.appendChild(separator)}
@@ -1224,7 +1236,7 @@ function showNextPresentationNotice(){
   }else counterBanner.append(header,desc);
   counterBanner.classList.toggle('is-racial',item.kind==='racial');
   counterBanner.classList.toggle('is-mana',item.kind==='mana');
-  for(const kind of ['played','discard','damage'])counterBanner.classList.toggle('is-'+kind,item.kind===kind);
+  for(const kind of ['played','discard','damage','card-art'])counterBanner.classList.toggle('is-'+kind,item.kind===kind);
   counterBanner.style.setProperty('--gl-notice-duration',item.duration+'ms');
   counterBanner.classList.remove('show');void counterBanner.offsetWidth;counterBanner.classList.add('show');
   clearTimeout(counterBannerTimer);
@@ -1235,6 +1247,23 @@ function showNextPresentationNotice(){
 }
 function queuePresentationNotice(kind,title,detail,duration,cards=null){
   presentationNoticeQueue.push({kind,title,detail,duration,cards});
+  showNextPresentationNotice();
+}
+// VS AI RC40 public Search/Return pickup parity. Only opponent's deliberate
+// resolved choice is shown; ordinary Draw/Opening never enters this route.
+function queuePvpPublicPickupNotice(events){
+  if(window.GL_APP_MODE!=='PVP'||!presentationPrimed||openingPresentationActive)return;
+  const picks=events.filter(e=>e?.type==='CARD_PUBLIC_PICKUP'&&e.side==='AI'&&
+    (e.from_zone==='Main Deck'||e.from_zone==='Discard')&&e.card_id);
+  for(let i=0;i<picks.length;){
+    const first=picks[i],group=[first];let next=i+1;
+    while(next<picks.length&&picks[next].source_card_id===first.source_card_id&&
+      picks[next].from_zone===first.from_zone){group.push(picks[next]);next++}
+    presentationNoticeQueue.push({kind:'card-art',title:'OPPONENT ADDED TO HAND',
+      detail:first.from_zone==='Discard'?'RETURNED FROM DISCARD':'SEARCHED FROM MAIN DECK',
+      cardIds:group.map(e=>e.card_id),duration:2700});
+    i=next;
+  }
   showNextPresentationNotice();
 }
 function showCommittedCounterBanner(evt){
@@ -1625,7 +1654,7 @@ function presentPvpOpponentDiscard(evt){
 function buildPresentationPlan(s){
   showNewCounterEvents(s);
   const cur=visualStateOf(s),prev=previousVisualState;
-  const plan={draws:[],returns:[],expReturns:[],shards:[],heroTransitions:[],moved:[],combatBatches:[],healTargets:[],manaLossNotices:[],playedActions:[],discardNotices:[]};
+  const plan={draws:[],publicPicks:[],returns:[],expReturns:[],shards:[],heroTransitions:[],moved:[],combatBatches:[],healTargets:[],manaLossNotices:[],playedActions:[],discardNotices:[]};
   for(const evt of pvpProjectedPlayedEvents(s)){
     if(seenPlayedActionEvents.has(evt.id))continue;
     seenPlayedActionEvents.add(evt.id);
@@ -1645,6 +1674,7 @@ function buildPresentationPlan(s){
     seenPresentationEvents.add(e.id);
     if(!presentationPrimed)return;
     if(e.type==='CARD_DRAWN')plan.draws.push(e);
+    else if(e.type==='CARD_PUBLIC_PICKUP')plan.publicPicks.push(e);
     else if(e.type==='CARD_RETURNED_TO_DECK')plan.returns.push(e);
     else if(e.type==='TRIAL_EXP_RETURNED_TO_HAND')plan.expReturns.push(e);
     else if(e.type==='MANA_LOSS_COMMITTED'&&e.side==='PLAYER')plan.manaLossNotices.push(e);
@@ -1716,6 +1746,7 @@ function runPresentationPlan(plan,s){
   playPvpHealingVisuals(plan.healTargets);
   for(const notice of plan.manaLossNotices||[])presentPvpManaLossAfterReveal(notice);
   for(const notice of plan.discardNotices||[])presentPvpOpponentDiscard(notice);
+  queuePvpPublicPickupNotice(plan.publicPicks||[]);
   const draws=(plan.draws||[]).slice(),expReturns=(plan.expReturns||[]).slice(),returns=(plan.returns||[]).flatMap(e=>Array.from({length:Math.min(24,Math.max(0,Math.floor(Number(e.count)||0)))},()=>({side:e.side}))),shards=(plan.shards||[]).slice(),rankTransitions=(plan.heroTransitions||[]).filter(x=>x.kind==='rank'),legacyTransitions=(plan.heroTransitions||[]).filter(x=>x.kind==='legacy');
   function runShardSequence(index){
     if(index>=shards.length)return;
