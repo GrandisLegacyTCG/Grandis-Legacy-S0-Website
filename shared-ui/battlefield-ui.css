@@ -2347,3 +2347,159 @@ html.gl-mobile-landscape-lobby .gl-lobby-picker select{
 .gl-result-countdown{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
 .gl-card-review-overlay.open{z-index:29500}
 @media(max-width:620px){.gl-counter-banner.is-card-art{padding:8px;max-width:96vw}.gl-public-card-art{width:clamp(50px,14vw,75px)}.gl-counter-chain-card{flex:0 0 auto;width:clamp(49px,16vw,83px);padding:2px}.gl-counter-chain-card .gl-public-card-art{width:100%}.gl-result-actions{flex-wrap:wrap}.gl-result-countdown{width:100%;text-align:left}}
+
+
+/* RC40 mobile UI package (M01-M03). Desktop presentation is unchanged. */
+.gl-lobby-mobile-actions{display:none}
+.gl-lobby-mobile-menu[hidden]{display:none!important}
+.gl-discard-tap-armed{outline:2px solid #f4d35e!important;outline-offset:2px!important;box-shadow:0 0 12px rgba(244,211,94,.62)!important}
+@media (pointer:coarse) and (max-width:1350px){
+  html.gl-mobile-landscape-lobby .gl-lobby-deck{position:relative!important;overflow:visible!important}
+  html.gl-mobile-landscape-lobby .gl-lobby-deck>header{position:relative!important;display:flex!important;align-items:center!important;gap:10px!important}
+  html.gl-mobile-landscape-lobby .gl-lobby-deck>header h2{flex:1 1 auto!important;min-width:0!important}
+  html.gl-mobile-landscape-lobby .gl-lobby-valid{flex:0 0 auto!important}
+  html.gl-mobile-landscape-lobby .gl-lobby-mobile-actions{position:relative;display:block;flex:0 0 36px;order:1;z-index:310}
+  html.gl-mobile-landscape-lobby .gl-lobby-deck>header .gl-lobby-valid{order:2}
+  html.gl-mobile-landscape-lobby .gl-lobby-menu-toggle{display:grid!important;place-items:center!important;width:36px!important;height:34px!important;border:1px solid #bda154!important;border-radius:8px!important;background:#122334!important;color:#ffda83!important;cursor:pointer;font-size:24px!important;line-height:1!important;padding:0!important}
+  html.gl-mobile-landscape-lobby .gl-lobby-menu-toggle[aria-expanded="true"]{background:#413820!important}
+  html.gl-mobile-landscape-lobby .gl-lobby-mobile-menu{position:absolute!important;right:0!important;top:40px!important;width:156px!important;padding:7px!important;display:flex;flex-direction:column;gap:5px;border:1px solid #bda154;border-radius:9px;background:#0b1b2b;box-shadow:0 12px 32px #000d;z-index:320}
+  html.gl-mobile-landscape-lobby .gl-lobby-mobile-menu button{display:block;width:100%;padding:10px 7px;border:1px solid #38556e;border-radius:6px;background:#152b40;color:#f6e4ad;font-size:13px;font-weight:800;white-space:nowrap;text-align:left;cursor:pointer}
+  html.gl-mobile-landscape-lobby .gl-lobby-picker{grid-template-columns:minmax(0,1fr)!important}
+  html.gl-mobile-landscape-lobby .gl-lobby-desktop-import{display:none!important}
+}
+/* M02: gameplay uses a 1600 x 747 logical landscape canvas on phones. Its
+   fixed-to-viewport portals must use the very same transform; otherwise they
+   remain portrait while the battlefield has been rotated. Lobby/Coin retain
+   their separate 1180 x 545 orientation layer. */
+html.gl-mobile-gameplay-stage:not(.gl-mobile-landscape-stage) :is(
+  .gl-vsai-choice-overlay,.gl-played-detail-overlay,.gl-card-review-overlay,
+  .gl-exp-inspector-overlay,.gl-progression-overlay,.gl-result-overlay,
+  .gl-center-choice-stage
+){
+  position:fixed!important;inset:auto!important;left:0!important;top:0!important;
+  width:1600px!important;height:747px!important;
+  min-width:0!important;min-height:0!important;
+  max-width:none!important;max-height:none!important;
+  transform:var(--gl-stage-transform)!important;
+  transform-origin:0 0!important;
+  box-sizing:border-box!important;
+  padding:18px!important;
+  overflow:hidden!important;
+}
+html.gl-mobile-gameplay-stage:not(.gl-mobile-landscape-stage) :is(
+  .gl-vsai-choice-overlay .choice-panel,.gl-played-detail-panel,
+  .gl-exp-inspector-panel,.gl-progression-card,.gl-result-card
+){
+  width:min(1120px,94%)!important;max-width:94%!important;
+  max-height:calc(100% - 8px)!important;
+  overflow-y:auto!important;overscroll-behavior:contain!important;
+}
+html.gl-mobile-gameplay-stage:not(.gl-mobile-landscape-stage) .gl-played-detail-panel{
+  width:min(980px,94%)!important;
+}
+html.gl-mobile-gameplay-stage:not(.gl-mobile-landscape-stage) .gl-played-detail-body .played-detail-card img{
+  max-height:555px!important;
+}
+html.gl-mobile-gameplay-stage:not(.gl-mobile-landscape-stage) .gl-vsai-choice-overlay .choice-panel{
+  min-width:0!important;max-height:690px!important;
+}
+html.gl-mobile-gameplay-stage:not(.gl-mobile-landscape-stage) .gl-vsai-choice-overlay.gl-choice-main-deck-preview .choice-body{
+  min-height:0!important;max-height:565px!important;
+}
+html.gl-mobile-gameplay-stage:not(.gl-mobile-landscape-stage) .gl-card-review-panel{
+  width:min(1120px,94%)!important;max-width:94%!important;
+  height:auto!important;max-height:690px!important;
+}
+html.gl-mobile-gameplay-stage:not(.gl-mobile-landscape-stage) .gl-card-review-overlay .gl-db158-review-frame{
+  height:min(650px,85%)!important;max-height:650px!important;
+}
+html.gl-mobile-gameplay-stage:not(.gl-mobile-landscape-stage) .gl-center-choice-stage{
+  max-width:1600px!important;max-height:747px!important;
+  grid-template-rows:max-content max-content max-content!important;
+  align-content:center!important;gap:16px!important;
+  padding:18px!important;
+}
+html.gl-mobile-gameplay-stage:not(.gl-mobile-landscape-stage) .gl-center-choice-cards{
+  width:min(1220px,93%)!important;max-height:505px!important;
+  overflow-x:auto!important;overflow-y:visible!important;
+}
+html.gl-mobile-gameplay-stage:not(.gl-mobile-landscape-stage) .gl-center-choice-card{
+  width:74px;
+}
+/* A zoomed card is also a global portal. Center it in the same rotated stage
+   instead of positioning by unrotated physical portrait coordinates. */
+html.gl-mobile-gameplay-stage:not(.gl-mobile-landscape-stage) :is(
+  .gl-battlefield-hover-preview.open,.gl-sidebar-hover-preview.open,
+  .gl-modal-hover-preview.open
+){
+  position:fixed!important;left:0!important;top:0!important;
+  width:1600px!important;height:747px!important;
+  max-width:none!important;max-height:none!important;
+  display:flex!important;align-items:center!important;justify-content:center!important;
+  transform:var(--gl-stage-transform)!important;
+  transform-origin:0 0!important;
+  pointer-events:none!important;
+}
+html.gl-mobile-gameplay-stage:not(.gl-mobile-landscape-stage) :is(
+  .gl-battlefield-hover-preview.open,.gl-sidebar-hover-preview.open,
+  .gl-modal-hover-preview.open
+) img{
+  width:390px!important;height:546px!important;
+  max-width:85%!important;max-height:90%!important;
+  object-fit:contain!important;
+}
+
+/* M02: turn, public-card and Counter/Chain notifications are transient popups
+   too. Anchor their content at the center of the logical landscape stage,
+   preserving the existing duration and ownership-dependent hold timers. */
+html.gl-mobile-gameplay-stage:not(.gl-mobile-landscape-stage) :is(
+  .gl-turn-banner,.gl-counter-banner,.gl-counter-chain-banner
+){
+  position:fixed!important;left:0!important;top:0!important;
+  transform:var(--gl-stage-transform) translate(800px,373.5px) translate(-50%,-50%)!important;
+  transform-origin:0 0!important;
+  max-width:1160px!important;
+}
+html.gl-mobile-gameplay-stage:not(.gl-mobile-landscape-stage) .gl-counter-banner{
+  width:max-content!important;max-width:1100px!important;
+}
+html.gl-mobile-gameplay-stage:not(.gl-mobile-landscape-stage) .gl-counter-chain-row{
+  max-width:1120px!important;gap:9px!important;
+}
+html.gl-mobile-gameplay-stage:not(.gl-mobile-landscape-stage) .gl-counter-chain-card{
+  flex:0 0 auto!important;min-width:65px!important;width:104px!important;max-width:112px!important;
+  padding:4px!important;
+}
+html.gl-mobile-gameplay-stage:not(.gl-mobile-landscape-stage) .gl-counter-chain-card .gl-public-card-art{
+  width:100%!important;max-width:104px!important;
+}
+html.gl-mobile-gameplay-stage:not(.gl-mobile-landscape-stage) .gl-card-notice-gallery{max-width:1050px!important}
+html.gl-mobile-gameplay-stage:not(.gl-mobile-landscape-stage) .gl-public-card-art{width:95px}
+html.gl-mobile-gameplay-stage:not(.gl-mobile-landscape-stage) .gl-turn-banner.show{
+  animation:glMobileTurnNotice .9s ease both!important;
+}
+html.gl-mobile-gameplay-stage:not(.gl-mobile-landscape-stage) .gl-counter-banner.show{
+  animation:glMobileArtNotice var(--gl-notice-duration,2000ms) ease-in-out both!important;
+}
+html.gl-mobile-gameplay-stage:not(.gl-mobile-landscape-stage) .gl-counter-chain-banner.show{
+  animation:glMobileChainNotice .18s ease-out both!important;
+}
+@keyframes glMobileTurnNotice{
+  0%{opacity:0;transform:var(--gl-stage-transform) translate(800px,373.5px) translate(-50%,-50%) scale(.92)}
+  18%,74%{opacity:1;transform:var(--gl-stage-transform) translate(800px,373.5px) translate(-50%,-50%) scale(1)}
+  100%{opacity:0;transform:var(--gl-stage-transform) translate(800px,373.5px) translate(-50%,-50%) scale(1.025)}
+}
+@keyframes glMobileArtNotice{
+  0%{opacity:0;transform:var(--gl-stage-transform) translate(800px,373.5px) translate(-50%,-50%) scale(.94)}
+  12%,79%{opacity:1;transform:var(--gl-stage-transform) translate(800px,373.5px) translate(-50%,-50%) scale(1)}
+  100%{opacity:0;transform:var(--gl-stage-transform) translate(800px,373.5px) translate(-50%,-50%) scale(1.02)}
+}
+@keyframes glMobileChainNotice{
+  from{opacity:0;transform:var(--gl-stage-transform) translate(800px,373.5px) translate(-50%,-50%) scale(.97)}
+  to{opacity:1;transform:var(--gl-stage-transform) translate(800px,373.5px) translate(-50%,-50%) scale(1)}
+}
+@media(prefers-reduced-motion:reduce){
+  html.gl-mobile-gameplay-stage:not(.gl-mobile-landscape-stage) :is(
+    .gl-turn-banner.show,.gl-counter-banner.show,.gl-counter-chain-banner.show
+  ){animation:none!important;opacity:1!important}
+}

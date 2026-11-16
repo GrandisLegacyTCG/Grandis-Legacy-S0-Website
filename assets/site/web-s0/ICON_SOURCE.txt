@@ -1,0 +1,3 @@
+WhatsApp SVG: Simple Icons, https://github.com/simple-icons/simple-icons/blob/develop/icons/whatsapp.svg
+Simple Icons: https://github.com/simple-icons/simple-icons (CC0). Brand trademark rights remain with their owners.
+Class SVG geometry extracted from the supplied Web_S0.pdf; CSS controls selected color.

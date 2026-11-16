@@ -1,1 +1,1 @@
-window.GL_PVP_BUILD_META=Object.freeze({"version":"S0-RC40-PVP-NET-RC6-STAGE2-PATCH3.2","versionLabel":"Grandis Legacy PvP · Season 0 RC40 Patch 3.2 · VS AI Presentation Parity · Network RC6 Stage 2","buildId":"gl-s0-pvp-rc40-patch32-vsai-parity-2026-11-16"});
+window.GL_PVP_BUILD_META=Object.freeze({"version":"S0-RC40-PVP-NET-RC6-STAGE2-PATCH3.2","versionLabel":"Grandis Legacy PvP · Season 0 RC40 Patch 3.2 · VS AI RC40 / Rulebook v3.4 / Mobile Parity · Network RC6 Stage 2","buildId":"gl-s0-pvp-rc40-v34-mobile-parity-2026-11-17"});

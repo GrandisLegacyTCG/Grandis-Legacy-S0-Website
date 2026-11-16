@@ -1,63 +1,49 @@
-# Grandis Legacy Season 0 — Website Root Package (PvP Excluded)
+# GRANDIS LEGACY - SEASON 0 OFFICIAL WEBSITE
 
-**Target repository:** `GrandisLegacyTCG/Grandis-Legacy-Website`  
-**Branch:** `main`  
-**Publish source:** GitHub Pages → Deploy from a branch → `main` → `/(root)`  
-**Custom domain:** `grandislegacytcg.web.id`
+Complete deployable Website repository snapshot (17 November 2026).
 
-## Package scope
+## Deployment
 
-This is a full package of the Website repository root **except the top-level `pvp/` directory**.
+- GitHub repository: `GrandisLegacyTCG/Grandis-Legacy-Website`
+- Branch: `main`
+- GitHub Pages: Deploy from branch, `main` / `(root)`
+- Custom domain: `grandislegacytcg.web.id`
+- `CNAME`, `.nojekyll`, and `index.html` are at repository root.
 
-Included:
-- `/` — VS AI Season 0 RC40, including the latest visual and opponent-Hand privacy update.
-- `/deck-builder/` — Deck Builder v1.66, Style 1 and Style 2.
-- `/card-art/` — 248 shared WebP images (242 card images + 6 Mana images), with no duplicate Deck Builder artwork.
-- `/rulebook/` — Player Rulebook v3.3.
-- Required shared runtime, CSS, JavaScript, audio, review, keyword and UI assets.
-- `CNAME` and `.nojekyll` at repository root.
+## Routes
 
-**The existing `/pvp/` directory is deliberately omitted. Keep the current `/pvp/` folder in GitHub unchanged when uploading this package. Do not delete it, replace it, or create a new one from this ZIP.** The VS AI and Deck Builder navigation buttons still point to `https://grandislegacytcg.web.id/pvp/`.
+| Route | Application |
+| --- | --- |
+| `/` | Official Homepage (Design v2.3.7) |
+| `/vs-ai/` | VS AI Season 0 RC40 |
+| `/deck-builder/` | Deck Builder v1.66 Style 1, Main Deck R3.85 |
+| `/deck-builder/style-2/` | Deck Builder v1.66 Style 2, Main Deck R3.85 |
+| `/pvp/` | PvP Season 0 RC40 frontend |
+| `/card-art/` | 248 shared WebP assets |
+| `/rulebook/` | Player Rulebook v3.4 online + downloadable PDF |
 
-## Latest VS AI updates included
+## Integration baseline and scope
 
-- Public-card notifications and Counter Chain card thumbnails.
-- AI Hand reveal only after Game Over and 15-second result countdown.
-- Player Draw artwork handling and Website shared-artwork fallback integration.
-- Counter Chain displays the centered **Chain Result** title.
-- Opponent Hand card-choice backs do not create or load a front image while the opponent card remains concealed.
+Source Website baseline: `Grandis_Legacy_Season0_VSAI_RC40_DB166_PvP_RC40_Patch32_WEBSITE_ONE_UPLOAD_2026-11-15.zip`,
+original Website repository GitHub commit `e1c17bd9d346794e8c0c5fb74c742cdbbf8440a4` (700 files).
+The Homepage + VS AI route + Deck Builder v1.66 / R3.85 + Rulebook v3.4
+are integrated from the approved November 17 patch.
 
-The latest VS AI update changes only these three files:
-- `index.html`
-- `shared-app/app-runtime.js`
-- `shared-ui/battlefield-ui.css`
+The PvP folder uses the later complete `Grandis_Legacy_Website_PVP_FOLDER_RC40_V34_Mobile_2026-11-17_READY_UPLOAD.zip`
+(218 files) in preference to any older PvP asset set. Compared with the GitHub
+baseline, 8 PvP files had already changed in that later approved PvP source.
+The only additional PvP edit made by this Website integration is the AI Lobby
+navigation target in `pvp/config.js`, from `/` to `/vs-ai/`.
+PvP gameplay engine, WebSocket target and server are not modified by this integration.
+If strict GitHub PvP parity is required rather than that newer PvP source, review
+these 8 newer-source files before upload (see external audit).
 
-Deck Builder v1.66, shared artwork, Rulebook, and the existing PvP folder are not changed by this update.
+## Important
 
-## Upload instructions
+This archive contains the actual website content and assets, not merely a patch.
+Extract its top-level files directly into the repository root; there is **no
+extra wrapper folder**. Use manual GitHub Desktop or Git upload, then verify
+GitHub Pages. Existing repository history and branch/settings are not included
+in a ZIP snapshot and are maintained by GitHub itself.
 
-1. Extract this ZIP. Its contents are already at repository-root level; there is no enclosing project folder.
-2. Update the supplied files and folders in `GrandisLegacyTCG/Grandis-Legacy-Website` on branch `main`.
-3. **Preserve the existing top-level `pvp/` directory.** Because it is intentionally absent from this archive, do not use a destructive full-folder replacement that deletes it.
-4. Keep `index.html`, `CNAME`, and `.nojekyll` directly at root.
-5. Do not change GitHub Pages settings or the custom domain.
-
-After GitHub Pages deployment, smoke-test:
-- `https://grandislegacytcg.web.id/`
-- `https://grandislegacytcg.web.id/deck-builder/`
-- `https://grandislegacytcg.web.id/deck-builder/style-2/`
-- `https://grandislegacytcg.web.id/pvp/` (existing folder; not updated by this package)
-
-This package contains static Website files only. The authoritative PvP Node.js/WebSocket backend remains in `GrandisLegacyTCG/Grandis-Legacy-PvP-Trial` and runs separately on Northflank.
-
-## Audit summary
-
-- VS AI source regression: 726/726 PASS.
-- Seeded AI match simulation: 25/25 PASS.
-- Website JavaScript syntax: 59/59 PASS.
-- Chromium component checks for Chain Result and concealed/revealed Opponent Hand: 8/8 PASS.
-- Shared artwork: 248/248 retained.
-- Deck Builder files: 96 retained.
-- ZIP scope: 482 files, zero `pvp/` entries.
-
-These are source/local component checks, not a claim that the live public website has been retested after upload.
+No commit, push, or deployment was performed by ChatGPT.

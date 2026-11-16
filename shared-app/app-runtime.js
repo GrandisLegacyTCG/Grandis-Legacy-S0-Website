@@ -105,28 +105,7 @@ const glExternallyPresentedShardUids=new Set();
 const laneOrder=['LEFT','CENTER','RIGHT'];
 function st(){const snap=E()?.getSnapshot?.();return snap?.appState||snap?.state||snap||null;}
 function cv(id){return id?E().cardView(id):null;}
-function art(id){return id?'card-art/'+encodeURIComponent(id)+'.webp?v=gl-vs-ai-s0-rc40-r38-r37-20261114':'';}
-function glBindPlayerHandArtwork(card, img, id) {
-  const fallback='assets/ui/back-main.webp';
-  card.classList.add('gl-hand-art','gl-hand-art-loading');
-  function showWhenDecoded(){
-    let decoded;
-    try { decoded=typeof img.decode==='function' ? img.decode().catch(()=>{}) : Promise.resolve(); }
-    catch (_) { decoded=Promise.resolve(); }
-    Promise.resolve(decoded).then(()=>{
-      if (card.isConnected && img.naturalWidth>0) card.classList.remove('gl-hand-art-loading');
-    });
-  }
-  img.addEventListener('load', showWhenDecoded);
-  img.addEventListener('error', () => {
-    if (img.getAttribute('src')!==fallback) img.src=fallback;
-    else { img.style.display='none'; card.classList.remove('gl-hand-art-loading'); }
-  });
-  img.src=art(id);
-  if (img.complete && img.naturalWidth>0) showWhenDecoded();
-}
-
-
+function art(id){return id?'card-art/'+encodeURIComponent(id)+'.webp':'';}
 function shardArt(sh){const faces={Generic:'S0-MAN-001',Warrior:'S0-MAN-002',Mage:'S0-MAN-003',Cleric:'S0-MAN-004',Thief:'S0-MAN-005',Archer:'S0-MAN-006'};const name=sh&&sh.kind==='CLASS'?String(sh.class_name||'').trim():'Generic';return 'card-art/'+(faces[name]||faces.Generic)+'.webp';}
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function cloneLite(v){try{return JSON.parse(JSON.stringify(v))}catch{return null}}
@@ -671,13 +650,40 @@ function zoneEl(side,type){
   };
   return document.querySelector(map[side+'|'+type]||'');
 }
+// M03: a first handset tap arms one specific Discard Pile; the second tap
+// on that same pile within 1.1s opens it. This is presentation-only, never
+// affects the authoritative Discard/inspection state or desktop click behavior.
+let mobileDiscardArmed=null;
+let mobileDiscardTimer=null;
+function isHandsetViewport(){
+  const short=Math.min(window.innerWidth||0,window.innerHeight||0);
+  const long=Math.max(window.innerWidth||0,window.innerHeight||0);
+  let touch=(navigator.maxTouchPoints||0)>0;
+  try{touch=touch||matchMedia('(pointer:coarse)').matches}catch(_){}
+  return touch&&short<=680&&long<=1350;
+}
+function clearMobileDiscardArm(){
+  if(mobileDiscardTimer!==null){clearTimeout(mobileDiscardTimer);mobileDiscardTimer=null}
+  mobileDiscardArmed?.classList?.remove('gl-discard-tap-armed');
+  mobileDiscardArmed=null;
+}
+function mobileDiscardDoubleTapGate(pile,open){
+  if(!isHandsetViewport()){clearMobileDiscardArm();open();return}
+  if(mobileDiscardArmed===pile){clearMobileDiscardArm();open();return}
+  clearMobileDiscardArm();mobileDiscardArmed=pile;
+  pile.classList.add('gl-discard-tap-armed');
+  mobileDiscardTimer=setTimeout(clearMobileDiscardArm,1100);
+}
+document.addEventListener('pointerdown',event=>{
+  if(mobileDiscardArmed&&!event.target.closest?.('.zone[data-zone-type="Discard Pile"]'))clearMobileDiscardArm();
+},true);
 function configureStaticZones(){
   [['PLAYER','Legacy Deck'],['PLAYER','Shard Deck'],['PLAYER','Discard Pile'],['PLAYER','Main Deck'],['AI','Main Deck'],['AI','Discard Pile'],['AI','Shard Deck'],['AI','Legacy Deck']].forEach(([side,type])=>{
     const z=zoneEl(side,type);if(!z)return;z.dataset.zoneSide=side;z.dataset.zoneType=type;z.querySelector('img')?.classList.add('zoneCard');
   });
   const pd=zoneEl('PLAYER','Discard Pile'),ad=zoneEl('AI','Discard Pile'),pl=zoneEl('PLAYER','Legacy Deck');
-  if(pd&&!pd.dataset.glInspectBound){pd.dataset.glInspectBound='1';pd.addEventListener('click',()=>openInspectCards('Your Discard Pile — '+(st()?.playerDiscard||[]).length+' Cards',(st()?.playerDiscard||[]).slice(),'Discard Piles are public.','contextual'))}
-  if(ad&&!ad.dataset.glInspectBound){ad.dataset.glInspectBound='1';ad.addEventListener('click',()=>openInspectCards('Opponent Discard Pile — '+(st()?.aiDiscard||[]).length+' Cards',(st()?.aiDiscard||[]).slice(),'Discard Piles are public.','contextual'))}
+  if(pd&&!pd.dataset.glInspectBound){pd.dataset.glInspectBound='1';pd.addEventListener('click',()=>mobileDiscardDoubleTapGate(pd,()=>openInspectCards('Your Discard Pile — '+(st()?.playerDiscard||[]).length+' Cards',(st()?.playerDiscard||[]).slice(),'Discard Piles are public.','contextual')))}
+  if(ad&&!ad.dataset.glInspectBound){ad.dataset.glInspectBound='1';ad.addEventListener('click',()=>mobileDiscardDoubleTapGate(ad,()=>openInspectCards('Opponent Discard Pile — '+(st()?.aiDiscard||[]).length+' Cards',(st()?.aiDiscard||[]).slice(),'Discard Piles are public.','contextual')))}
   if(pl&&!pl.dataset.glInspectBound){pl.dataset.glInspectBound='1';pl.addEventListener('click',()=>openInspectCards('Your Legacy Deck — '+(st()?.playerLegacy||[]).length+' Cards',(st()?.playerLegacy||[]).map(x=>typeof x==='string'?x:(x?.card_id||x?.id)).filter(Boolean),'Private zone: only your own Legacy Deck can be inspected.','contextual'))}
 }
 function openInspectCards(title,ids,instruction,previewMode='contextual'){
@@ -793,16 +799,50 @@ function deckFormationHtml(side){
   laneOrder.forEach((lane,index)=>{const row=view.lanes?.[lane]||{},id=row.previewId||row.rankOneId||'',v=cv(id),r1=row.rankOneId||id;parts.push('<article class="gl-lobby-hero"><button type="button" data-lobby-progression-side="'+esc(side)+'" data-lobby-progression="'+esc(r1)+'" aria-label="View '+esc(lane)+' Hero Progression">'+(id?'<img src="'+art(id)+'" alt="'+esc(v?.name||id)+'">':'<span class="gl-lobby-hero-empty">—</span>')+'</button><small>'+(lane.charAt(0)+lane.slice(1).toLowerCase())+'</small></article>');if(index<laneOrder.length-1){const next=laneOrder[index+1];parts.push('<button class="gl-lobby-swap" type="button" data-lobby-swap-side="'+esc(side)+'" data-lobby-swap-left="'+lane+'" data-lobby-swap-right="'+next+'" aria-label="Swap '+lane+' and '+next+'"><img src="engine/assets/lobby/Swap.png" alt="" aria-hidden="true"></button>')}});
   return '<div class="gl-lobby-formation">'+parts.join('')+'</div><div class="gl-lobby-rank-control" data-lobby-rank-side="'+esc(side)+'"><button type="button" data-lobby-rank-delta="-1" data-lobby-rank-side="'+esc(side)+'" aria-label="Previous rank">‹</button><strong>RANK '+['I','II','III'][Math.max(1,Math.min(3,Number(view.rank||1)))-1]+'</strong><button type="button" data-lobby-rank-delta="1" data-lobby-rank-side="'+esc(side)+'" aria-label="Next rank">›</button></div>';
 }
+// Dismiss mobile deck menus without changing the existing Lobby controls.
+lobbyOverlay.addEventListener('click',event=>{
+  if(event.target.closest('.gl-lobby-mobile-actions'))return;
+  lobbyOverlay.querySelectorAll('.gl-lobby-mobile-menu').forEach(menu=>menu.hidden=true);
+  lobbyOverlay.querySelectorAll('[data-lobby-menu-toggle]').forEach(btn=>btn.setAttribute('aria-expanded','false'));
+});
+lobbyOverlay.addEventListener('keydown',event=>{
+  if(event.key!=='Escape')return;
+  lobbyOverlay.querySelectorAll('.gl-lobby-mobile-menu').forEach(menu=>menu.hidden=true);
+  lobbyOverlay.querySelectorAll('[data-lobby-menu-toggle]').forEach(btn=>btn.setAttribute('aria-expanded','false'));
+});
 function renderLobby(){
   syncS0MusicForGameState();
   if(!lobbyIsOpen){lobbyOverlay.classList.remove('open');return}
   lobbyOverlay.classList.add('open');appRoot?.classList.add('gl-lobby-hidden');
   const opts=B()?.getStarterDeckOptions?.()||{},state=E()?.getDeckSetupState?.()||{},difficulty=String(state.difficulty||E()?.getAIDifficulty?.()||'beginner'),keys=Object.keys(opts).slice(0,difficulty==='beginner'?3:5);
   const host=document.getElementById('glLobbyDecks'),err=document.getElementById('glLobbyError');if(!host||!err)return;err.textContent=lobbyErrorText||'';err.classList.toggle('show',!!lobbyErrorText);
-  const sideBlock=(side,data)=>{const canImport=difficulty==='intermediate',selected=state.selectedDeckKey?.[side]||keys[0]||'',imported=canImport&&selected==='IMPORTED',optionHtml=keys.map(k=>'<option value="'+esc(k)+'" '+(selected===k?'selected':'')+'>'+esc(opts[k]?.label||k)+'</option>').join('')+(imported?'<option value="IMPORTED" selected>'+esc(data?.deck_name||'Imported Deck')+'</option>':'');const importControl=canImport?'<button type="button" data-lobby-import="'+side+'">Import Deck</button><input type="file" data-lobby-file="'+side+'" accept="application/json,.json" hidden>':'';return '<section class="gl-lobby-deck" data-lobby-side="'+side+'"><header><h2>'+(side==='PLAYER'?'Player Deck':'AI Deck')+'</h2><span class="gl-lobby-valid">VALID</span></header><div class="gl-lobby-picker"><select aria-label="'+(side==='PLAYER'?'Player':'AI')+' deck selector" data-lobby-select="'+side+'">'+optionHtml+'</select>'+importControl+'</div>'+deckFormationHtml(side)+'</section>'};
+  const sideBlock=(side,data)=>{const canImport=difficulty==='intermediate',selected=state.selectedDeckKey?.[side]||keys[0]||'',imported=canImport&&selected==='IMPORTED',optionHtml=keys.map(k=>'<option value="'+esc(k)+'" '+(selected===k?'selected':'')+'>'+esc(opts[k]?.label||k)+'</option>').join('')+(imported?'<option value="IMPORTED" selected>'+esc(data?.deck_name||'Imported Deck')+'</option>':'');const importControl=canImport?'<button class="gl-lobby-desktop-import" type="button" data-lobby-import="'+side+'">Import Deck</button><input type="file" data-lobby-file="'+side+'" accept="application/json,.json" hidden>':'';const mobileActions='<div class="gl-lobby-mobile-actions"><button type="button" class="gl-lobby-menu-toggle" data-lobby-menu-toggle="'+side+'" aria-label="'+(side==='PLAYER'?'Player':'AI')+' deck actions" aria-controls="gl-lobby-menu-'+side+'" aria-expanded="false">&#9776;</button><div class="gl-lobby-mobile-menu" id="gl-lobby-menu-'+side+'" hidden><button type="button" data-lobby-focus-select="'+side+'">Choose Deck</button>'+(canImport?'<button type="button" data-lobby-import="'+side+'">Import Deck</button>':'')+'</div></div>';return '<section class="gl-lobby-deck" data-lobby-side="'+side+'"><header><h2>'+(side==='PLAYER'?'Player Deck':'AI Deck')+'</h2>'+mobileActions+'<span class="gl-lobby-valid">VALID</span></header><div class="gl-lobby-picker"><select aria-label="'+(side==='PLAYER'?'Player':'AI')+' deck selector" data-lobby-select="'+side+'">'+optionHtml+'</select>'+importControl+'</div>'+deckFormationHtml(side)+'</section>'};
   host.innerHTML=sideBlock('PLAYER',state.player)+sideBlock('AI',state.ai);
   host.querySelectorAll('[data-lobby-select]').forEach(sel=>sel.onchange=()=>{const side=sel.dataset.lobbySelect,r=E().selectDeck?.(side,sel.value);if(!r?.ok)lobbyErrorText=r?.error||'Could not select deck.';else lobbyErrorText='';renderLobby()});
-  host.querySelectorAll('[data-lobby-import]').forEach(btn=>btn.onclick=()=>{if(difficulty!=='intermediate')return;host.querySelector('[data-lobby-file="'+btn.dataset.lobbyImport+'"]')?.click()});
+  // M01: mobile only. Keep the existing desktop Import Deck handler and deck-selection logic unchanged.
+  host.querySelectorAll('[data-lobby-menu-toggle]').forEach(btn=>btn.onclick=event=>{
+    event.stopPropagation();
+    const menu=document.getElementById('gl-lobby-menu-'+btn.dataset.lobbyMenuToggle);
+    if(!menu)return;
+    const opening=menu.hidden;
+    host.querySelectorAll('.gl-lobby-mobile-menu').forEach(node=>node.hidden=true);
+    host.querySelectorAll('[data-lobby-menu-toggle]').forEach(node=>node.setAttribute('aria-expanded','false'));
+    menu.hidden=!opening;btn.setAttribute('aria-expanded',String(opening));
+  });
+  host.querySelectorAll('[data-lobby-focus-select]').forEach(btn=>btn.onclick=()=>{
+    const side=btn.dataset.lobbyFocusSelect;
+    const menu=document.getElementById('gl-lobby-menu-'+side);
+    if(menu)menu.hidden=true;
+    host.querySelector('[data-lobby-menu-toggle="'+side+'"]')?.setAttribute('aria-expanded','false');
+    host.querySelector('[data-lobby-select="'+side+'"]')?.focus();
+  });
+  host.querySelectorAll('[data-lobby-import]').forEach(btn=>btn.onclick=()=>{
+    if(difficulty!=='intermediate')return;
+    const side=btn.dataset.lobbyImport,menu=document.getElementById('gl-lobby-menu-'+side);
+    if(menu)menu.hidden=true;
+    host.querySelector('[data-lobby-menu-toggle="'+side+'"]')?.setAttribute('aria-expanded','false');
+    host.querySelector('[data-lobby-file="'+side+'"]')?.click();
+  });
   host.querySelectorAll('[data-lobby-file]').forEach(inp=>inp.onchange=()=>{const f=inp.files?.[0];if(!f)return;const side=inp.dataset.lobbyFile;if(difficulty!=='intermediate'){lobbyErrorText='Custom deck import requires Intermediate difficulty.';renderLobby();return;}const reader=new FileReader();reader.onload=()=>{try{const raw=JSON.parse(String(reader.result||'')),r=E().importDeck?.(side,raw);if(!r?.ok)throw new Error(r?.error||'Invalid deck file.');lobbyErrorText='';renderLobby()}catch(err){lobbyErrorText=String(err?.message||err);renderLobby()}};reader.onerror=()=>{lobbyErrorText='Could not read the selected deck file.';renderLobby()};reader.readAsText(f);inp.value=''});
   host.querySelectorAll('[data-lobby-swap-left]').forEach(btn=>btn.onclick=()=>{E().swapLobbyFormation?.(btn.dataset.lobbySwapSide,btn.dataset.lobbySwapLeft,btn.dataset.lobbySwapRight);renderLobby()});
   host.querySelectorAll('[data-lobby-rank-delta]').forEach(btn=>btn.onclick=()=>{E().cycleLobbyRank?.(btn.dataset.lobbyRankSide,Number(btn.dataset.lobbyRankDelta||0));renderLobby()});
@@ -1306,9 +1346,15 @@ function renderCounterChainNotification(state){
   if(trace.complete&&!shownCompletedCounterChains.has(trace.id)){
     shownCompletedCounterChains.add(trace.id);
     clearTimeout(counterChainHoldTimer);
+    // The latest committed Counter determines who acts next. The player who
+    // made that last Counter needs the battlefield back sooner (1 second).
+    // The other viewer gets 2 seconds to read the same Chain Result.
+    // Standalone VS AI has one visible viewer: PLAYER; AI has no separate UI.
+    const lastChainSide=trace.steps[trace.steps.length-1]?.side;
+    const resultHoldMs=lastChainSide==='PLAYER'?1000:2000;
     counterChainHoldTimer=setTimeout(()=>{
       if(currentCounterChainId===trace.id){counterChainBanner.classList.remove('show');currentCounterChainId='';counterChainRenderedSig='';}
-    },3500);
+    },resultHoldMs);
   }else if(!trace.complete){clearTimeout(counterChainHoldTimer);counterChainHoldTimer=null;}
 }
 function showCommittedRacialBanner(evt){
@@ -3140,7 +3186,7 @@ function renderHand(s){
       if(m.canTribute){addAction(actions,'TRIBUTE','tribute',()=>intent('beginTributeFromHand',[idx]));actionCount++}
     }
     if(actionCount)card.classList.add('gl-has-action');
-    card.appendChild(actions);const im=document.createElement('img');im.className='hand-art';glBindPlayerHandArtwork(card,im,id);im.alt=v?.name||'Card';im.draggable=false;card.appendChild(im);bindBattlefieldPreview(im,'hand',card);bindBattlefieldHandHover(card);card.ondblclick=e=>{e.preventDefault();e.stopPropagation();openCardReview(id)};playerHandTrack.appendChild(card);
+    card.appendChild(actions);const im=document.createElement('img');im.className='hand-art';im.src=art(id);im.alt=v?.name||'Card';im.draggable=false;card.appendChild(im);bindBattlefieldPreview(im,'hand',card);bindBattlefieldHandHover(card);card.ondblclick=e=>{e.preventDefault();e.stopPropagation();openCardReview(id)};playerHandTrack.appendChild(card);
   });
   pendingDraws.forEach((r,i)=>{
     const idx=(s.playerHand||[]).length+i,slot=document.createElement('div');slot.className='hand-card gl-draw-reservation-slot gl-presentation-hidden';slot.dataset.handIndex=idx;slot.dataset.drawReservationId=String(r.id||'');

@@ -768,13 +768,40 @@ function zoneEl(side,type){
   };
   return document.querySelector(map[side+'|'+type]||'');
 }
+// M03: a first handset tap arms one specific Discard Pile; the second tap
+// on that same pile within 1.1s opens it. This is presentation-only, never
+// affects the authoritative Discard/inspection state or desktop click behavior.
+let mobileDiscardArmed=null;
+let mobileDiscardTimer=null;
+function isHandsetViewport(){
+  const short=Math.min(window.innerWidth||0,window.innerHeight||0);
+  const long=Math.max(window.innerWidth||0,window.innerHeight||0);
+  let touch=(navigator.maxTouchPoints||0)>0;
+  try{touch=touch||matchMedia('(pointer:coarse)').matches}catch(_){}
+  return touch&&short<=680&&long<=1350;
+}
+function clearMobileDiscardArm(){
+  if(mobileDiscardTimer!==null){clearTimeout(mobileDiscardTimer);mobileDiscardTimer=null}
+  mobileDiscardArmed?.classList?.remove('gl-discard-tap-armed');
+  mobileDiscardArmed=null;
+}
+function mobileDiscardDoubleTapGate(pile,open){
+  if(!isHandsetViewport()){clearMobileDiscardArm();open();return}
+  if(mobileDiscardArmed===pile){clearMobileDiscardArm();open();return}
+  clearMobileDiscardArm();mobileDiscardArmed=pile;
+  pile.classList.add('gl-discard-tap-armed');
+  mobileDiscardTimer=setTimeout(clearMobileDiscardArm,1100);
+}
+document.addEventListener('pointerdown',event=>{
+  if(mobileDiscardArmed&&!event.target.closest?.('.zone[data-zone-type="Discard Pile"]'))clearMobileDiscardArm();
+},true);
 function configureStaticZones(){
   [['PLAYER','Legacy Deck'],['PLAYER','Shard Deck'],['PLAYER','Discard Pile'],['PLAYER','Main Deck'],['AI','Main Deck'],['AI','Discard Pile'],['AI','Shard Deck'],['AI','Legacy Deck']].forEach(([side,type])=>{
     const z=zoneEl(side,type);if(!z)return;z.dataset.zoneSide=side;z.dataset.zoneType=type;z.querySelector('img')?.classList.add('zoneCard');
   });
   const pd=zoneEl('PLAYER','Discard Pile'),ad=zoneEl('AI','Discard Pile'),pl=zoneEl('PLAYER','Legacy Deck');
-  if(pd&&!pd.dataset.glInspectBound){pd.dataset.glInspectBound='1';pd.addEventListener('click',()=>openInspectCards('Your Discard Pile — '+(st()?.playerDiscard||[]).length+' Cards',(st()?.playerDiscard||[]).slice(),'Discard Piles are public.','contextual'))}
-  if(ad&&!ad.dataset.glInspectBound){ad.dataset.glInspectBound='1';ad.addEventListener('click',()=>openInspectCards('Opponent Discard Pile — '+(st()?.aiDiscard||[]).length+' Cards',(st()?.aiDiscard||[]).slice(),'Discard Piles are public.','contextual'))}
+  if(pd&&!pd.dataset.glInspectBound){pd.dataset.glInspectBound='1';pd.addEventListener('click',()=>mobileDiscardDoubleTapGate(pd,()=>openInspectCards('Your Discard Pile — '+(st()?.playerDiscard||[]).length+' Cards',(st()?.playerDiscard||[]).slice(),'Discard Piles are public.','contextual')))}
+  if(ad&&!ad.dataset.glInspectBound){ad.dataset.glInspectBound='1';ad.addEventListener('click',()=>mobileDiscardDoubleTapGate(ad,()=>openInspectCards('Opponent Discard Pile — '+(st()?.aiDiscard||[]).length+' Cards',(st()?.aiDiscard||[]).slice(),'Discard Piles are public.','contextual')))}
   if(pl&&!pl.dataset.glInspectBound){pl.dataset.glInspectBound='1';pl.addEventListener('click',()=>openInspectCards('Your Legacy Deck — '+(st()?.playerLegacy||[]).length+' Cards',(st()?.playerLegacy||[]).map(x=>typeof x==='string'?x:(x?.card_id||x?.id)).filter(Boolean),'Private zone: only your own Legacy Deck can be inspected.','contextual'))}
 }
 function openInspectCards(title,ids,instruction,previewMode='contextual'){
