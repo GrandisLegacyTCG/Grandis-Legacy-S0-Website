@@ -7,9 +7,10 @@
   const root=new URL('./',document.baseURI);
   const at=rel=>new URL(rel,root).href;
   const logo=header.querySelector('img.gl-lobby-logo');
+  if(logo){logo.classList.add('gl-site-brand-img');logo.setAttribute('src',at('assets/site/web-s0/logo-transparent.webp'));}
   let home=header.querySelector('a.gl-lobby-home');
-  if(!home&&logo){home=document.createElement('a');home.className='gl-lobby-home';logo.replaceWith(home);home.appendChild(logo);}
-  if(home){home.href=at('');home.setAttribute('aria-label','Grandis Legacy Home');}
+  if(!home&&logo){home=document.createElement('a');home.className='gl-lobby-home gl-site-brand';logo.replaceWith(home);home.appendChild(logo);}
+  if(home){home.classList.add('gl-site-brand');home.href=at('');home.setAttribute('aria-label','Grandis Legacy Home');}
   // Preserve RC41's own single mobile menu and button behavior.
   const mobileMenu=header.querySelector('.gl-lobby-global-menu');
   if(mobileMenu){

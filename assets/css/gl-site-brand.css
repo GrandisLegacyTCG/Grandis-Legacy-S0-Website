@@ -1,0 +1,111 @@
+/* Grandis Legacy | One canonical HEADER logo, across Homepage, Rulebook,
+   Deck Builder styles 1/2 and VS AI lobby. 2026-11-19.
+   DO NOT COPY logo images into application folders. All pages use
+   /assets/site/web-s0/logo-transparent.webp (940x310 transparent WebP).
+   This stylesheet is loaded AFTER each application's own and parity CSS.
+   Header logo is visually anchored to the same x/y coordinate on every route.
+   PvP is maintained separately; its developer can reuse these classes and URL.
+   NB: RC41 mobile-landscape lobby has separate scaling rules intentionally left
+   untouched; only its artwork URL is unified. */
+:root {
+  --gl-brand-width: 174px;
+  --gl-brand-header-height: 90px;
+  --gl-brand-left-gutter: 24px;
+  --gl-brand-header-bg: #1e1e27;
+}
+@media (max-width: 900px) {
+  :root { --gl-brand-width: 152px; --gl-brand-header-height: 80px; }
+}
+@media (max-width: 600px) {
+  :root { --gl-brand-width: 150px; --gl-brand-left-gutter: 20px; }
+}
+
+/* Common brand element. Specific selectors deliberately beat the legacy
+   app CSS and previous header-parity !important overrides, in one place. */
+html:not(.gl-mobile-landscape-lobby) .site-header a.gl-site-brand,
+html:not(.gl-mobile-landscape-lobby) body:has(> #sidebar) > header a.gl-site-brand,
+html:not(.gl-mobile-landscape-lobby) body .app-shell > header.topbar a.gl-site-brand,
+html:not(.gl-mobile-landscape-lobby) .gl-lobby-panel > .gl-lobby-head a.gl-site-brand {
+  box-sizing: border-box !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  width: var(--gl-brand-width) !important;
+  min-width: var(--gl-brand-width) !important;
+  max-width: var(--gl-brand-width) !important;
+  height: var(--gl-brand-header-height) !important;
+  min-height: var(--gl-brand-header-height) !important;
+  flex: 0 0 var(--gl-brand-width) !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  line-height: 0 !important;
+  border: 0 !important;
+  text-decoration: none !important;
+  transform: none !important;
+}
+html:not(.gl-mobile-landscape-lobby) .site-header a.gl-site-brand img.gl-site-brand-img,
+html:not(.gl-mobile-landscape-lobby) body:has(> #sidebar) > header a.gl-site-brand img.gl-site-brand-img,
+html:not(.gl-mobile-landscape-lobby) body .app-shell > header.topbar a.gl-site-brand img.gl-site-brand-img,
+html:not(.gl-mobile-landscape-lobby) .gl-lobby-panel > .gl-lobby-head a.gl-site-brand img.gl-site-brand-img {
+  box-sizing: border-box !important;
+  display: block !important;
+  width: var(--gl-brand-width) !important;
+  min-width: var(--gl-brand-width) !important;
+  max-width: var(--gl-brand-width) !important;
+  height: auto !important;
+  max-height: none !important;
+  min-height: 0 !important;
+  flex: 0 0 auto !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  object-fit: contain !important;
+  object-position: left center !important;
+  mix-blend-mode: normal !important;
+  opacity: 1 !important;
+  filter: none !important;
+  transform: none !important;
+}
+
+/* Align header content boxes to full height rather than centering within a
+   1px bottom border (which caused +/-0.5px differences across routes).
+   The inset shadow retains the thin visual divider without shifting the logo. */
+html:not(.gl-mobile-landscape-lobby) body:has(> #sidebar) > header,
+html:not(.gl-mobile-landscape-lobby) body .app-shell > header.topbar,
+html:not(.gl-mobile-landscape-lobby) .gl-lobby-panel > .gl-lobby-head {
+  box-sizing: border-box !important;
+  border-bottom: 0 !important;
+  box-shadow: inset 0 -1px rgba(255,255,255,.055) !important;
+  background-color: var(--gl-brand-header-bg) !important;
+}
+/* Deck Builder top bar has a 24px horizontal gutter in the existing parity
+   rules; keep it and prevent alternate mobile rules from shifting the logo. */
+html:not(.gl-mobile-landscape-lobby) body .app-shell > header.topbar {
+  padding-left: var(--gl-brand-left-gutter) !important;
+}
+html:not(.gl-mobile-landscape-lobby) body:has(> #sidebar) > header {
+  padding-left: var(--gl-brand-left-gutter) !important;
+}
+html:not(.gl-mobile-landscape-lobby) .gl-lobby-panel > .gl-lobby-head {
+  padding-left: var(--gl-brand-left-gutter) !important;
+}
+/* Homepage's .site-header.wrap already has the authoritative 24/20px gutter.
+   Do not alter the Homepage's position, nav, scroll or mobile menu. */
+
+/* Apply the same solid header backdrop everywhere; older Builder theme CSS
+   could otherwise retain a gradient/image behind this transparent logo. */
+html:not(.gl-mobile-landscape-lobby) body:has(> #sidebar) > header,
+html:not(.gl-mobile-landscape-lobby) body .app-shell > header.topbar,
+html:not(.gl-mobile-landscape-lobby) .gl-lobby-panel > .gl-lobby-head {
+  background-image: none !important;
+  backdrop-filter: none !important;
+}
+@media (max-width: 900px) {
+  /* Legacy Builder mobile padding positioned its 80px brand box 12px too low.
+     Zero vertical padding makes the brand anchor match the Homepage exactly,
+     while leaving title, style switch and navigation elements intact. */
+  html:not(.gl-mobile-landscape-lobby) body .app-shell > header.topbar {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+  }
+}

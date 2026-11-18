@@ -1,32 +1,56 @@
-# GRANDIS LEGACY — SEASON 0 OFFICIAL WEBSITE
+# GRANDIS LEGACY - SEASON 0 WEBSITE (NO PVP FOLDER)
 
-Integrated deployable GitHub Pages website, 18 November 2026.
+**Website integration:** 19 November 2026.  **Scope:** Homepage, Rulebook, VS AI RC41, Deck Builder v1.67, Main/Legacy Deck R3.9, and shared website assets. This artifact deliberately contains **no `pvp/` directory**.
 
-## Deployment
+## Repository and deployment
+
 - Repository: `GrandisLegacyTCG/Grandis-Legacy-Website`
-- Baseline: GitHub `main` SHA `af9f0815aa50bffabfc1cc5d9c26250e984a7b71`
-- Branch/root: `main` / `(root)`; retain `CNAME` and `.nojekyll`.
-- Domain: `grandislegacytcg.web.id`.
+- Source baseline: GitHub `main` commit `4302b2f92e5602b48ae7d587c124a35d2767b595` (19 Nov 2026; *S0 Website, Header Update*). The full source, EXCLUDING `pvp/`, was verified against this baseline before changing the header assets.
+- Branch/hosting: `main` / repository root, GitHub Pages. Retain the `CNAME` and `.nojekyll` files.
+- Domain: `https://grandislegacytcg.web.id/`.
+- GitHub is READ ONLY for the website assistant. The owner handles upload, deletions and commits manually.
 
-## Routes
-| Route | Application / source |
-|---|---|
-| `/` | Homepage standalone v2.3.14 (18 November 2026) |
-| `/rulebook/` | Player Rulebook v3.4 latest PDF/HTML supplied 18 November 2026 |
-| `/vs-ai/` | VS AI Season 0 RC41, Main/Legacy R3.9 |
-| `/deck-builder/` | Deck Builder v1.67 (Style 1), Main/Legacy R3.9 |
-| `/deck-builder/style-2/` | Deck Builder v1.67 (Style 2), Main/Legacy R3.9 |
-| `/card-art/` | 248 shared artwork assets, 242 R3.9 DB/VS AI card images matched |
-| `/pvp/` | Existing website PvP, **unchanged byte-for-byte from GitHub main** |
+## Routes and ownership
 
-## Source synchronization / separation of responsibilities
-Step 1: Homepage and Rulebook from the v2.3.14 standalone archive. Includes the revised 15-page original Rulebook PDF.
-Step 2: VS AI RC41 shared runtime/engine/starter sets, the RC41 print overlay, Deck Builder v1.67 both styles, and R3.9 shared artwork. A website-only adapter keeps VS AI under `/vs-ai/` and Deck Builder artwork under `/card-art/`.
+| URL path | Contents | Owner |
+|---|---|---|
+| `/` | Homepage v2.3.14 | Website |
+| `/rulebook/` | Season 0 Player Rulebook v3.4 HTML, PDF, search | Website |
+| `/vs-ai/` | VS AI RC41 with Starter Deck 2/3 switch | Website |
+| `/deck-builder/` | Deck Builder v1.67 Style 1 | Website |
+| `/deck-builder/style-2/` | Deck Builder v1.67 Style 2 | Website |
+| `/card-art/` | 248 shared card artwork files (R3.9) | Website |
+| `/assets/`, `/engine/`, `/runtime/`, `/shared-app/`, `/shared-ui/` | Shared app resources | Website |
+| **`/pvp/`** | **NOT INCLUDED. The separate PvP development chat owns this directory.** | **PvP chat** |
 
-The PvP directory is strictly managed by the separate PvP development workflow. This snapshot preserves all 218 PvP files exactly as in GitHub main (including `pvp/config.js`). **The current GitHub PvP `vsAiUrl` still points to `/`; ask the PvP maintainer to update it to `/vs-ai/` as a separate change.** No other PvP change was made.
+## Shared logo contract (all non-PvP headers)
 
-## Upload
-The full ZIP is a snapshot with repository-root files (no wrapper directory). Upload/commit/push are performed **manually by the project owner**, not by ChatGPT. Do not delete existing .git metadata. After deployment verify website routes, Rulebook PDF, RC41 match flow, and both Deck Builder styles.
+The **single canonical image** for every website application header is:
 
-## Scope exclusions
-No PvP, Northflank, server, or networking modifications. No duplicate-asset deletion/optimization in this update. No standalone VS AI or Deck Builder historical source/test archives added to the static website.
+`/assets/site/web-s0/logo-transparent.webp`
+
+The common header/logo CSS file is:
+
+`/assets/css/gl-site-brand.css`
+
+Each non-PvP header loads the same image URL and the same CSS rules, with `.gl-site-brand` on the logo anchor and `.gl-site-brand-img` on the image. Desktop header: 90px, logo width 174px, left inset 24px. Tablet: header 80px, width 152px, left 24px. Phone <=600px: header 80px, width 150px, left 20px. The CSS is loaded **after** the page-specific header CSS, eliminating old overrides and a 12px mobile Builder logo offset. The special VS AI landscape-mode layout remains controlled by its own game CSS.
+
+Other old logo image files are retained solely as backward-compatible assets. Non-PvP **header** URLs no longer load those duplicates. Do not delete them without a separate reference audit.
+
+## IMPORTANT: how to deploy without PvP collisions
+
+This ZIP is a **complete deployable snapshot of the non-PvP website**, at repository root, with no wrapping folder and **no `pvp/` files**. Extract/merge it into the repository root.
+
+**An upload/merge does NOT remove an existing `pvp/` folder from GitHub.** If the owner wants the GitHub repository itself to temporarily have no `pvp/`, its tracked contents must be **explicitly deleted in a manual commit**; merely uploading this ZIP does not delete them.
+
+The Homepage, Deck Builder, and VS AI retain navigational links to `/pvp/` for future integration. These links may show 404 until the separate PvP team delivers its own folder. If GitHub already retains an older `/pvp/`, those links will continue opening that older version.
+
+The PvP development chat must deliver a **`pvp/`-only website folder package**, integrating with shared site assets and without writing/updating Homepage, Rulebook, VS AI, Deck Builder, shared engines/assets or GitHub Pages configuration. The PvP handoff specification is delivered separately from this ZIP.
+
+## Validation boundaries
+
+- Original non-PvP baseline content verified against GitHub using per-path Git blob hashes.
+- The common header image is identical and physically aligned across the five non-PvP page types on desktop/tablet/phone in Chromium synthetic layout QA.
+- CSS/JS syntax, HTML asset references, shared artwork files and ZIP integrity checked during release.
+- No PvP gameplay, networking or Northflank changes. No code in `pvp/` is included.
+- Live website deployment and production gameplay/multiplayer tests are not performed by this package. Re-test after manual GitHub upload.
