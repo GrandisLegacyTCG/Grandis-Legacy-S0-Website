@@ -1,0 +1,40 @@
+/* Grandis Legacy PvP WEBSITE ONLY - 2026-11-19.
+   Align desktop PvP lobby header with Homepage. Leave touch/mobile scale stage,
+   arena, Room/Network UI and underlying PvP behavior unchanged. */
+@media(min-width:1161px){
+  html:not(.gl-pvp-mobile-desktop) #pvpSetupOverlay .pvp-v260-topbar {
+    box-sizing:border-box!important;
+    display:grid!important;
+    grid-template-columns:174px minmax(0,1fr) auto!important;
+    align-items:center!important;
+    column-gap:24px!important;
+    height:90px!important;
+    min-height:90px!important;
+    margin:-16px -34px 20px!important;
+    padding:0 24px!important;
+    border-bottom:1px solid rgba(255,255,255,.055)!important;
+    background:#1e1e27!important;
+  }
+  html:not(.gl-pvp-mobile-desktop) #pvpSetupOverlay .pvp-v260-logo {
+    display:flex!important;align-items:center!important;
+    width:174px!important;height:90px!important;
+    min-width:174px!important;
+    overflow:visible!important;
+  }
+  html:not(.gl-pvp-mobile-desktop) #pvpSetupOverlay .pvp-v260-logo img {
+    display:block!important;width:174px!important;
+    height:auto!important;max-height:64px!important;
+    object-fit:contain!important;
+    filter:none!important;mix-blend-mode:lighten;
+  }
+  html:not(.gl-pvp-mobile-desktop) #pvpSetupOverlay .pvp-v260-heading {
+    padding-top:0!important;
+  }
+}
+/* For smaller unscaled screens, keep PvP's responsive layout while ensuring
+   a clear gap between the header and the deck/match panels. */
+@media(min-width:561px) and (max-width:1160px){
+  html:not(.gl-pvp-mobile-desktop) #pvpSetupOverlay .pvp-v260-topbar {
+    margin-bottom:20px!important;
+  }
+}
