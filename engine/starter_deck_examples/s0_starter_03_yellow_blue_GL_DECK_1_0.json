@@ -2,22 +2,17 @@
   "schema_version": "GL-DECK-1.0",
   "season": "S0",
   "deck_name": "Yellow-Blue Deck",
-  "format": "Grandis Legacy Season 0 / Rulebook v3.2 / exactly 50-card Main Deck",
+  "format": "Grandis Legacy Season 0 / Rulebook v3.4 / exactly 50-card Main Deck",
   "main_deck_count": 50,
   "main_deck": [
     {
       "card_id": "S0-EVT-002",
       "card_name": "Market Bargain",
-      "quantity": 1
+      "quantity": 2
     },
     {
       "card_id": "S0-EVT-003",
       "card_name": "Scouting",
-      "quantity": 1
-    },
-    {
-      "card_id": "S0-EVT-007",
-      "card_name": "Intercept",
       "quantity": 1
     },
     {
@@ -223,25 +218,16 @@
   "legacy_deck_label": "Legacy Deck",
   "legacy_deck_package_slots": [
     {
-      "slot": "LEFT",
       "progression": "S0-THF-H004",
-      "legacy": "S0-THF-L001",
-      "package_id": "S0-STARTER-03-PACKAGE-1",
-      "package_name": "Akra Norixius + Hidden Stash"
+      "legacy": "S0-THF-L001"
     },
     {
-      "slot": "CENTER",
       "progression": "S0-THF-H007",
-      "legacy": "S0-THF-L002",
-      "package_id": "S0-STARTER-03-PACKAGE-2",
-      "package_name": "Lucien Voss + Hidden Archives"
+      "legacy": "S0-THF-L002"
     },
     {
-      "slot": "RIGHT",
       "progression": "S0-MAG-H004",
-      "legacy": "S0-MAG-L001",
-      "package_id": "S0-STARTER-03-PACKAGE-3",
-      "package_name": "Aldric Ashford + Ancestral Tome"
+      "legacy": "S0-MAG-L001"
     }
   ],
   "legacy_deck_expanded": [
@@ -338,14 +324,14 @@
   "is_valid": true,
   "validation_issues": [],
   "validation_warnings": [],
-  "source_database_version": "R3.6",
+  "source_database_version": "R3.9",
   "source_file": "engine/starter_deck_examples/s0_starter_03_yellow_blue_GL_DECK_1_0.json",
-  "source_authority": "Designer Deck Builder v1.64 export (2026-11-11); artwork R3.6; game rules Player Rulebook v3.2",
-  "source_export_sha256": "4ce0cad5b98196bcebe0f6f653350de49ec59a0cc0ee72c51e712753cd8d1547",
-  "source_approval_basis": "Designer supplied 2026-11-11",
+  "source_authority": "Designer export 2026-11-18T11:06:47.372Z; print authority Main/Legacy R3.9; Player Rulebook v3.4",
+  "source_export_sha256": "d28e8a700f679d99ce7fccdcf90813be7b1eb30e0f120df389c9bce2385364e7",
+  "source_approval_basis": "Owner supplied updated starter decks on 2026-11-18",
   "active_starter_id": "s0_starter_03_yellow_blue",
   "active_starter_slot": 3,
   "generated_only": true,
-  "source_deck_builder": "v1.64",
-  "source_exported_at": "2026-11-11T10:35:13.431Z"
+  "source_deck_builder": "1.66",
+  "source_exported_at": "2026-11-18T11:06:47.372Z"
 }

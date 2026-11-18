@@ -217,9 +217,9 @@ function applyItemPrintedMetric(card,rootNode){
  function enhanceHero(card,rootNode){
   if(card?.family!=='Hero'||!rootNode)return;
   const allKeywords=new Set();
-  // The Hero source transcription says "Range Attack" in text; the four
-  // Marksman / Grand Ranger artworks print a RANGE badge (no extra "Attack").
-  // This is a review-only presentation fix, not a card-data/rules mutation.
+  // Some older unchanged Hero records still store "Range Attack" for a RANGE
+  // badge; latest R3.9 Archer Hero transcriptions already store RANGE.
+  // This is a display-only fallback for untouched historical card records.
   for(const p of rootNode.querySelectorAll('.review-hero-block p,.review-hero-dual-section p,.rank-up-review p')){
    if(p.closest('.hero-class-section') && /\bRange Attack\b/.test(p.textContent||'')){
     p.textContent=p.textContent.replace(/\bRange Attack\b/g,'RANGE');

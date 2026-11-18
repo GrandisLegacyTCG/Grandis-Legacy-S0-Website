@@ -38,46 +38,144 @@
 
 (()=>{const buttons=[...document.querySelectorAll('.section-dots button')],sections=buttons.map(b=>document.getElementById(b.dataset.section));function active(){let best=sections[0],distance=Infinity;const center=innerHeight*.45;for(const s of sections){const r=s.getBoundingClientRect();const d=r.top<=center&&r.bottom>center?0:Math.min(Math.abs(r.top-center),Math.abs(r.bottom-center));if(d<distance){best=s;distance=d}}buttons.forEach(b=>{if(b.dataset.section===best.id)b.setAttribute('aria-current','true');else b.removeAttribute('aria-current')})}buttons.forEach(b=>b.addEventListener('click',()=>document.getElementById(b.dataset.section).scrollIntoView({behavior:matchMedia('(prefers-reduced-motion:reduce)').matches?'instant':'smooth',block:'start'})));let queued=false;addEventListener('scroll',()=>{if(!queued){queued=true;requestAnimationFrame(()=>{active();queued=false})}},{passive:true});addEventListener('resize',active);active()})();
 
-// Three identical sets let the native scroller wrap in either direction.
+// Four feature cards. No clones, no infinite scrolling, no auto-play.
 (()=>{
- const track=document.querySelector('.feature-grid'),section=document.querySelector('#gameplay'),header=document.querySelector('.site-header'),heading=section.querySelector('.section-heading');
- const originals=[...track.querySelectorAll('.feature')],count=originals.length;
- for(const side of ['before','after']){const fragment=document.createDocumentFragment();originals.forEach(card=>{const clone=card.cloneNode(true);clone.setAttribute('aria-hidden','true');fragment.append(clone)});side==='before'?track.prepend(fragment):track.append(fragment)}
- const cards=[...track.querySelectorAll('.feature')];let step=0,cycle=0,start=0,ready=false,queued=false;
- const reduced=()=>matchMedia('(prefers-reduced-motion:reduce)').matches;
- function position(i){return cards[i].getBoundingClientRect().left-track.getBoundingClientRect().left+track.scrollLeft-(track.clientWidth-(cards[i].offsetWidth*2+parseFloat(getComputedStyle(track).gap)))/2}
- function layout(){
-  const oldIndex=ready&&step?Math.round((track.scrollLeft-start)/step):0;
-  ready=false;const style=getComputedStyle(section),gap=parseFloat(getComputedStyle(track).marginTop);
-  const space=innerHeight-header.offsetHeight-parseFloat(style.paddingTop)-parseFloat(style.paddingBottom)-heading.offsetHeight-gap-4;
-  let width=Math.min((track.parentElement.clientWidth*.78-parseFloat(getComputedStyle(track).gap))/2,1100);
-  for(let i=0;i<6;i++){track.style.setProperty('--feature-width',width+'px');const textHeight=Math.max(...originals.map(c=>c.querySelector('div').getBoundingClientRect().height));const next=Math.min(width,Math.max(120,(space-textHeight-2)*16/9));if(Math.abs(width-next)<1)break;width=next}
-  track.style.setProperty('--feature-width',width+'px');
-  step=cards[count+1].getBoundingClientRect().left-cards[count].getBoundingClientRect().left;cycle=step*count;start=position(count);
-  track.scrollTo({left:start+((oldIndex%count+count)%count)*step,behavior:'instant'});ready=true;highlight();
+ const track=document.querySelector('.feature-grid');
+ const cards=[...track.querySelectorAll('.feature')];
+ if(!track || cards.length!==4)return;
+ let activeStart=0, visibleCount=2, step=0, timer=null, drag=null, suppressDragClick=false;
+ const prefersReduced=()=>matchMedia('(prefers-reduced-motion: reduce)').matches;
+ const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
+ function sync(index){
+  activeStart=clamp(index,0,cards.length-visibleCount);
+  cards.forEach((card,i)=>{
+   const current=i>=activeStart && i<activeStart+visibleCount;
+   const link=card.querySelector('.feature-image-link');
+   card.classList.toggle('is-current',current);
+   if(current){card.removeAttribute('role');card.removeAttribute('tabindex');card.removeAttribute('aria-label');card.setAttribute('aria-current','true')}
+   else{card.setAttribute('role','button');card.tabIndex=0;card.setAttribute('aria-label','Show '+card.querySelector('h3').textContent);card.removeAttribute('aria-current')}
+   if(link){link.tabIndex=current?0:-1; if(current)link.removeAttribute('aria-hidden');else link.setAttribute('aria-hidden','true')}
+  });
  }
- function wrap(){if(!ready||!cycle)return;let delta=0;if(track.scrollLeft<start-step)delta=cycle;else if(track.scrollLeft>=start+cycle)delta=-cycle;if(delta){track.scrollTo({left:track.scrollLeft+delta,behavior:'instant'})}}
- let timer=null,hover=false,touching=false,visible=false;
- function highlight(){if(!ready||!step)return;const index=((Math.round((track.scrollLeft-start)/step)%count)+count)%count;cards.forEach((c,i)=>c.classList.toggle('is-current',i%count===index||i%count===(index+1)%count))}
- function schedule(){clearTimeout(timer);if(!ready||!visible||document.hidden||hover||touching||track.contains(document.activeElement)||reduced())return;timer=setTimeout(()=>{track.scrollTo({left:start+(Math.round((track.scrollLeft-start)/step)+1)*step,behavior:'smooth'});schedule()},5000)}
- track.addEventListener('scroll',()=>{wrap();highlight();schedule()},{passive:true});
- track.addEventListener('pointerenter',e=>{if(e.pointerType==='mouse'){hover=true;schedule()}});
- track.addEventListener('pointerleave',()=>{hover=false;schedule()});
- track.addEventListener('pointerdown',()=>{touching=true;schedule()},{passive:true});
- for(const event of ['pointerup','pointercancel','lostpointercapture'])track.addEventListener(event,()=>{touching=false;schedule()},{passive:true});
- track.addEventListener('focusin',schedule);track.addEventListener('focusout',()=>requestAnimationFrame(schedule));
- track.addEventListener('wheel',schedule,{passive:true});document.addEventListener('visibilitychange',schedule);
- matchMedia('(prefers-reduced-motion:reduce)').addEventListener('change',schedule);
- new IntersectionObserver(entries=>{visible=entries[0].isIntersecting;schedule()},{threshold:.5}).observe(track);
+ function go(index,instant=false){
+  sync(index);
+  track.scrollTo({left:activeStart*step,behavior:instant||prefersReduced()?'instant':'smooth'});
+ }
+ function layout(){
+  visibleCount=matchMedia('(max-width: 800px)').matches?1:2;
+  const view=track.clientWidth;
+  const gap=parseFloat(getComputedStyle(track).gap)||24;
+  const sidePeek=visibleCount===1?clamp(view*.11,43,50):clamp(view*.045,32,72);
+  const idealWidth=visibleCount===1?Math.min(563,view-2*sidePeek):Math.min(563,(view-2*sidePeek-gap)/2);
+  let cardWidth=Math.max(200,idealWidth);
+  const setCardWidth=()=>{
+   track.style.setProperty('--feature-width',cardWidth+'px');
+   track.style.setProperty('--gallery-pad',Math.max(0,(view-visibleCount*cardWidth-(visibleCount-1)*gap)/2)+'px');
+  };
+  // On desktop/tablet, the two active cards must fit vertically when the
+  // third navigation dot lands. Measure the real card, including text, rather
+  // than using image width alone. Do not over-shrink a single phone card.
+  if(visibleCount===2){
+   const section=track.closest('.gameplay');
+   const sectionCss=getComputedStyle(section);
+   const rootCss=getComputedStyle(document.documentElement);
+   const num=v=>parseFloat(v)||0;
+   const header=document.querySelector('.site-header');
+   const title=section.querySelector('.section-heading');
+   const usable=innerHeight-(header?.offsetHeight||90)-num(rootCss.getPropertyValue('--dot-landing-gap'))
+     -num(sectionCss.paddingTop)-title.getBoundingClientRect().height
+     -num(getComputedStyle(track).marginTop)-Math.max(32,innerHeight*.045);
+   for(let pass=0;pass<6;pass++){
+    setCardWidth();
+    const cardHeight=Math.max(...cards.map(c=>c.getBoundingClientRect().height));
+    if(cardHeight<=usable+1 || cardWidth<=320)break;
+    cardWidth=Math.max(320,cardWidth-Math.ceil((cardHeight-usable)*1.65));
+   }
+  }
+  setCardWidth();
+  step=cardWidth+gap;
+  go(activeStart,true);
+ }
+ function nearest(){return clamp(Math.round(track.scrollLeft/step),0,cards.length-visibleCount)}
+ function snap(){if(!step)return;go(nearest(),true)}
+ // A dimmed card is a navigation control; the active image is a Rulebook link.
+ cards.forEach((card,i)=>{
+  card.addEventListener('click',()=>{
+   if(card.classList.contains('is-current'))return;
+   if(i<activeStart)go(activeStart-1);
+   else if(i>=activeStart+visibleCount)go(activeStart+1);
+  });
+  card.addEventListener('keydown',e=>{
+   if(card.classList.contains('is-current') || !['Enter',' '].includes(e.key))return;
+   e.preventDefault();go(i<activeStart?activeStart-1:activeStart+1);
+  });
+ });
 
- let press=null;
- track.addEventListener('pointerdown',e=>{press={x:e.clientX,y:e.clientY,scroll:track.scrollLeft}},{passive:true});
- function activate(card){if(!ready||card.classList.contains('is-current'))return;const rect=card.getBoundingClientRect(),center=track.getBoundingClientRect().left+track.clientWidth/2;const direction=rect.left+rect.width/2<center?-1:1;track.scrollTo({left:start+(Math.round((track.scrollLeft-start)/step)+direction)*step,behavior:reduced()?'instant':'smooth'});schedule()}
- cards.forEach((card,i)=>{card.setAttribute('role','button');card.tabIndex=i>=count&&i<count*2?0:-1;card.setAttribute('aria-label','Show '+card.querySelector('h3').textContent);card.addEventListener('click',e=>{if(press&&(Math.abs(e.clientX-press.x)>8||Math.abs(e.clientY-press.y)>8||Math.abs(track.scrollLeft-press.scroll)>8)){press=null;return}press=null;activate(card)});card.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();activate(card)}})});
+ // Pointer capture happens ONLY after a real drag begins. Normal taps on the
+ // artwork still follow Rulebook links, and text can be held to drag.
+ track.addEventListener('pointerdown',e=>{
+  if(drag || e.button!==0)return;
+  drag={id:e.pointerId,startX:e.clientX,startY:e.clientY,lastX:e.clientX,startScroll:track.scrollLeft,moved:false};
+ },{passive:true});
+ track.addEventListener('pointermove',e=>{
+  if(!drag || e.pointerId!==drag.id)return;
+  drag.lastX=e.clientX;
+  const dx=e.clientX-drag.startX,dy=e.clientY-drag.startY;
+  if(!drag.moved){
+   if(Math.abs(dx)<8 || Math.abs(dx)<Math.abs(dy)*1.15)return;
+   drag.moved=true;
+   clearTimeout(timer);
+   track.classList.add('dragging');
+   try{track.setPointerCapture(e.pointerId)}catch(_){}
+  }
+  if(e.cancelable)e.preventDefault();
+  track.scrollLeft=drag.startScroll-dx;
+ });
+ function endDrag(e){
+  if(!drag || e.pointerId!==drag.id)return;
+  const last=drag;
+  drag=null;
+  track.classList.remove('dragging');
+  if(track.hasPointerCapture(last.id))track.releasePointerCapture(last.id);
+  if(!last.moved)return;
+  // Block the synthetic click after a swipe; a swipe must not open Rulebook.
+  suppressDragClick=true;
+  setTimeout(()=>{suppressDragClick=false},250);
+  clearTimeout(timer);
+  const dx=last.lastX-last.startX;
+  let dest=nearest();
+  if(dest===activeStart && Math.abs(dx)>Math.max(38,step*.10))dest+=dx<0?1:-1;
+  go(dest);
+ }
+ track.addEventListener('pointerup',endDrag);
+ track.addEventListener('pointercancel',endDrag);
+ track.addEventListener('lostpointercapture',e=>{if(e.target===track && drag && e.pointerId===drag.id)endDrag(e)});
+ // Capture phase makes the drag-click guard work even when the gesture began
+ // on an active Rulebook anchor or on a card's text.
+ track.addEventListener('click',e=>{
+  if(!suppressDragClick)return;
+  suppressDragClick=false;
+  e.preventDefault();e.stopImmediatePropagation();
+ },true);
+ track.addEventListener('keydown',e=>{
+  if(!['ArrowLeft','ArrowRight'].includes(e.key))return;
+  e.preventDefault();go(activeStart+(e.key==='ArrowLeft'?-1:1));
+ });
+ track.addEventListener('scroll',()=>{
+  if(drag?.moved)return;
+  clearTimeout(timer);
+  timer=setTimeout(snap,160);
+ },{passive:true});
+ track.addEventListener('scrollend',()=>{
+  if(drag?.moved)return;
+  clearTimeout(timer);
+  sync(nearest());
+ });
  track.addEventListener('dragstart',e=>e.preventDefault());
- track.addEventListener('keydown',e=>{if(!['ArrowLeft','ArrowRight'].includes(e.key))return;e.preventDefault();track.scrollTo({left:start+(Math.round((track.scrollLeft-start)/step)+(e.key==='ArrowRight'?1:-1))*step,behavior:reduced()?'instant':'smooth'})});
- function resize(){if(queued)return;queued=true;requestAnimationFrame(()=>{queued=false;layout()})}
- addEventListener('resize',resize);document.fonts.ready.then(resize);layout();
+ let pending=false;
+ addEventListener('resize',()=>{if(pending)return;pending=true;requestAnimationFrame(()=>{pending=false;layout()})});
+ document.fonts.ready.then(layout);
+ layout();
 })();
 
 (()=>{const header=document.querySelector('.site-header');function updateHeader(){header.classList.toggle('is-scrolled',scrollY>2)}addEventListener('scroll',updateHeader,{passive:true});updateHeader()})();

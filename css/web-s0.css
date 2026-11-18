@@ -1,5 +1,5 @@
-@font-face{font-family:Noto Sans;src:url('../assets/site/web-s0/NotoSans-Variable.woff2') format('woff2');font-weight:100 900;font-display:swap}
-:root{color-scheme:dark;--bg:#1e1e27;--muted:#a4a3a9;--gold:#efd183;--blue:#00a5f7}*{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:24px}body{margin:0;background:var(--bg);color:#fff;font:18px/1.5 'Noto Sans',sans-serif}button,a{-webkit-tap-highlight-color:transparent}button{font:inherit}a{color:inherit;text-decoration:none}button{cursor:pointer}button:disabled{cursor:default}img{max-width:100%;display:block}p,h1,h2,h3{margin:0}p{color:var(--muted)}a:focus-visible,button:focus-visible{outline:3px solid var(--blue);outline-offset:5px}.wrap{width:calc(100% - 80px);max-width:1400px;margin-inline:auto}.site-header{height:90px;display:flex;align-items:center;justify-content:space-between;gap:32px}.brand{width:188px;margin-left:-30px;flex-shrink:0}.site-header nav,footer nav{display:flex;gap:48px;align-items:center;font-size:14px;color:var(--muted)}nav a:hover{color:#fff}.social{display:flex;align-items:center;gap:30px}.social img{width:28px;height:26px;object-fit:contain}.hero{display:grid;grid-template-columns:1fr 1fr;align-items:center;gap:36px;min-height:662px;border-bottom:1px solid #393941;padding:90px 0 120px}.hero h1{font-size:80px;line-height:1.12;font-weight:750;letter-spacing:-3.5px}.hero h1 span{color:var(--gold);white-space:nowrap}.hero-copy p{max-width:600px;margin-top:30px}.hero-fan{width:100%;height:auto;mix-blend-mode:lighten}.actions{display:flex;gap:16px;flex-wrap:wrap;margin-top:40px}.button{display:inline-flex;justify-content:center;align-items:center;gap:8px;border:1px solid #41414d;border-radius:12px;padding:17px 34px;font-weight:700;font-size:16px;color:#fff;background:transparent;transition:background .15s,border-color .15s}.button:hover{background:#ffffff0c;border-color:#999}.button.primary{background:var(--blue);border-color:var(--blue)}.button.primary:hover{background:#0095e2}.section-heading{text-align:center;max-width:850px;margin:auto}.eyebrow{color:var(--gold);font-size:14px;font-weight:700;margin-bottom:8px}h2{font-size:48px;line-height:1.2;letter-spacing:-1.8px;font-weight:750}.section-heading>p:last-child{margin-top:24px}.heroes{padding-block:116px 120px}.hero-explorer{max-width:880px;margin:54px auto 20px;display:grid;grid-template-columns:140px 1fr 140px;gap:52px;align-items:center}.rank-button{padding:10px 15px;border-color:var(--gold);font-size:16px;white-space:nowrap}.rank-button span{color:var(--gold)}.rank-button:disabled{opacity:.25;border-color:#8c8c98}.card-stage{height:420px;position:relative;display:flex;justify-content:center;align-items:center}.class-emblem{position:absolute;width:400px;height:400px;object-fit:contain;filter:grayscale(1);opacity:.22;mix-blend-mode:screen}#hero-card{position:relative;width:257px;height:auto;border-radius:12px;box-shadow:0 18px 22px #0008}.class-tabs{display:grid;grid-template-columns:repeat(5,1fr);gap:36px;margin-top:30px}.class-tabs button{display:flex;flex-direction:column;align-items:center;gap:8px;background:transparent;color:var(--muted);border:0;border-bottom:2px solid transparent;text-transform:uppercase;font-size:18px;padding:15px 4px 30px}.class-tabs img{width:54px;height:56px;object-fit:contain;filter:grayscale(1);mix-blend-mode:screen}.class-tabs [aria-selected=true]{color:#fff;font-weight:700;border-color:var(--class-color)}.class-tabs [aria-selected=true] img{filter:none}.class-tabs button:hover{color:white}.gameplay{background:#18181f;padding:116px 0 120px}.feature-grid{display:grid;grid-template-columns:1fr 1fr;gap:36px;margin-top:54px}.feature{background:#272730;border:1px solid #30303a;border-radius:14px;overflow:hidden;box-shadow:0 8px 15px #0005}.feature>img{width:100%;aspect-ratio:16/9;object-fit:cover}.feature>div{padding:26px 35px 30px}.feature h3{font-size:26px;color:var(--gold);line-height:1.3;margin-bottom:10px}.feature p{font-size:16px;line-height:1.45}.play-section{padding-block:120px}.play-panel{min-height:492px;border-radius:36px;border:1px solid #44444f;overflow:hidden;display:flex;align-items:center;background:linear-gradient(90deg,#181a29 26%,#181a29ee 37%,#181a29aa 56%,#181a2915 100%),url('../assets/site/web-s0/battle.webp') right center/auto 100% no-repeat}.play-copy{padding:70px 80px;position:relative}.play-copy p{font-size:16px;margin-top:32px}.play-copy .actions{margin-top:40px}.play-copy .button{padding:13px 24px}footer{border-top:1px solid #44444f}.footer-inner{min-height:194px;display:flex;justify-content:space-between;align-items:center;gap:30px}.footer-brand{display:flex;align-items:center;gap:20px;font-size:14px;color:var(--muted)}.footer-brand img{width:210px;margin-left:-30px}footer nav{gap:38px}.menu-toggle{display:none}.sr-only,.skip-link:not(:focus){position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}.skip-link:focus{position:fixed;z-index:20;background:var(--blue);padding:12px}
+@font-face{font-family:Noto Sans;src:local('Noto Sans'),local('NotoSans');font-weight:100 900;font-display:swap}
+:root{color-scheme:dark;--bg:#1e1e27;--muted:#a4a3a9;--gold:#efd183;--blue:#00a5f7}*{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:24px}body{margin:0;background:var(--bg);color:#fff;font:18px/1.5 'Noto Sans','Segoe UI',system-ui,Arial,sans-serif}button,a{-webkit-tap-highlight-color:transparent}button{font:inherit}a{color:inherit;text-decoration:none}button{cursor:pointer}button:disabled{cursor:default}img{max-width:100%;display:block}p,h1,h2,h3{margin:0}p{color:var(--muted)}a:focus-visible,button:focus-visible{outline:3px solid var(--blue);outline-offset:5px}.wrap{width:calc(100% - 80px);max-width:1400px;margin-inline:auto}.site-header{height:90px;display:flex;align-items:center;justify-content:space-between;gap:32px}.brand{width:188px;margin-left:-30px;flex-shrink:0}.site-header nav,footer nav{display:flex;gap:48px;align-items:center;font-size:14px;color:var(--muted)}nav a:hover{color:#fff}.social{display:flex;align-items:center;gap:30px}.social img{width:28px;height:26px;object-fit:contain}.hero{display:grid;grid-template-columns:1fr 1fr;align-items:center;gap:36px;min-height:662px;border-bottom:1px solid #393941;padding:90px 0 120px}.hero h1{font-size:80px;line-height:1.12;font-weight:750;letter-spacing:-3.5px}.hero h1 span{color:var(--gold);white-space:nowrap}.hero-copy p{max-width:600px;margin-top:30px}.hero-fan{width:100%;height:auto;mix-blend-mode:lighten}.actions{display:flex;gap:16px;flex-wrap:wrap;margin-top:40px}.button{display:inline-flex;justify-content:center;align-items:center;gap:8px;border:1px solid #41414d;border-radius:12px;padding:17px 34px;font-weight:700;font-size:16px;color:#fff;background:transparent;transition:background .15s,border-color .15s}.button:hover{background:#ffffff0c;border-color:#999}.button.primary{background:var(--blue);border-color:var(--blue)}.button.primary:hover{background:#0095e2}.section-heading{text-align:center;max-width:850px;margin:auto}.eyebrow{color:var(--gold);font-size:14px;font-weight:700;margin-bottom:8px}h2{font-size:48px;line-height:1.2;letter-spacing:-1.8px;font-weight:750}.section-heading>p:last-child{margin-top:24px}.heroes{padding-block:116px 120px}.hero-explorer{max-width:880px;margin:54px auto 20px;display:grid;grid-template-columns:140px 1fr 140px;gap:52px;align-items:center}.rank-button{padding:10px 15px;border-color:var(--gold);font-size:16px;white-space:nowrap}.rank-button span{color:var(--gold)}.rank-button:disabled{opacity:.25;border-color:#8c8c98}.card-stage{height:420px;position:relative;display:flex;justify-content:center;align-items:center}.class-emblem{position:absolute;width:400px;height:400px;object-fit:contain;filter:grayscale(1);opacity:.22;mix-blend-mode:screen}#hero-card{position:relative;width:257px;height:auto;border-radius:12px;box-shadow:0 18px 22px #0008}.class-tabs{display:grid;grid-template-columns:repeat(5,1fr);gap:36px;margin-top:30px}.class-tabs button{display:flex;flex-direction:column;align-items:center;gap:8px;background:transparent;color:var(--muted);border:0;border-bottom:2px solid transparent;text-transform:uppercase;font-size:18px;padding:15px 4px 30px}.class-tabs img{width:54px;height:56px;object-fit:contain;filter:grayscale(1);mix-blend-mode:screen}.class-tabs [aria-selected=true]{color:#fff;font-weight:700;border-color:var(--class-color)}.class-tabs [aria-selected=true] img{filter:none}.class-tabs button:hover{color:white}.gameplay{background:#18181f;padding:116px 0 120px}.feature-grid{display:grid;grid-template-columns:1fr 1fr;gap:36px;margin-top:54px}.feature{background:#272730;border:1px solid #30303a;border-radius:14px;overflow:hidden;box-shadow:0 8px 15px #0005}.feature>img{width:100%;aspect-ratio:16/9;object-fit:cover}.feature>div{padding:26px 35px 30px}.feature h3{font-size:26px;color:var(--gold);line-height:1.3;margin-bottom:10px}.feature p{font-size:16px;line-height:1.45}.play-section{padding-block:120px}.play-panel{min-height:492px;border-radius:36px;border:1px solid #44444f;overflow:hidden;display:flex;align-items:center;background:linear-gradient(90deg,#181a29 26%,#181a29ee 37%,#181a29aa 56%,#181a2915 100%),url('../assets/site/web-s0/battle.webp') right center/auto 100% no-repeat}.play-copy{padding:70px 80px;position:relative}.play-copy p{font-size:16px;margin-top:32px}.play-copy .actions{margin-top:40px}.play-copy .button{padding:13px 24px}footer{border-top:1px solid #44444f}.footer-inner{min-height:194px;display:flex;justify-content:space-between;align-items:center;gap:30px}.footer-brand{display:flex;align-items:center;gap:20px;font-size:14px;color:var(--muted)}.footer-brand img{width:210px;margin-left:-30px}footer nav{gap:38px}.menu-toggle{display:none}.sr-only,.skip-link:not(:focus){position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}.skip-link:focus{position:fixed;z-index:20;background:var(--blue);padding:12px}
 @media(max-width:1250px){.hero h1{font-size:62px;letter-spacing:-2.5px}.site-header nav{gap:28px}.hero{min-height:620px}.hero-copy p{font-size:16px}.footer-inner{flex-wrap:wrap;padding-block:25px}footer nav{gap:28px}}
 @media(max-width:900px){.wrap{width:calc(100% - 40px)}.site-header{height:80px;position:relative}.brand{width:155px;margin-left:-22px}.menu-toggle{display:block;margin-left:auto;background:transparent;color:#fff;border:1px solid #41414d;border-radius:8px;padding:8px 12px;font-size:14px}.social{gap:14px}.site-header nav{display:none;position:absolute;top:75px;left:0;right:0;padding:24px;background:#272730;border:1px solid #41414d;border-radius:12px;z-index:10;box-shadow:0 10px 24px #0008}.site-header nav.is-open{display:flex;flex-direction:column;align-items:stretch;gap:20px}.hero{gap:12px;padding:60px 0 70px;min-height:0}.hero h1{font-size:46px;letter-spacing:-1.5px}.hero-copy p{font-size:15px}.button{padding:14px 22px;font-size:14px}.hero .actions{gap:10px}.heroes{padding-block:80px}.hero-explorer{gap:20px}.feature-grid{gap:24px}.feature>div{padding:22px}.feature h3{font-size:23px}.gameplay{padding-block:80px}.play-section{padding-block:80px}.play-copy{padding:50px 40px}.footer-inner{justify-content:center}h2{font-size:40px}}
 @media(max-width:600px){body{font-size:16px}.social{display:none}.hero{grid-template-columns:1fr;padding-top:40px;gap:30px}.hero h1{font-size:clamp(38px,10vw,56px);letter-spacing:-1.5px}.hero-copy p{max-width:440px;margin-top:24px}.hero-fan{max-width:470px;justify-self:center}.actions{margin-top:28px}.heroes{padding-block:64px}.section-heading>p:last-child{margin-top:20px}h2{font-size:32px;letter-spacing:-1px}.eyebrow{font-size:12px}.hero-explorer{grid-template-columns:1fr 1fr;gap:20px;margin-top:28px;max-width:360px}.card-stage{grid-column:1/-1;grid-row:1;height:360px}#hero-card{width:230px}.class-emblem{width:320px;height:320px}.rank-button{font-size:14px;padding:10px 12px}.class-tabs{gap:5px;margin-top:32px}.class-tabs button{font-size:11px;padding-bottom:18px;gap:6px}.class-tabs img{width:40px;height:44px}.feature-grid{grid-template-columns:1fr;margin-top:32px}.gameplay{padding-block:64px}.feature>div{padding:24px}.feature h3{font-size:24px}.feature p{font-size:15px}.play-section{padding-block:64px}.play-panel{border-radius:24px;min-height:390px;background:linear-gradient(90deg,#181a29ee,#181a29bb),url('../assets/site/web-s0/battle.webp') center/cover}.play-copy{padding:36px 26px}.play-copy p{max-width:260px;margin-top:24px}.footer-brand{gap:0;flex-wrap:wrap;justify-content:center}.footer-brand img{width:180px;margin-left:0}.footer-inner{padding-block:30px;gap:18px}footer nav{justify-content:center;gap:18px;flex-wrap:wrap;font-size:12px}}
@@ -127,3 +127,623 @@ html{scroll-padding-top:var(--header-height)}
 /* 2.3.7: edge-to-edge gallery, centered active pair. */
 .gameplay>.feature-grid{width:100%;max-width:none;margin-inline:0;scroll-snap-type:none}
 .feature.is-current{cursor:default}
+
+
+/* 2.3.8 | Standalone Homepage: extra spacing BEFORE each next section anchor.
+   Keep sticky header, dot positions, scroll-padding/margins, click logic and
+   content position within each landing viewport unchanged. */
+:root {--inter-section-gap:clamp(64px,9svh,136px)}
+/* Pair each +gap on min-height with +gap in bottom padding: the actual content
+   stays in place while the blank region BEFORE the next anchor grows. */
+.hero {
+ min-height:calc(100svh - var(--header-height) + var(--inter-section-gap));
+ padding-bottom:calc(var(--section-space) + var(--inter-section-gap));
+}
+.heroes {
+ min-height:calc(var(--content-height) + var(--inter-section-gap));
+ padding-bottom:calc(24px + var(--inter-section-gap));
+}
+.gameplay {
+ min-height:calc(var(--content-height) + var(--inter-section-gap));
+ padding-bottom:calc(24px + var(--inter-section-gap));
+}
+@media (max-width:600px) {
+ :root {--inter-section-gap:clamp(42px,7svh,72px)}
+ .hero {min-height:0}
+}
+@media (max-height:650px) {
+ .gameplay {padding-bottom:calc(16px + var(--inter-section-gap))}
+}
+/* Three original Hero cards retain their exact art/text, minus blue backdrop. */
+.hero-fan {mix-blend-mode:normal;-webkit-mask-image:none;mask-image:none;filter:drop-shadow(0 12px 24px #0005)}
+
+
+/* v2.3.11: Figma Home-2 baseline at 1720 px, responsive down from that.
+   Scope: visual geometry, NOT scroll-dot offsets or anchor behavior. */
+:root { --page-gutter:24px; --gallery-gap:24px; }
+.wrap { width:calc(100% - 48px); max-width:1400px; margin-inline:auto; }
+body { font-size:18px; }
+h2 { font-size:48px; letter-spacing:-1.8px; }
+.section-heading { max-width:850px; margin-inline:auto; text-align:center; }
+.section-heading>p:last-child { font-size:18px; line-height:1.5; margin-top:24px; }
+.site-header { display:grid; grid-template-columns:minmax(0,1fr) auto minmax(0,1fr); gap:24px; }
+.site-header nav { justify-self:center; gap:44px; }
+.site-header .social { justify-self:end; }
+.site-header nav a[hidden],footer nav a[hidden] { display:none !important; }
+.brand { margin-left:-30px; }
+.hero { grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:36px; min-height:calc(660px + var(--inter-section-gap)); }
+.hero h1 { font-size:80px; line-height:1.12; letter-spacing:-3.5px; }
+.hero-copy p { font-size:18px; max-width:600px; }
+.hero-fan { width:100%; max-width:700px; height:auto; justify-self:center; }
+.heroes { display:flex; flex-direction:column; justify-content:center; }
+.hero-explorer { max-width:880px; width:100%; grid-template-columns:140px minmax(0,1fr) 140px; gap:52px; margin:54px auto 20px; }
+.card-stage { height:420px; }
+#hero-card { width:257px; height:auto; max-width:100%; border-radius:12px; }
+.class-emblem { width:400px; height:400px; max-width:none; }
+.class-tabs { margin-top:30px; gap:36px; }
+.class-tabs button { font-size:18px; padding:15px 4px 30px; }
+.class-tabs .class-icon { width:48px; height:48px; }
+.class-label { min-height:2.5em; text-align:center; justify-content:center; }
+/* Flat, finite 4-card gallery; centered pair on desktop, one on mobile. */
+.gameplay { overflow:hidden; }
+.gameplay .feature-grid {
+ width:100%; max-width:none; margin:54px 0 0; padding:0 var(--gallery-pad,24px);
+ display:flex; gap:var(--gallery-gap); align-items:stretch;
+ scroll-snap-type:none; overflow-x:auto; overflow-y:hidden; overscroll-behavior-inline:contain;
+ scrollbar-width:none; scroll-behavior:smooth; cursor:default;
+}
+.feature-grid::-webkit-scrollbar { display:none; }
+.feature { flex:0 0 var(--feature-width,563px); min-width:0; border-radius:14px;
+ box-shadow:none; opacity:.38; transition:opacity .25s ease; cursor:pointer;
+}
+.feature.is-current { opacity:1; cursor:default; }
+.feature-image-link { display:block; width:100%; line-height:0; }
+.feature-image-link img { width:100%; height:auto; aspect-ratio:16/9; object-fit:cover; pointer-events:none; }
+.feature:not(.is-current) .feature-image-link { pointer-events:none; }
+.feature-image-link:focus-visible { outline:3px solid var(--blue); outline-offset:-3px; }
+.feature>div { padding:16px 20px 18px; min-height:104px; }
+.feature h3 { font-size:16px; line-height:1.35; margin-bottom:8px; font-weight:750; }
+.feature p { font-size:14px; line-height:1.5; }
+.play-section { min-height:0; align-items:center; }
+.play-panel { width:100%; min-height:492px; height:492px; }
+/* Keep the original gap-before-next-section strategy and sticky dot navigation. */
+@media(max-width:1250px) {
+ .hero h1 { font-size:clamp(42px,5vw,70px); }
+ .hero-copy p { font-size:16px; }
+ .site-header nav { gap:26px; }
+ .hero-explorer { max-width:800px; gap:30px; }
+ .class-tabs button { font-size:clamp(12px,1.4vw,18px); }
+ .play-panel { min-height:clamp(360px,38vw,492px); height:auto; }
+}
+@media(max-width:900px) {
+ .site-header { display:flex; gap:12px; justify-content:space-between; }
+ .site-header nav { justify-self:auto; }
+ .brand { margin-left:-22px; }
+ .hero { gap:18px; }
+ .hero h1 { font-size:clamp(40px,5.5vw,52px); }
+ .hero-explorer { gap:18px; }
+ h2 { font-size:40px; }
+ .section-heading>p:last-child { font-size:16px; }
+}
+@media(max-width:800px) {
+ :root { --gallery-gap:16px; }
+ .gameplay .feature-grid { margin-top:32px; }
+ .feature>div { padding:18px 20px 20px; }
+ .feature h3 { font-size:16px; }
+ .feature p { font-size:14px; }
+}
+@media(max-width:600px) {
+ :root { --page-gutter:24px; --inter-section-gap:clamp(42px,7svh,72px); }
+ body { font-size:16px; }
+ .wrap { width:calc(100% - 48px); }
+ .hero { grid-template-columns:1fr; padding-top:34px; gap:14px; min-height:0; }
+ .hero-fan { grid-row:1; max-width:min(100%,520px); margin-inline:auto; }
+ .hero-copy { grid-row:2; width:100%; }
+ .hero h1 { font-size:clamp(33px,9vw,50px); letter-spacing:-1.4px; }
+ .hero-copy p { font-size:15px; line-height:1.5; margin-top:24px; }
+ .hero .actions { margin-top:26px; gap:10px; }
+ .hero .button { flex:1 1 auto; padding:13px 12px; min-width:0; }
+ .heroes { min-height:0; padding-block:68px calc(36px + var(--inter-section-gap)); }
+ .hero-explorer { grid-template-columns:1fr 1fr; max-width:360px; margin-top:28px; gap:16px; }
+ .card-stage { grid-column:1/-1; grid-row:1; height:340px; }
+ #hero-card { width:230px; }
+ .class-emblem { width:320px; height:320px; }
+ .class-tabs { margin-top:20px; gap:4px; }
+ .class-tabs button { font-size:10px; padding:8px 2px 12px; }
+ .class-tabs .class-icon { width:32px; height:32px; }
+ .section-heading { width:100%; padding-inline:4px; }
+ .section-heading>p:last-child { font-size:15px; }
+ h2 { font-size:clamp(29px,8vw,36px); }
+ .gameplay { min-height:0; padding-top:48px; padding-bottom:calc(48px + var(--inter-section-gap)); }
+ .gameplay .feature-grid { margin-top:30px; }
+ .feature>div { min-height:115px; }
+ .play-section { min-height:0; padding-block:68px; }
+ .play-panel { min-height:360px; height:auto; }
+ .footer-inner { justify-content:center; }
+}
+@media(prefers-reduced-motion:reduce) {
+ .gameplay .feature-grid { scroll-behavior:auto; }
+}
+
+
+/* v2.3.12: resolve short-viewport clipping when a navigation dot lands.
+   Keep Figma's 1720 x 1000 desktop geometry as the full-size design.
+   Use the remaining viewport height, not just its width, at shorter sizes. */
+:root { --dot-landing-gap:clamp(10px,1.6svh,20px); }
+html { scroll-padding-top:calc(var(--header-height) + var(--dot-landing-gap)); }
+
+/* Drag from ANY part of a gameplay card, including title and paragraph.
+   Mobile pans vertically as usual; horizontal swipe is handled by JS. */
+.gameplay .feature-grid {
+  cursor:grab;
+  touch-action:pan-y;
+  -webkit-user-select:none;
+  user-select:none;
+}
+.gameplay .feature-grid .feature,
+.gameplay .feature-grid .feature>div,
+.gameplay .feature-grid .feature h3,
+.gameplay .feature-grid .feature p { cursor:grab; -webkit-user-select:none; user-select:none; }
+.gameplay .feature-grid .feature-image-link { cursor:pointer; }
+.gameplay .feature-grid.dragging { cursor:grabbing; scroll-behavior:auto!important; scroll-snap-type:none!important; }
+.gameplay .feature-grid.dragging .feature,
+.gameplay .feature-grid.dragging .feature>div,
+.gameplay .feature-grid.dragging .feature h3,
+.gameplay .feature-grid.dragging .feature p,
+.gameplay .feature-grid.dragging .feature-image-link { cursor:grabbing; }
+
+@media (min-width:601px) and (max-height:930px) {
+  :root { --inter-section-gap:clamp(42px,6svh,76px); }
+  .hero {
+    min-height:calc(var(--content-height) + var(--inter-section-gap));
+    padding-top:clamp(24px,4svh,42px);
+    padding-bottom:calc(24px + var(--inter-section-gap));
+  }
+  .hero h1 {
+    font-size:clamp(42px,min(4.65vw,7.8svh),80px);
+    line-height:1.1;
+    letter-spacing:-2.8px;
+  }
+  .hero-copy p { margin-top:clamp(14px,2.4svh,28px); }
+  .hero .actions { margin-top:clamp(18px,2.5svh,32px); }
+  .hero-fan { max-height:clamp(260px,60svh,490px); width:auto; max-width:100%; object-fit:contain; }
+  .heroes {
+    justify-content:flex-start;
+    padding-top:clamp(14px,2svh,24px);
+    padding-bottom:calc(16px + var(--inter-section-gap));
+  }
+  .heroes h2 { font-size:clamp(34px,3vw,48px); }
+  .heroes .section-heading>p:last-child { margin-top:clamp(10px,1.5svh,18px); }
+  .hero-explorer { margin-top:clamp(12px,1.8svh,24px); margin-bottom:0; }
+  .card-stage { height:clamp(235px,calc(100svh - var(--header-height) - 405px),410px); }
+  #hero-card { height:100%; width:auto; max-width:100%; }
+  .class-emblem { width:110%; height:110%; max-height:410px; }
+  .class-tabs { margin-top:clamp(10px,1.6svh,18px); }
+  .class-tabs button { padding-top:4px; padding-bottom:10px; }
+  .class-tabs .class-icon { width:clamp(36px,6svh,48px); height:clamp(36px,6svh,48px); }
+  .class-label { min-height:2em; }
+  .gameplay .feature-grid { margin-top:clamp(18px,2.6svh,30px); }
+}
+
+@media (max-width:600px) {
+  :root { --dot-landing-gap:clamp(8px,1.5svh,15px); }
+  /* Keep the complete class showcase visible when navigating by dots.
+     At very short heights the user can still scroll naturally. */
+  .heroes { padding-top:clamp(20px,3svh,32px); }
+  .heroes h2 { font-size:clamp(27px,7vw,34px); }
+  .heroes .section-heading>p:last-child { margin-top:12px; font-size:14px; line-height:1.4; }
+  .hero-explorer { margin-top:16px; margin-bottom:0; }
+  .card-stage { height:clamp(226px,calc(100svh - 555px),320px); }
+  #hero-card { height:100%; width:auto; max-width:100%; }
+  .class-emblem { height:110%; width:110%; max-height:340px; }
+  .class-tabs { margin-top:12px; }
+  .class-tabs button { padding-top:6px; padding-bottom:8px; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .gameplay .feature-grid.dragging { scroll-behavior:auto!important; }
+}
+
+
+/* Grandis Legacy Homepage v2.3.13 | responsive section fit + consistent rhythm.
+   Preserve the approved HOME hero composition. The section-spacer token only
+   extends the blank bottom region before the next navigation anchor. */
+:root {
+  --inter-section-gap: 96px;
+  --hero-internal-gap: 40px;
+}
+@media (min-width: 901px) and (max-width: 1439px) {
+  :root { --inter-section-gap: clamp(64px, 6vw, 90px); }
+}
+@media (min-width: 601px) and (max-width: 900px) {
+  :root { --inter-section-gap: 64px; }
+}
+@media (max-width: 600px) {
+  :root { --inter-section-gap: 40px; }
+}
+
+/* Header: use a pre-existing transparent logo asset from Grandis Legacy's
+   Deck Builder rather than the Homepage's baked dark-background WebP.
+   The logo has natural inner margins, so no negative positioning is needed.
+   Three-column grid keeps the NAV group mathematically centered on page. */
+.site-header.wrap {
+  width: calc(100% - 48px);
+  max-width: none;
+  margin-inline: 24px;
+}
+.site-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 20px;
+}
+.site-header .brand {
+  width: 174px;
+  height: var(--header-height);
+  margin-left: 0;
+  display: flex;
+  align-items: center;
+  justify-self: start;
+  flex-shrink: 0;
+}
+.site-header .brand img {
+  display: block;
+  width: 174px;
+  height: auto;
+  max-height: 64px;
+  object-fit: contain;
+  mix-blend-mode: lighten;
+}
+.site-header nav { justify-self: center; }
+.site-header .social { justify-self: end; }
+.footer-brand img {
+  width: 210px;
+  height: auto;
+  margin-left: 0;
+  /* Gold source, rendered white here to keep original footer treatment. */
+  filter: grayscale(1) brightness(1.8);
+  mix-blend-mode: lighten;
+}
+
+/* 2. Heroes: independent font scaling by width AND height.
+   Explicit text->card and card->class-tab gaps; 36px class icon and
+   16px label remain the maximum, matching the approved Figma baseline. */
+.heroes {
+  box-sizing: border-box;
+  justify-content: flex-start;
+  min-height: calc(var(--content-height) + var(--inter-section-gap));
+  padding-top: clamp(18px, 2.7svh, 28px);
+  padding-bottom: calc(24px + var(--inter-section-gap));
+}
+.heroes .section-heading { margin: 0 auto; flex: none; }
+.heroes h2 {
+  font-size: clamp(31px, min(2.8vw, 5.9svh), 48px);
+  line-height: 1.2;
+}
+.heroes .section-heading>p:last-child {
+  font-size: clamp(14px, min(1.05vw, 2.25svh), 18px);
+  line-height: 1.45;
+  margin-top: clamp(12px, 2.3svh, 24px);
+}
+.hero-explorer {
+  margin: var(--hero-internal-gap) auto 0;
+  width: 100%;
+  max-width: 880px;
+  flex: none;
+}
+.card-stage {
+  height: clamp(195px, calc(100svh - var(--header-height) - 380px), 360px);
+}
+#hero-card {
+  height: 100%;
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
+}
+.class-emblem {
+  width: min(380px, 55svh);
+  height: min(380px, 55svh);
+}
+.class-tabs {
+  margin-top: var(--hero-internal-gap);
+  gap: clamp(10px, 2.1vw, 36px);
+  flex: none;
+}
+.class-tabs button {
+  gap: 6px;
+  padding: 0 4px 12px;
+  font-size: clamp(12px, min(.93vw, 2.2svh), 16px);
+  line-height: 1.2;
+}
+.class-tabs .class-icon {
+  width: clamp(28px, min(2.1vw, 5svh), 36px);
+  height: clamp(28px, min(2.1vw, 5svh), 36px);
+}
+.class-label { min-height: 2em; }
+
+/* 3. Gameplay: card size responds to HEIGHT as well as width.
+   JS constrains image+text to the actual space below the sticky header. */
+.gameplay {
+  min-height: calc(var(--content-height) + var(--inter-section-gap));
+  padding-top: clamp(16px, 2.7svh, 28px);
+  padding-bottom: calc(24px + var(--inter-section-gap));
+}
+.gameplay h2 {
+  font-size: clamp(31px, min(2.8vw, 5.9svh), 48px);
+}
+.gameplay .section-heading>p:last-child {
+  font-size: clamp(14px, min(1.05vw, 2.25svh), 18px);
+  line-height: 1.45;
+  margin-top: clamp(12px, 2.3svh, 24px);
+}
+.gameplay .feature-grid {
+  margin-top: clamp(14px, 2.8svh, 32px);
+}
+.feature>div {
+  min-height: 0;
+  padding: clamp(11px, 1.1vw, 16px) clamp(14px, 1.45vw, 20px);
+}
+.feature h3 {
+  font-size: clamp(14px, min(.93vw, 2.25svh), 16px);
+  line-height: 1.35;
+  margin-bottom: 6px;
+}
+.feature p {
+  font-size: clamp(12px, min(.82vw, 1.9svh), 14px);
+  line-height: 1.45;
+}
+
+/* 4. Play: keep a complete compact panel and room around it when the fourth
+   dot is selected, instead of the earlier near-viewport-height panel. */
+.play-section {
+  min-height: var(--content-height);
+  padding-block: clamp(32px, 5svh, 64px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.play-panel {
+  flex: 0 0 auto;
+  min-height: 0;
+  height: clamp(310px, calc((100svh - var(--header-height)) * .68), 492px);
+  max-height: 492px;
+  background-size: auto 100%;
+}
+.play-copy { padding: clamp(28px, 5svh, 70px) clamp(30px, 5vw, 80px); }
+.play-copy h2 {
+  font-size: clamp(32px, min(2.8vw, 6.2svh), 48px);
+  line-height: 1.2;
+}
+.play-copy p { margin-top: clamp(16px, 3svh, 32px); }
+.play-copy .actions { margin-top: clamp(20px, 3.5svh, 40px); }
+
+@media (max-width: 900px) {
+  .site-header { display: flex; gap: 12px; justify-content: space-between; }
+  .site-header .brand { width: 152px; height: var(--header-height); }
+  .site-header .brand img { width: 152px; }
+  .site-header .menu-toggle { margin-left: auto; }
+  .heroes .hero-explorer { max-width: 680px; gap: 20px; }
+  .heroes .class-tabs { gap: 6px; }
+  .play-copy { padding: 32px; }
+}
+@media (max-width: 600px) {
+  /* Phone: 1 gallery card, readable text; do not squeeze text to fit height. */
+  :root { --hero-internal-gap: 24px; }
+  .site-header.wrap { width: calc(100% - 40px); margin-inline:20px; }
+  .site-header .brand { width: 150px; }
+  .site-header .brand img { width: 150px; max-height: 56px; }
+  .heroes {
+    min-height: 0;
+    padding-top: 26px;
+    padding-bottom: calc(30px + var(--inter-section-gap));
+  }
+  .heroes h2 { font-size: clamp(27px, 7.6vw, 34px); }
+  .heroes .section-heading>p:last-child { font-size: 14px; line-height: 1.45; margin-top: 14px; }
+  .heroes .hero-explorer {
+    grid-template-columns: 1fr 1fr;
+    max-width: 360px;
+    margin: var(--hero-internal-gap) auto 0;
+    gap: 16px;
+  }
+  .heroes .card-stage {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    height: clamp(200px, calc(100svh - 525px), 320px);
+  }
+  .heroes .class-emblem { width: min(300px, 80vw); height: min(300px, 80vw); }
+  .heroes .class-tabs { margin-top: var(--hero-internal-gap); gap: 4px; }
+  .heroes .class-tabs button { padding: 0 1px 10px; font-size: 11px; }
+  .heroes .class-tabs .class-icon { width: 30px; height: 30px; }
+  .gameplay { min-height: 0; padding-top: 36px; padding-bottom: calc(28px + var(--inter-section-gap)); }
+  .gameplay h2 { font-size: clamp(27px, 7.6vw, 34px); }
+  .gameplay .section-heading>p:last-child { font-size: 14px; line-height: 1.45; margin-top: 14px; }
+  .gameplay .feature-grid { margin-top: 24px; }
+  .feature>div { padding: 16px 18px; }
+  .feature h3 { font-size: 16px; }
+  .feature p { font-size: 14px; }
+  .play-section { min-height: 0; padding-block: 42px; }
+  .play-panel { height: auto; min-height: 360px; max-height: none; }
+  .play-copy { padding: 30px 26px; }
+  .play-copy h2 { font-size: 32px; }
+  .footer-brand img { width: 178px; }
+}
+
+/* Short desktop viewport: a little more compact without touching Point 1. */
+@media (min-width: 601px) and (max-height: 720px) {
+  .heroes, .gameplay { padding-top: 14px; }
+  .heroes h2, .gameplay h2 { font-size: clamp(30px, 5.4svh, 42px); }
+  .heroes .section-heading>p:last-child,
+  .gameplay .section-heading>p:last-child { margin-top: 10px; }
+  :root { --hero-internal-gap: clamp(20px, 4svh, 30px); }
+  .heroes .card-stage {
+    height: clamp(175px, calc(100svh - var(--header-height) - 380px), 300px);
+  }
+  .heroes .class-tabs button { padding-bottom: 8px; }
+  .gameplay .feature-grid { margin-top: 12px; }
+  .play-section { padding-block: 30px; }
+}
+
+/* Keep actual visual separation measured from one content's END to the next
+   content's START. Do not use 100svh min-height here: it would add an extra
+   unmeasured blank on top of the standardized gap at large resolutions. */
+:root {
+  --game-entry-padding: clamp(16px, 2.7svh, 28px);
+  --play-entry-padding: clamp(28px, 4svh, 52px);
+}
+.heroes {
+  min-height: 0;
+  padding-bottom: calc(var(--inter-section-gap) - var(--game-entry-padding));
+}
+.gameplay {
+  min-height: 0;
+  padding-top: var(--game-entry-padding);
+  padding-bottom: calc(var(--inter-section-gap) - var(--play-entry-padding));
+}
+.play-section {
+  min-height: 0;
+  padding-top: var(--play-entry-padding);
+  padding-bottom: clamp(48px, 8svh, 96px);
+}
+@media (max-width: 600px) {
+  :root {
+    --game-entry-padding: 28px;
+    --play-entry-padding: 32px;
+  }
+  .heroes { min-height: 0; padding-bottom: calc(var(--inter-section-gap) - var(--game-entry-padding)); }
+  .gameplay { min-height: 0; padding-top: var(--game-entry-padding); padding-bottom: calc(var(--inter-section-gap) - var(--play-entry-padding)); }
+  .play-section { min-height: 0; padding-top: var(--play-entry-padding); padding-bottom: 48px; }
+}
+@media (min-width: 601px) and (max-height: 720px) {
+  :root { --game-entry-padding: 14px; --play-entry-padding: 30px; }
+}
+
+/* The sticky header must fully occlude previous sections; translucent header
+   let class labels / feature text ghost through above the active section. */
+.site-header::before,
+.site-header.is-scrolled::before {
+  background: #1e1e27;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+@media (max-width: 600px) {
+  /* Mobile header has 20px gutters, unlike the global 24px page gutter. */
+  .site-header::before { left: -20px; right: -20px; }
+}
+@media (max-width: 600px) {
+  /* Avoid the previous Class underline peeking out just below the sticky
+     header when landing on the Gameplay dot. */
+  :root { --dot-landing-gap: 8px; }
+}
+
+
+/* Grandis Legacy Homepage v2.3.14 - section navigation boundaries.
+   The selected section's divider sits flush below the sticky header. Each
+   following section starts with its own comfortable space beneath the line.
+   The section body fills at least one remaining viewport, preventing the
+   NEXT heading or the footer from entering the current dot's landing view.
+   All measured heights are minimums: short screens can still scroll. */
+:root {
+  --nav-viewport-guard:clamp(20px,2.8svh,30px);
+}
+html { scroll-padding-top:var(--header-height); }
+#heroes,#gameplay,#play {scroll-margin-top:0;position:relative;}
+/* The line formerly lived on HOME's bottom. Move it to Heroes's actual
+   landing edge so it is visible immediately beneath the fixed header. */
+.hero { border-bottom:0; }
+#heroes::before,#gameplay::before,#play::before {
+  content:"";
+  position:absolute;
+  top:0;
+  left:50%;
+  transform:translateX(-50%);
+  width:calc(100vw - 48px);
+  height:1px;
+  background:#393941;
+  pointer-events:none;
+}
+
+/* P2 / Heroes: restore a slightly larger card and class icon, with generous
+   balanced spacing between introduction > card > class picker. */
+.heroes {
+  min-height:calc(var(--content-height) + var(--nav-viewport-guard));
+  padding-top:clamp(32px,5svh,48px);
+  padding-bottom:clamp(34px,5svh,56px);
+}
+.heroes .hero-explorer {
+  margin-top:clamp(40px,5.8svh,52px);
+}
+.heroes .card-stage {
+  height:clamp(230px,calc(100svh - var(--header-height) - 365px),360px);
+}
+.heroes .class-tabs {
+  margin-top:clamp(40px,5.8svh,52px);
+}
+.heroes .class-tabs .class-icon {
+  width:clamp(34px,min(2.65vw,5.6svh),42px);
+  height:clamp(34px,min(2.65vw,5.6svh),42px);
+}
+
+/* P3 / Gameplay: keep content at the top of the dot view but give the
+   boundary line its own breathing room. Keep card fitting algorithm intact. */
+.gameplay {
+  min-height:calc(var(--content-height) + var(--nav-viewport-guard));
+  padding-top:clamp(32px,5svh,48px);
+  padding-bottom:clamp(36px,5.2svh,56px);
+}
+.gameplay .feature-grid {margin-top:clamp(15px,2.6svh,28px);}
+
+/* P4 / Play: a slightly taller panel, optically balanced inside the landing
+   viewport. Footer begins only AFTER the screen, never during dot 4. */
+.play-section {
+  min-height:calc(var(--content-height) + var(--nav-viewport-guard));
+  padding-top:clamp(42px,6svh,64px);
+  padding-bottom:clamp(72px,10svh,112px);
+  align-items:center;
+  justify-content:center;
+}
+.play-panel {
+  height:clamp(370px,calc((100svh - var(--header-height)) * .75),492px);
+  max-height:492px;
+  min-height:0;
+}
+
+@media (min-width:601px) and (max-height:720px) {
+  .heroes {padding-top:clamp(26px,4.5svh,38px);padding-bottom:34px;}
+  .heroes .hero-explorer {margin-top:clamp(30px,5.6svh,40px);}
+  .heroes .card-stage {height:clamp(215px,calc(100svh - var(--header-height) - 365px),300px);}
+  .heroes .class-tabs {margin-top:clamp(30px,5.6svh,40px);}
+  .gameplay {padding-top:clamp(28px,4.5svh,40px);padding-bottom:32px;}
+  .gameplay .feature-grid {margin-top:clamp(12px,2.2svh,22px);}
+  .play-section {padding-top:36px;padding-bottom:72px;}
+  .play-panel {height:clamp(340px,calc((100svh - var(--header-height)) * .75),492px);}
+}
+@media (max-width:600px) {
+  :root {--nav-viewport-guard:20px;}
+  #heroes::before,#gameplay::before,#play::before {width:calc(100vw - 40px);}
+  .heroes {
+    min-height:calc(var(--content-height) + var(--nav-viewport-guard));
+    padding-top:clamp(30px,4.5svh,40px);
+    padding-bottom:36px;
+  }
+  .heroes .hero-explorer {margin-top:clamp(22px,3.5svh,32px);}
+  .heroes .card-stage {height:clamp(215px,calc(100svh - 518px),320px);}
+  .heroes .class-tabs {margin-top:clamp(24px,3.5svh,36px);}
+  .heroes .class-tabs .class-icon {width:32px;height:32px;}
+  .gameplay {
+    min-height:calc(var(--content-height) + var(--nav-viewport-guard));
+    padding-top:clamp(30px,4.5svh,40px);
+    padding-bottom:40px;
+  }
+  .gameplay .feature-grid {margin-top:24px;}
+  .play-section {
+    min-height:calc(var(--content-height) + var(--nav-viewport-guard));
+    padding-top:40px;
+    padding-bottom:72px;
+  }
+  .play-panel {height:auto;min-height:360px;max-height:none;}
+}
+/* Medium-height desktop: reserve a visible bottom margin under the Class
+   underline instead of letting it touch the viewport edge at 750px high. */
+@media (min-width:601px) and (min-height:721px) and (max-height:850px) {
+  .heroes .hero-explorer {margin-top:clamp(34px,5svh,42px);}
+  .heroes .class-tabs {margin-top:clamp(34px,5svh,42px);}
+}

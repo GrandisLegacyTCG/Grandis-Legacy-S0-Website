@@ -2349,24 +2349,10 @@ html.gl-mobile-landscape-lobby .gl-lobby-picker select{
 @media(max-width:620px){.gl-counter-banner.is-card-art{padding:8px;max-width:96vw}.gl-public-card-art{width:clamp(50px,14vw,75px)}.gl-counter-chain-card{flex:0 0 auto;width:clamp(49px,16vw,83px);padding:2px}.gl-counter-chain-card .gl-public-card-art{width:100%}.gl-result-actions{flex-wrap:wrap}.gl-result-countdown{width:100%;text-align:left}}
 
 
-/* RC40 mobile UI package (M01-M03). Desktop presentation is unchanged. */
-.gl-lobby-mobile-actions{display:none}
-.gl-lobby-mobile-menu[hidden]{display:none!important}
+/* Mobile Discard Pile: the first tap arms the pile; second tap opens it.
+   Old per-deck hamburger selectors were retired in RC41 (one global Lobby menu). */
 .gl-discard-tap-armed{outline:2px solid #f4d35e!important;outline-offset:2px!important;box-shadow:0 0 12px rgba(244,211,94,.62)!important}
-@media (pointer:coarse) and (max-width:1350px){
-  html.gl-mobile-landscape-lobby .gl-lobby-deck{position:relative!important;overflow:visible!important}
-  html.gl-mobile-landscape-lobby .gl-lobby-deck>header{position:relative!important;display:flex!important;align-items:center!important;gap:10px!important}
-  html.gl-mobile-landscape-lobby .gl-lobby-deck>header h2{flex:1 1 auto!important;min-width:0!important}
-  html.gl-mobile-landscape-lobby .gl-lobby-valid{flex:0 0 auto!important}
-  html.gl-mobile-landscape-lobby .gl-lobby-mobile-actions{position:relative;display:block;flex:0 0 36px;order:1;z-index:310}
-  html.gl-mobile-landscape-lobby .gl-lobby-deck>header .gl-lobby-valid{order:2}
-  html.gl-mobile-landscape-lobby .gl-lobby-menu-toggle{display:grid!important;place-items:center!important;width:36px!important;height:34px!important;border:1px solid #bda154!important;border-radius:8px!important;background:#122334!important;color:#ffda83!important;cursor:pointer;font-size:24px!important;line-height:1!important;padding:0!important}
-  html.gl-mobile-landscape-lobby .gl-lobby-menu-toggle[aria-expanded="true"]{background:#413820!important}
-  html.gl-mobile-landscape-lobby .gl-lobby-mobile-menu{position:absolute!important;right:0!important;top:40px!important;width:156px!important;padding:7px!important;display:flex;flex-direction:column;gap:5px;border:1px solid #bda154;border-radius:9px;background:#0b1b2b;box-shadow:0 12px 32px #000d;z-index:320}
-  html.gl-mobile-landscape-lobby .gl-lobby-mobile-menu button{display:block;width:100%;padding:10px 7px;border:1px solid #38556e;border-radius:6px;background:#152b40;color:#f6e4ad;font-size:13px;font-weight:800;white-space:nowrap;text-align:left;cursor:pointer}
-  html.gl-mobile-landscape-lobby .gl-lobby-picker{grid-template-columns:minmax(0,1fr)!important}
-  html.gl-mobile-landscape-lobby .gl-lobby-desktop-import{display:none!important}
-}
+
 /* M02: gameplay uses a 1600 x 747 logical landscape canvas on phones. Its
    fixed-to-viewport portals must use the very same transform; otherwise they
    remain portrait while the battlefield has been rotated. Lobby/Coin retain
@@ -2503,3 +2489,48 @@ html.gl-mobile-gameplay-stage:not(.gl-mobile-landscape-stage) .gl-counter-chain-
     .gl-turn-banner.show,.gl-counter-banner.show,.gl-counter-chain-banner.show
   ){animation:none!important;opacity:1!important}
 }
+
+/* ========================================================================== */
+/* RC41 M01: SINGLE mobile Lobby top-right navigation. No per-deck hamburgers. */
+.gl-lobby-global-nav{display:none;position:relative;margin-left:auto;z-index:355}
+.gl-lobby-global-menu[hidden]{display:none!important}
+@media (pointer:coarse) and (max-width:1350px){
+  html.gl-mobile-landscape-lobby .gl-lobby-global-nav{display:block!important}
+  html.gl-mobile-landscape-lobby .gl-lobby-global-toggle{
+    width:40px;height:36px;display:grid;place-items:center;border:1px solid #d0ad53;
+    background:#122638;color:#ffe091;border-radius:8px;font-size:23px;line-height:1;cursor:pointer;
+  }
+  html.gl-mobile-landscape-lobby .gl-lobby-global-menu:not([hidden]){
+    display:flex!important;position:absolute;right:0;top:43px;min-width:210px;
+    flex-direction:column;gap:6px;padding:10px;background:#091a2b;
+    border:1px solid #cfaa50;border-radius:10px;box-shadow:0 16px 30px #000a;z-index:356;
+  }
+  html.gl-mobile-landscape-lobby .gl-lobby-global-menu a{
+    display:block;text-decoration:none;white-space:nowrap;padding:10px 12px;
+    color:#ffdfa0;background:#152b40;border:1px solid #3e5667;border-radius:7px;font-size:13px;font-weight:800;
+  }
+  html.gl-mobile-landscape-lobby .gl-lobby-picker{grid-template-columns:minmax(0,1fr) 122px!important}
+  html.gl-mobile-landscape-lobby .gl-lobby-desktop-import{display:block!important}
+}
+/* RC41 N08: all card previews use the SAME Hero preview footprint, anchored
+   once to lower-right of the rotated, 1600x747 logical gameplay battlefield.
+   5px bottom aligns with Surrender button baseline (sidebar bottom padding).
+   Desktop, unrotated landscape and popup interiors are intentionally unchanged. */
+html.gl-mobile-gameplay-stage:not(.gl-mobile-landscape-stage) :is(
+ .gl-battlefield-hover-preview.open,.gl-sidebar-hover-preview.open,.gl-modal-hover-preview.open
+){display:block!important;align-items:unset!important;justify-content:unset!important}
+html.gl-mobile-gameplay-stage:not(.gl-mobile-landscape-stage) :is(
+ .gl-battlefield-hover-preview.open,.gl-sidebar-hover-preview.open,.gl-modal-hover-preview.open
+) img{
+  position:absolute!important;width:248px!important;height:347px!important;
+  right:calc(15% + 18px)!important;bottom:5px!important;left:auto!important;top:auto!important;
+  max-width:none!important;max-height:none!important;object-fit:contain!important;
+  border-radius:9px!important;transform:none!important;
+}
+/* RC41 N04: public Search/Return-to-Hand results in Card Played history. */
+.played-public-pickups{margin-top:12px;padding:10px;border:1px solid #32546b;border-radius:10px;background:#0a1a28}
+.played-public-pickups>strong{display:block;margin-bottom:8px;font-size:12px;color:#f5d57a}
+.played-public-pickups-art{display:flex;flex-wrap:wrap;gap:9px}
+.played-public-pickup{width:104px;flex:0 0 104px;text-align:center}
+.played-public-pickup img{display:block;width:104px;height:auto;aspect-ratio:320/448;object-fit:contain;border:1px solid #638197;border-radius:7px}
+.played-public-pickup small{display:block;margin-top:5px;font-size:9px;line-height:1.25;color:#d7e5ef;overflow-wrap:anywhere}

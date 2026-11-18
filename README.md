@@ -1,49 +1,32 @@
-# GRANDIS LEGACY - SEASON 0 OFFICIAL WEBSITE
+# GRANDIS LEGACY — SEASON 0 OFFICIAL WEBSITE
 
-Complete deployable Website repository snapshot (17 November 2026).
+Integrated deployable GitHub Pages website, 18 November 2026.
 
 ## Deployment
-
-- GitHub repository: `GrandisLegacyTCG/Grandis-Legacy-Website`
-- Branch: `main`
-- GitHub Pages: Deploy from branch, `main` / `(root)`
-- Custom domain: `grandislegacytcg.web.id`
-- `CNAME`, `.nojekyll`, and `index.html` are at repository root.
+- Repository: `GrandisLegacyTCG/Grandis-Legacy-Website`
+- Baseline: GitHub `main` SHA `af9f0815aa50bffabfc1cc5d9c26250e984a7b71`
+- Branch/root: `main` / `(root)`; retain `CNAME` and `.nojekyll`.
+- Domain: `grandislegacytcg.web.id`.
 
 ## Routes
+| Route | Application / source |
+|---|---|
+| `/` | Homepage standalone v2.3.14 (18 November 2026) |
+| `/rulebook/` | Player Rulebook v3.4 latest PDF/HTML supplied 18 November 2026 |
+| `/vs-ai/` | VS AI Season 0 RC41, Main/Legacy R3.9 |
+| `/deck-builder/` | Deck Builder v1.67 (Style 1), Main/Legacy R3.9 |
+| `/deck-builder/style-2/` | Deck Builder v1.67 (Style 2), Main/Legacy R3.9 |
+| `/card-art/` | 248 shared artwork assets, 242 R3.9 DB/VS AI card images matched |
+| `/pvp/` | Existing website PvP, **unchanged byte-for-byte from GitHub main** |
 
-| Route | Application |
-| --- | --- |
-| `/` | Official Homepage (Design v2.3.7) |
-| `/vs-ai/` | VS AI Season 0 RC40 |
-| `/deck-builder/` | Deck Builder v1.66 Style 1, Main Deck R3.85 |
-| `/deck-builder/style-2/` | Deck Builder v1.66 Style 2, Main Deck R3.85 |
-| `/pvp/` | PvP Season 0 RC40 frontend |
-| `/card-art/` | 248 shared WebP assets |
-| `/rulebook/` | Player Rulebook v3.4 online + downloadable PDF |
+## Source synchronization / separation of responsibilities
+Step 1: Homepage and Rulebook from the v2.3.14 standalone archive. Includes the revised 15-page original Rulebook PDF.
+Step 2: VS AI RC41 shared runtime/engine/starter sets, the RC41 print overlay, Deck Builder v1.67 both styles, and R3.9 shared artwork. A website-only adapter keeps VS AI under `/vs-ai/` and Deck Builder artwork under `/card-art/`.
 
-## Integration baseline and scope
+The PvP directory is strictly managed by the separate PvP development workflow. This snapshot preserves all 218 PvP files exactly as in GitHub main (including `pvp/config.js`). **The current GitHub PvP `vsAiUrl` still points to `/`; ask the PvP maintainer to update it to `/vs-ai/` as a separate change.** No other PvP change was made.
 
-Source Website baseline: `Grandis_Legacy_Season0_VSAI_RC40_DB166_PvP_RC40_Patch32_WEBSITE_ONE_UPLOAD_2026-11-15.zip`,
-original Website repository GitHub commit `e1c17bd9d346794e8c0c5fb74c742cdbbf8440a4` (700 files).
-The Homepage + VS AI route + Deck Builder v1.66 / R3.85 + Rulebook v3.4
-are integrated from the approved November 17 patch.
+## Upload
+The full ZIP is a snapshot with repository-root files (no wrapper directory). Upload/commit/push are performed **manually by the project owner**, not by ChatGPT. Do not delete existing .git metadata. After deployment verify website routes, Rulebook PDF, RC41 match flow, and both Deck Builder styles.
 
-The PvP folder uses the later complete `Grandis_Legacy_Website_PVP_FOLDER_RC40_V34_Mobile_2026-11-17_READY_UPLOAD.zip`
-(218 files) in preference to any older PvP asset set. Compared with the GitHub
-baseline, 8 PvP files had already changed in that later approved PvP source.
-The only additional PvP edit made by this Website integration is the AI Lobby
-navigation target in `pvp/config.js`, from `/` to `/vs-ai/`.
-PvP gameplay engine, WebSocket target and server are not modified by this integration.
-If strict GitHub PvP parity is required rather than that newer PvP source, review
-these 8 newer-source files before upload (see external audit).
-
-## Important
-
-This archive contains the actual website content and assets, not merely a patch.
-Extract its top-level files directly into the repository root; there is **no
-extra wrapper folder**. Use manual GitHub Desktop or Git upload, then verify
-GitHub Pages. Existing repository history and branch/settings are not included
-in a ZIP snapshot and are maintained by GitHub itself.
-
-No commit, push, or deployment was performed by ChatGPT.
+## Scope exclusions
+No PvP, Northflank, server, or networking modifications. No duplicate-asset deletion/optimization in this update. No standalone VS AI or Deck Builder historical source/test archives added to the static website.

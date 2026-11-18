@@ -22,3 +22,16 @@ table{table-layout:fixed}table.columns-2 th,table.columns-2 td{width:50%}th,td{t
 
 /* Keep equal halves without a central divider. */
 .split-callout>div+div{border-left:0}
+
+/* v3.4: updated 13-chapter navigation, image captions and flexible three-column deck table */
+.rule-illustration{max-width:880px;margin:28px auto;overflow:hidden;border-radius:12px;border:1px solid #424250;background:#16161c}
+.rule-illustration img{display:block;width:100%;height:auto}
+.rule-illustration.position-illustration{max-width:530px;background:#fff;padding:14px}
+.chapter .split-callout>div{padding:22px 24px}
+.chapter .split-callout h3{line-height:1.35}
+#chapter-3 table:not(.columns-2){table-layout:auto}
+#chapter-3 table:not(.columns-2) th:first-child,#chapter-3 table:not(.columns-2) td:first-child{width:18%}
+#chapter-3 table:not(.columns-2) th:nth-child(2),#chapter-3 table:not(.columns-2) td:nth-child(2){width:46%}
+#chapter-3 table:not(.columns-2) th:nth-child(3),#chapter-3 table:not(.columns-2) td:nth-child(3){width:36%}
+.chapter ol{padding-left:24px}.chapter ol li{padding-left:6px;margin-bottom:9px}
+@media(max-width:670px){.rule-illustration.position-illustration{padding:4px}.chapter .split-callout{grid-template-columns:1fr}.chapter .split-callout>div{padding:20px}.chapter .split-callout>div+div{border-top:1px solid #414151}#chapter-3 table:not(.columns-2){min-width:620px}}

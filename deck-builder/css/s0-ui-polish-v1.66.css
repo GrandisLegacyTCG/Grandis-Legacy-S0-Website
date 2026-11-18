@@ -288,3 +288,137 @@
     overflow-anchor: none;
   }
 }
+
+/* v1.67: make the LEFT/CENTER/RIGHT caption block fill the available Hero slot
+   on browsers with different grid/min-content sizing implementations. */
+.formation-slot > .formation-position {
+  display: grid !important;
+  place-items: center !important;
+  box-sizing: border-box !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+}
+
+
+/* Grandis Legacy Deck Builder v1.67 - Legacy layout hotfix (2026-11-18)
+   Style 1 only. No card data, deck validation, or selection logic changes. */
+
+/* LEFT / CENTER / RIGHT used to be 42px high. Keep the full-width dark
+   caption from v1.67, but remove roughly one third of its vertical space. */
+.formation-slot > .formation-position {
+  height: 28px !important;
+  min-height: 28px !important;
+  max-height: 28px !important;
+  margin-top: 7px !important;
+  width: 100% !important;
+  display: grid !important;
+  place-items: center !important;
+}
+
+/* An empty Legacy slot should retain the same outer frame, dimensions,
+   and top alignment as an occupied slot. Only the card stage is dashed,
+   like the empty Legacy stages in Style 2. */
+#legacySlotsGrid > .legacy-slot.empty,
+#legacySlotsGrid > .legacy-slot.empty-choice {
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: flex-start !important;
+  align-items: stretch !important;
+  place-items: initial !important;
+  border-style: solid !important;
+  border-color: #444651 !important;
+  background: #292a33 !important;
+  /* Reserve the height of the filled selector without drawing a bottom bar. */
+  padding: 10px 10px 60px !important;
+}
+
+#legacySlotsGrid .legacy-slot.empty .legacy-empty-card,
+#legacySlotsGrid .legacy-slot.empty-choice .legacy-card-placeholder {
+  box-sizing: border-box;
+  display: grid !important;
+  place-items: center !important;
+  width: 100% !important;
+  aspect-ratio: 5 / 7;
+  margin: 0 !important;
+  padding: 14px !important;
+  flex: 0 0 auto;
+  border: 1px dashed #4c4f5c !important;
+  border-radius: 8px !important;
+  background: #0d0f14 !important;
+  color: #9296a2 !important;
+  text-align: center !important;
+  font-size: 11px !important;
+  line-height: 1.5 !important;
+}
+
+/* When a Hero exists but its Legacy hasn't been chosen, the native selector
+   remains operable by clicking the empty artwork area. Its bottom caption is
+   invisible until a Legacy is actually present. Drag/drop also still works. */
+#legacySlotsGrid > .legacy-slot.empty-choice { position: relative !important; }
+#legacySlotsGrid > .legacy-slot.empty-choice .legacy-select-wrap {
+  position: absolute !important;
+  top: 10px !important;
+  left: 10px !important;
+  right: 10px !important;
+  width: auto !important;
+  height: auto !important;
+  min-height: 0 !important;
+  aspect-ratio: 5 / 7;
+  margin: 0 !important;
+  padding: 0 !important;
+  opacity: 0 !important;
+  z-index: 2;
+  cursor: pointer;
+}
+#legacySlotsGrid > .legacy-slot.empty-choice .legacy-slot-select {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  cursor: pointer;
+}
+#legacySlotsGrid > .legacy-slot.empty-choice:focus-within .legacy-card-placeholder {
+  outline: 2px solid var(--blue);
+  outline-offset: -2px;
+}
+
+
+/* v1.67 - caption sizing hotfix (2026-11-18)
+   Keep this after earlier 42px/34px alignment rules. Style 1 only shortens
+   the visible Legacy dropdown; its no-Legacy overlay remains full-card clickable.
+   Empty frames reserve the new footer height to keep their outer bottoms aligned. */
+#legacySlotsGrid > .legacy-slot:not(.empty-choice) .legacy-select-wrap,
+#legacySlotsGrid > .legacy-slot:not(.empty-choice) .legacy-slot-select {
+  box-sizing: border-box !important;
+  height: 30px !important;
+  min-height: 30px !important;
+  max-height: 30px !important;
+}
+#legacySlotsGrid > .legacy-slot.empty,
+#legacySlotsGrid > .legacy-slot.empty-choice {
+  padding-bottom: 48px !important;
+}
+
+/* Style 2: LEFT/CENTER/RIGHT is visually 2px shorter than the existing
+   Legacy dropdown at each breakpoint (34/31/32px). No dropdown changes. */
+@media (min-width: 761px) {
+  .legacy-view .hero-slot .position-label {
+    height: 32px !important;
+    min-height: 32px !important;
+    max-height: 32px !important;
+  }
+}
+@media (min-width: 761px) and (max-height: 760px) {
+  .legacy-view .hero-slot .position-label {
+    height: 29px !important;
+    min-height: 29px !important;
+    max-height: 29px !important;
+  }
+}
+@media (max-width: 760px) {
+  .legacy-view .hero-slot .position-label {
+    height: 30px !important;
+    min-height: 30px !important;
+    max-height: 30px !important;
+  }
+}

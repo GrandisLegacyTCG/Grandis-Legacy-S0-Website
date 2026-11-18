@@ -25,5 +25,5 @@
   function mount(el,cardId,progressionIds){var c=getCard(cardId);if(!el||!c)return false;el.innerHTML='';var frame=g.document.createElement('iframe');frame.className='gl-db158-review-frame';frame.style.colorScheme='light';frame.setAttribute('title',c.name+' — Deck Builder v1.66 card review');frame.setAttribute('loading','eager');frame.setAttribute('scrolling',Array.isArray(progressionIds)&&progressionIds.length?'auto':'no');frame.setAttribute('aria-label',c.name+' card review');frame.srcdoc=documentHtml(c,progressionIds);el.appendChild(frame);return true;}
   function warmStyles(){if(g.__GL_REVIEW_STYLES_PREWARMED)return;g.__GL_REVIEW_STYLES_PREWARMED=true;files.forEach(function(file){var link=g.document.createElement('link');link.rel='preload';link.as='style';link.href='assets/review-db158/css/'+file;g.document.head.appendChild(link);});}
   if(g.document.readyState==='loading')g.document.addEventListener('DOMContentLoaded',function(){setTimeout(warmStyles,300);},{once:true});else setTimeout(warmStyles,300);
-  g.GL_DB158_REVIEW={mount:mount,getCard:getCard,documentHtml:documentHtml,source:'Main Deck R3.8 / Legacy Deck R3.7',view:'Deck Builder v1.66',heroFooter:'lobby-only'};
+  g.GL_DB158_REVIEW={mount:mount,getCard:getCard,documentHtml:documentHtml,source:'Main Deck R3.9 / Legacy Deck R3.9',view:'Deck Builder v1.67',heroFooter:'lobby-only'};
 })(window);

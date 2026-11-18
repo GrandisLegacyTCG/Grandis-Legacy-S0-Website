@@ -476,7 +476,7 @@ function renderLegacyDeck(){
     if(!progression)return `<article class="legacy-slot empty" data-legacy-drop-slot="${index}"><div class="legacy-empty-card">Select a Hero first</div><div class="legacy-position-label">${POSITIONS[index]}</div></article>`;
     const choices=state.legacyCards.filter(candidate=>candidate.family==='LegacyModeDefinition'&&candidate.classGroup===progression.baseClass).sort(idSort);
     const options=[`<option value="" disabled ${card?'':'selected'}>Choose Legacy</option>`,...choices.map(candidate=>{const usedElsewhere=state.slots.some((other,otherIndex)=>otherIndex!==index&&other.legacyId===candidate.id);return `<option value="${candidate.id}" ${candidate.id===slot.legacyId?'selected':''} ${usedElsewhere?'disabled':''}>${esc(candidate.name)}</option>`})].join('');
-    const visual=card?`<div class="deck-card-visual"><div class="legacy-card-button"><img src="${card.image}" alt="${esc(card.name)}"></div><button class="deck-review-button" type="button" data-review-id="${card.id}" aria-label="Review ${esc(card.name)}"><img src="assets/ui/expand.png" alt=""></button></div>`:`<div class="legacy-card-placeholder">Drag a ${esc(progression.baseClass)} Legacy here</div>`;
+    const visual=card?`<div class="deck-card-visual"><div class="legacy-card-button"><img src="${card.image}" alt="${esc(card.name)}"></div><button class="deck-review-button" type="button" data-review-id="${card.id}" aria-label="Review ${esc(card.name)}"><img src="assets/ui/expand.png" alt=""></button></div>`:`<div class="legacy-card-placeholder">Click to choose or drag a ${esc(progression.baseClass)} Legacy</div>`;
     return `<article class="legacy-slot ${card?'':'empty-choice'}" data-legacy-drop-slot="${index}">${visual}<label class="legacy-select-wrap"><select class="legacy-slot-select" data-legacy-select-slot="${index}" aria-label="Choose ${esc(progression.baseClass)} Legacy">${options}</select></label><div class="legacy-position-label">${POSITIONS[index]}</div></article>`;
   }).join('');
   document.querySelectorAll('[data-legacy-select-slot]').forEach(select=>select.addEventListener('change',()=>{const id=select.value;if(id)assignLegacyToSlot(id,Number(select.dataset.legacySelectSlot))}));
@@ -992,7 +992,7 @@ function s0Validation(){
 function s0Export(style){
  const deck=s0Draft(),validation=s0Validation(),name=$('deckName').value.trim()||'New Deck';
  return {schema:'GL-SEASON0-DECK-DRAFT-1',schema_version:'GL-SEASON0-DECK-DRAFT-1',
-  source_authority:'R3.85-MainDeck_R3.7-LegacyDeck-PlayerRulebook-v3.4',rulebook:'v3.4',season:'S0',builder_version:'1.66',style,
+  source_authority:'R3.9-MainDeck_R3.9-LegacyDeck-PlayerRulebook-v3.4',rulebook:'v3.4',season:'S0',builder_version:'1.67',style,
   exported_at:new Date().toISOString(),name,deck_name:name,
   deck,validation,is_valid:validation.ok,validation_issues:validation.errors,validation_warnings:validation.warnings,
   main_deck:deck.main_deck,shard_deck:deck.shard_deck,

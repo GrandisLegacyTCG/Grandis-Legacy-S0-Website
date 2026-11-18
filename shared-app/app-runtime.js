@@ -60,7 +60,7 @@ const counterBanner=document.createElement('div');counterBanner.className='gl-co
 const counterChainBanner=document.createElement('div');counterChainBanner.className='gl-counter-chain-banner';counterChainBanner.setAttribute('role','status');counterChainBanner.setAttribute('aria-live','polite');counterChainBanner.setAttribute('aria-atomic','true');document.body.appendChild(counterChainBanner);
 const shownCompletedCounterChains=new Set();let currentCounterChainId='',counterChainRenderedSig='',counterChainHoldTimer=null;
 const seenCounterMessages=new Set(),seenRacialMessages=new Set(),seenManaLossMessages=new Set(),seenDiscardMessages=new Set(),presentationNoticeQueue=[];let counterBannerTimer=null,presentationNoticeActive=false;
-const lobbyOverlay=document.createElement('div');lobbyOverlay.className='gl-lobby-overlay';lobbyOverlay.innerHTML='<section class="gl-lobby-panel" role="dialog" aria-modal="true" aria-labelledby="glLobbyTitle"><header class="gl-lobby-head"><a class="gl-lobby-home" href="./" aria-label="Grandis Legacy home"><img class="gl-lobby-logo" src="engine/assets/lobby/grandis-legacy-logo.webp" alt="Grandis Legacy"></a><h1 id="glLobbyTitle">VS AI LOBBY</h1><nav class="gl-lobby-app-actions" aria-label="Grandis Legacy applications"><a class="gl-lobby-app-link" href="deck-builder/">GO TO DECK BUILDER</a><a class="gl-lobby-app-link gl-lobby-app-link--pvp" href="https://grandislegacytcg.web.id/pvp/">GO TO PVP</a></nav></header><div class="gl-lobby-error" id="glLobbyError"></div><div class="gl-lobby-decks" id="glLobbyDecks"></div><footer class="gl-lobby-foot"><div class="gl-lobby-difficulties" role="group" aria-label="Opponent level"><button type="button" class="gl-lobby-difficulty" data-gl-ai-diff="beginner">Beginner</button><button type="button" class="gl-lobby-difficulty" data-gl-ai-diff="intermediate">Intermediate</button></div><button type="button" class="gl-lobby-start" id="glLobbyStart">Start Match</button></footer></section>';document.body.appendChild(lobbyOverlay);
+const lobbyOverlay=document.createElement('div');lobbyOverlay.className='gl-lobby-overlay';lobbyOverlay.innerHTML='<section class="gl-lobby-panel" role="dialog" aria-modal="true" aria-labelledby="glLobbyTitle"><header class="gl-lobby-head"><img class="gl-lobby-logo" src="engine/assets/lobby/grandis-legacy-logo.webp" alt="Grandis Legacy"><h1 id="glLobbyTitle">VS AI LOBBY</h1><nav class="gl-lobby-global-nav" aria-label="Other games"><button type="button" id="glLobbyGlobalToggle" class="gl-lobby-global-toggle" aria-expanded="false" aria-controls="glLobbyGlobalMenu" aria-label="Open navigation menu">&#9776;</button><div id="glLobbyGlobalMenu" class="gl-lobby-global-menu" hidden><a href="../deck-builder/">Go to Deck Builder</a><a href="../pvp/">Go to PvP</a></div></nav></header><div class="gl-lobby-error" id="glLobbyError"></div><div class="gl-lobby-decks" id="glLobbyDecks"></div><footer class="gl-lobby-foot"><div class="gl-lobby-difficulties" role="group" aria-label="Opponent level"><button type="button" class="gl-lobby-difficulty" data-gl-ai-diff="beginner">Beginner</button><button type="button" class="gl-lobby-difficulty" data-gl-ai-diff="intermediate">Intermediate</button></div><button type="button" class="gl-lobby-start" id="glLobbyStart">Start Match</button></footer></section>';document.body.appendChild(lobbyOverlay);
 const coinOverlay=document.createElement('div');coinOverlay.className='gl-coin-overlay';coinOverlay.innerHTML='<section class="gl-coin-card" role="dialog" aria-modal="true" aria-label="Coin flip"><div class="gl-coin-body"></div></section>';document.body.appendChild(coinOverlay);
 const progressionOverlay=document.createElement('div');progressionOverlay.className='gl-progression-overlay';progressionOverlay.innerHTML='<section class="gl-progression-card" role="dialog" aria-modal="true" aria-labelledby="glProgressionTitle"><header><div><span>HERO PROGRESSION</span><h2 id="glProgressionTitle">Hero Progression</h2></div><button type="button" class="gl-progression-close">Close</button></header><div class="gl-progression-row"></div><p>Select a Rank card to open Card Review.</p></section>';document.body.appendChild(progressionOverlay);
 const resultOverlay=document.createElement('div');resultOverlay.className='gl-result-overlay';resultOverlay.innerHTML='<section class="gl-result-card" role="dialog" aria-modal="true" aria-labelledby="glResultTitle"><header><span>GAME RESULT</span><h2 id="glResultTitle">Match Complete</h2></header><div class="gl-result-body"></div></section>';document.body.appendChild(resultOverlay);
@@ -799,16 +799,24 @@ function deckFormationHtml(side){
   laneOrder.forEach((lane,index)=>{const row=view.lanes?.[lane]||{},id=row.previewId||row.rankOneId||'',v=cv(id),r1=row.rankOneId||id;parts.push('<article class="gl-lobby-hero"><button type="button" data-lobby-progression-side="'+esc(side)+'" data-lobby-progression="'+esc(r1)+'" aria-label="View '+esc(lane)+' Hero Progression">'+(id?'<img src="'+art(id)+'" alt="'+esc(v?.name||id)+'">':'<span class="gl-lobby-hero-empty">—</span>')+'</button><small>'+(lane.charAt(0)+lane.slice(1).toLowerCase())+'</small></article>');if(index<laneOrder.length-1){const next=laneOrder[index+1];parts.push('<button class="gl-lobby-swap" type="button" data-lobby-swap-side="'+esc(side)+'" data-lobby-swap-left="'+lane+'" data-lobby-swap-right="'+next+'" aria-label="Swap '+lane+' and '+next+'"><img src="engine/assets/lobby/Swap.png" alt="" aria-hidden="true"></button>')}});
   return '<div class="gl-lobby-formation">'+parts.join('')+'</div><div class="gl-lobby-rank-control" data-lobby-rank-side="'+esc(side)+'"><button type="button" data-lobby-rank-delta="-1" data-lobby-rank-side="'+esc(side)+'" aria-label="Previous rank">‹</button><strong>RANK '+['I','II','III'][Math.max(1,Math.min(3,Number(view.rank||1)))-1]+'</strong><button type="button" data-lobby-rank-delta="1" data-lobby-rank-side="'+esc(side)+'" aria-label="Next rank">›</button></div>';
 }
-// Dismiss mobile deck menus without changing the existing Lobby controls.
+// RC41 M01: one mobile Lobby navigation menu, not one menu per Deck.
+const lobbyGlobalToggle=document.getElementById('glLobbyGlobalToggle');
+const lobbyGlobalMenu=document.getElementById('glLobbyGlobalMenu');
+function closeGlobalLobbyMenu(){
+  if(lobbyGlobalMenu)lobbyGlobalMenu.hidden=true;
+  lobbyGlobalToggle?.setAttribute('aria-expanded','false');
+}
+lobbyGlobalToggle?.addEventListener('click',event=>{
+  event.stopPropagation();
+  const show=lobbyGlobalMenu.hidden;
+  lobbyGlobalMenu.hidden=!show;
+  lobbyGlobalToggle.setAttribute('aria-expanded',show?'true':'false');
+});
 lobbyOverlay.addEventListener('click',event=>{
-  if(event.target.closest('.gl-lobby-mobile-actions'))return;
-  lobbyOverlay.querySelectorAll('.gl-lobby-mobile-menu').forEach(menu=>menu.hidden=true);
-  lobbyOverlay.querySelectorAll('[data-lobby-menu-toggle]').forEach(btn=>btn.setAttribute('aria-expanded','false'));
+  if(!event.target.closest('.gl-lobby-global-nav'))closeGlobalLobbyMenu();
 });
 lobbyOverlay.addEventListener('keydown',event=>{
-  if(event.key!=='Escape')return;
-  lobbyOverlay.querySelectorAll('.gl-lobby-mobile-menu').forEach(menu=>menu.hidden=true);
-  lobbyOverlay.querySelectorAll('[data-lobby-menu-toggle]').forEach(btn=>btn.setAttribute('aria-expanded','false'));
+  if(event.key==='Escape')closeGlobalLobbyMenu();
 });
 function renderLobby(){
   syncS0MusicForGameState();
@@ -816,31 +824,12 @@ function renderLobby(){
   lobbyOverlay.classList.add('open');appRoot?.classList.add('gl-lobby-hidden');
   const opts=B()?.getStarterDeckOptions?.()||{},state=E()?.getDeckSetupState?.()||{},difficulty=String(state.difficulty||E()?.getAIDifficulty?.()||'beginner'),keys=Object.keys(opts).slice(0,difficulty==='beginner'?3:5);
   const host=document.getElementById('glLobbyDecks'),err=document.getElementById('glLobbyError');if(!host||!err)return;err.textContent=lobbyErrorText||'';err.classList.toggle('show',!!lobbyErrorText);
-  const sideBlock=(side,data)=>{const canImport=difficulty==='intermediate',selected=state.selectedDeckKey?.[side]||keys[0]||'',imported=canImport&&selected==='IMPORTED',optionHtml=keys.map(k=>'<option value="'+esc(k)+'" '+(selected===k?'selected':'')+'>'+esc(opts[k]?.label||k)+'</option>').join('')+(imported?'<option value="IMPORTED" selected>'+esc(data?.deck_name||'Imported Deck')+'</option>':'');const importControl=canImport?'<button class="gl-lobby-desktop-import" type="button" data-lobby-import="'+side+'">Import Deck</button><input type="file" data-lobby-file="'+side+'" accept="application/json,.json" hidden>':'';const mobileActions='<div class="gl-lobby-mobile-actions"><button type="button" class="gl-lobby-menu-toggle" data-lobby-menu-toggle="'+side+'" aria-label="'+(side==='PLAYER'?'Player':'AI')+' deck actions" aria-controls="gl-lobby-menu-'+side+'" aria-expanded="false">&#9776;</button><div class="gl-lobby-mobile-menu" id="gl-lobby-menu-'+side+'" hidden><button type="button" data-lobby-focus-select="'+side+'">Choose Deck</button>'+(canImport?'<button type="button" data-lobby-import="'+side+'">Import Deck</button>':'')+'</div></div>';return '<section class="gl-lobby-deck" data-lobby-side="'+side+'"><header><h2>'+(side==='PLAYER'?'Player Deck':'AI Deck')+'</h2>'+mobileActions+'<span class="gl-lobby-valid">VALID</span></header><div class="gl-lobby-picker"><select aria-label="'+(side==='PLAYER'?'Player':'AI')+' deck selector" data-lobby-select="'+side+'">'+optionHtml+'</select>'+importControl+'</div>'+deckFormationHtml(side)+'</section>'};
+  const sideBlock=(side,data)=>{const canImport=difficulty==='intermediate',selected=state.selectedDeckKey?.[side]||keys[0]||'',imported=canImport&&selected==='IMPORTED',optionHtml=keys.map(k=>'<option value="'+esc(k)+'" '+(selected===k?'selected':'')+'>'+esc(opts[k]?.label||k)+'</option>').join('')+(imported?'<option value="IMPORTED" selected>'+esc(data?.deck_name||'Imported Deck')+'</option>':'');const importControl=canImport?'<button class="gl-lobby-desktop-import" type="button" data-lobby-import="'+side+'">Import Deck</button><input type="file" data-lobby-file="'+side+'" accept="application/json,.json" hidden>':'';return '<section class="gl-lobby-deck" data-lobby-side="'+side+'"><header><h2>'+(side==='PLAYER'?'Player Deck':'AI Deck')+'</h2><span class="gl-lobby-valid">VALID</span></header><div class="gl-lobby-picker"><select aria-label="'+(side==='PLAYER'?'Player':'AI')+' deck selector" data-lobby-select="'+side+'">'+optionHtml+'</select>'+importControl+'</div>'+deckFormationHtml(side)+'</section>'};
   host.innerHTML=sideBlock('PLAYER',state.player)+sideBlock('AI',state.ai);
   host.querySelectorAll('[data-lobby-select]').forEach(sel=>sel.onchange=()=>{const side=sel.dataset.lobbySelect,r=E().selectDeck?.(side,sel.value);if(!r?.ok)lobbyErrorText=r?.error||'Could not select deck.';else lobbyErrorText='';renderLobby()});
-  // M01: mobile only. Keep the existing desktop Import Deck handler and deck-selection logic unchanged.
-  host.querySelectorAll('[data-lobby-menu-toggle]').forEach(btn=>btn.onclick=event=>{
-    event.stopPropagation();
-    const menu=document.getElementById('gl-lobby-menu-'+btn.dataset.lobbyMenuToggle);
-    if(!menu)return;
-    const opening=menu.hidden;
-    host.querySelectorAll('.gl-lobby-mobile-menu').forEach(node=>node.hidden=true);
-    host.querySelectorAll('[data-lobby-menu-toggle]').forEach(node=>node.setAttribute('aria-expanded','false'));
-    menu.hidden=!opening;btn.setAttribute('aria-expanded',String(opening));
-  });
-  host.querySelectorAll('[data-lobby-focus-select]').forEach(btn=>btn.onclick=()=>{
-    const side=btn.dataset.lobbyFocusSelect;
-    const menu=document.getElementById('gl-lobby-menu-'+side);
-    if(menu)menu.hidden=true;
-    host.querySelector('[data-lobby-menu-toggle="'+side+'"]')?.setAttribute('aria-expanded','false');
-    host.querySelector('[data-lobby-select="'+side+'"]')?.focus();
-  });
   host.querySelectorAll('[data-lobby-import]').forEach(btn=>btn.onclick=()=>{
     if(difficulty!=='intermediate')return;
-    const side=btn.dataset.lobbyImport,menu=document.getElementById('gl-lobby-menu-'+side);
-    if(menu)menu.hidden=true;
-    host.querySelector('[data-lobby-menu-toggle="'+side+'"]')?.setAttribute('aria-expanded','false');
+    const side=btn.dataset.lobbyImport;
     host.querySelector('[data-lobby-file="'+side+'"]')?.click();
   });
   host.querySelectorAll('[data-lobby-file]').forEach(inp=>inp.onchange=()=>{const f=inp.files?.[0];if(!f)return;const side=inp.dataset.lobbyFile;if(difficulty!=='intermediate'){lobbyErrorText='Custom deck import requires Intermediate difficulty.';renderLobby();return;}const reader=new FileReader();reader.onload=()=>{try{const raw=JSON.parse(String(reader.result||'')),r=E().importDeck?.(side,raw);if(!r?.ok)throw new Error(r?.error||'Invalid deck file.');lobbyErrorText='';renderLobby()}catch(err){lobbyErrorText=String(err?.message||err);renderLobby()}};reader.onerror=()=>{lobbyErrorText='Could not read the selected deck file.';renderLobby()};reader.readAsText(f);inp.value=''});
@@ -1635,8 +1624,15 @@ function responseOptionsForHand(rw,idx){
 // Source and protected recipient are two separate decisions for an allied
 // Defense. For a team-wide Defense only the source is chosen: its target is
 // ALL allied Heroes, never one arbitrarily selected Hero.
+// Defense Skills that explicitly protect an ally or the entire team retain
+// their dedicated source/recipient flow. Other Defense Skills and every
+// Protection Item automatically affect the Hero in the active Response Window.
 const RESPONSE_ALLIED_SOURCE_CARDS=new Set(['S0-CLE-010','S0-CLE-022','S0-CLE-025','S0-WAR-004']);
 const RESPONSE_SINGLE_PROTECTED_CARDS=new Set(['S0-CLE-010','S0-WAR-004']);
+const RESPONSE_TEAMWIDE_SKILLS=new Set(['S0-CLE-022','S0-CLE-025']);
+function responseAutoTargetsAttackedHero(cardId){
+  return !RESPONSE_ALLIED_SOURCE_CARDS.has(cardId)&&isDefenseResponseArrowCard(cardId);
+}
 function responseChoiceLanes(s){
   const choice=uiResponseSourceChoice,rw=s?.responseWindow;
   if(!choice||rw?.response_owner!=='PLAYER')return new Map();
@@ -1680,7 +1676,11 @@ function renderResponseRouteGuide(s){
   if(choice.stage==='protected'){
     const lane=opt?.source_lane||'',hero=sideHeroes(s,'PLAYER')?.[lane];
     caption=(cv(heroImageId(hero))?.name||'Selected Hero')+' → SELECT ATTACKED HERO TO PROTECT';
-  }else if(!RESPONSE_SINGLE_PROTECTED_CARDS.has(id))caption+=' — PROTECTS ALL ALLIES';
+  }else if(RESPONSE_TEAMWIDE_SKILLS.has(id)){
+    caption+=' — PROTECTS ALL ALLIES';
+  }else if(responseAutoTargetsAttackedHero(id)){
+    caption+=' — AUTOMATICALLY PROTECTS THE ATTACKED HERO';
+  }
   responseRouteGuide.textContent=caption;
   responseRouteGuide.classList.add('open');responseRouteGuide.setAttribute('aria-hidden','false');
 }
@@ -1691,12 +1691,16 @@ function beginResponseFromHand(handIndex,optionIndices){
   responseRollbackSnapshot=B()?.getSnapshot?.()||null;
   const id=rw?.options?.[optionIndices[0]]?.card_id;
   if(rw?.response_owner==='PLAYER'&&rw.kind==='incoming_attack'&&RESPONSE_ALLIED_SOURCE_CARDS.has(id)){
+    // Ally-protecting Skills retain their separate approved routing.
     uiResponseSourceChoice={handIndex:Number(handIndex),optionIndices,stage:'source',selectedOptionIndex:null};renderNow();return;
   }
+  // All ordinary Defense Skills and Protection Items target the incoming
+  // Response Window's attacked Hero. Only choosing the legal USER may remain;
+  // there must never be a second Effect Target/recipient selection.
   if(optionIndices.length===1){confirmResponseOption(optionIndices[0]);return}
   const lanes=optionIndices.map(i=>rw?.options?.[i]?.source_lane).filter(Boolean);
   if(new Set(lanes).size<=1){confirmResponseOption(optionIndices[0]);return}
-  uiResponseSourceChoice={handIndex:Number(handIndex),optionIndices,stage:'source',selectedOptionIndex:null};renderNow();
+  uiResponseSourceChoice={handIndex:Number(handIndex),optionIndices,stage:'source',selectedOptionIndex:null,autoProtectedLane:responseAutoTargetsAttackedHero(id)?rw?.target_lane:null};renderNow();
 }
 function isDefenseResponseArrowCard(cardId){
   const def=rawCardDef(cardId)||cv(cardId)||{},family=String(def.family||'').toLowerCase();

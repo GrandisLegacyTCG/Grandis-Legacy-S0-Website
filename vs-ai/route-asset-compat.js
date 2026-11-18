@@ -1,20 +1,27 @@
-/* Grandis Legacy Season 0 - route-only compatibility adapter.
-   The canonical game engine stays at Website root. Only absolute artwork URLs
-   made from location.href are corrected when VS AI is opened at /vs-ai/.
-   This file does not modify game state, rules, damage, or effects. */
+/* Grandis Legacy Website-only VS AI RC41 asset URL adapter.
+   Standalone engine is shared at Website root; game state and rules untouched.
+   Artwork query gets a NEW cache key because R3.9 replaced 32 printed WebPs. */
 (()=>{
   'use strict';
   const bridge=window.GL_GAME_ENGINE;
   if(!bridge)return;
   const root=new URL('../',window.location.href);
-  const nested=new URL('vs-ai/',root).pathname;
-  const fix=(value)=>{
+  const nestedPath=new URL('vs-ai/',root).pathname;
+  const cardPath=new URL('card-art/',root).pathname;
+  const artworkRevision='gl-vs-ai-rc41-r39-20261118';
+  const fix=value=>{
     if(typeof value!=='string'||!value)return value;
-    let url;try{url=new URL(value,window.location.href)}catch(_){return value}
-    if(url.origin!==window.location.origin||!url.pathname.startsWith(nested))return value;
-    const rest=url.pathname.slice(nested.length);
-    if(!/^(?:card-art|assets|engine)\//.test(rest))return value;
-    return new URL(rest+url.search+url.hash,root).href;
+    let original;
+    try{original=new URL(value,window.location.href)}catch(_){return value}
+    if(original.origin!==root.origin)return value;
+    let target=original;
+    if(original.pathname.startsWith(nestedPath)){
+      const rest=original.pathname.slice(nestedPath.length);
+      if(!/^(?:card-art|assets|engine)\//.test(rest))return value;
+      target=new URL(rest+original.search+original.hash,root);
+    }else if(!original.pathname.startsWith(cardPath))return value;
+    if(target.pathname.startsWith(cardPath))target.searchParams.set('v',artworkRevision);
+    return target.href;
   };
   if(typeof bridge.cardView==='function'){
     const original=bridge.cardView;
