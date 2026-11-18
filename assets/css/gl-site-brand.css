@@ -69,13 +69,13 @@ html:not(.gl-mobile-landscape-lobby) .gl-lobby-panel > .gl-lobby-head a.gl-site-
 
 /* Align header content boxes to full height rather than centering within a
    1px bottom border (which caused +/-0.5px differences across routes).
-   The inset shadow retains the thin visual divider without shifting the logo. */
+   No outline or bottom separator: clean shared header for every app. */
 html:not(.gl-mobile-landscape-lobby) body:has(> #sidebar) > header,
 html:not(.gl-mobile-landscape-lobby) body .app-shell > header.topbar,
 html:not(.gl-mobile-landscape-lobby) .gl-lobby-panel > .gl-lobby-head {
   box-sizing: border-box !important;
   border-bottom: 0 !important;
-  box-shadow: inset 0 -1px rgba(255,255,255,.055) !important;
+  box-shadow: none !important;
   background-color: var(--gl-brand-header-bg) !important;
 }
 /* Deck Builder top bar has a 24px horizontal gutter in the existing parity
@@ -108,4 +108,12 @@ html:not(.gl-mobile-landscape-lobby) .gl-lobby-panel > .gl-lobby-head {
     padding-top: 0 !important;
     padding-bottom: 0 !important;
   }
+}
+
+/* No bottom stroke on the canonical Homepage header. The original site CSS
+   paints that divider using ::before rather than border-bottom. */
+.site-header::before,
+.site-header.is-scrolled::before {
+  border-bottom: 0 !important;
+  box-shadow: none !important;
 }

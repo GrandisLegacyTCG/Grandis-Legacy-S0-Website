@@ -110,8 +110,20 @@ html:not(.gl-mobile-landscape-lobby) .gl-lobby-panel > .gl-lobby-head .gl-lobby-
 .gl-lobby-head .gl-lobby-website-links > a:last-child {
   border-color:#075b86!important;background:#075b86!important;color:white!important;
 }
-.gl-lobby-head .gl-lobby-website-links > a:hover {border-color:#65b8d9!important;background:#126f9e!important}
-.gl-lobby-head .gl-lobby-website-links > a:focus-visible {outline:2px solid #efd183!important;outline-offset:3px!important}
+/* Only the PvP (last) action is the blue primary button.
+   The Deck Builder (first) action remains neutral even on pointer hover.
+   Focus styling is for keyboard navigation, not pointer hover. */
+.gl-lobby-head .gl-lobby-website-links > a:first-child:hover {
+  border-color:rgba(236,240,248,.75)!important;
+  background:rgba(236,240,248,.08)!important;
+}
+.gl-lobby-head .gl-lobby-website-links > a:last-child:hover {
+  border-color:#1275a5!important; background:#1275a5!important;
+}
+.gl-lobby-head .gl-lobby-website-links > a:focus-visible {
+  outline:2px solid #84b9d7!important;outline-offset:3px!important;
+}
+html.gl-mobile-landscape-lobby .gl-lobby-website-links {display:none!important}
 
 @media(max-width:900px){
   :root {--gl-site-header-h:80px;--gl-site-logo-w:152px;--gl-site-header-gutter:24px}
