@@ -4,8 +4,6 @@ const BUILD_META=window.GL_PVP_BUILD_META||{};
 const VERSION=String(BUILD_META.versionLabel||'Grandis Legacy PvP');
 const BUILD_ID=String(BUILD_META.buildId||'MISSING_BUILD_META');
 const CFG=window.GL_PVP_CONFIG||{};
-// A GitHub Pages /pvp/ mount must not navigate to the main VS AI /battle/.
-const GL_PVP_BATTLE_BASE=new URL('battle/',document.baseURI).pathname;
 const STORE={name:'grandis_legacy_pvp_s0_v380_name',deck:'grandis_legacy_pvp_s0_v380_deck',custom:'grandis_legacy_pvp_s0_v380_custom_deck',customName:'grandis_legacy_pvp_s0_v380_custom_deck_name'};
 const STORE_PREV={name:'grandis_legacy_pvp_v380_name',deck:null};
 // Connection identity is tab-scoped. Player 1 and Player 2 must be able to use two tabs
@@ -40,7 +38,7 @@ function offerBattleRecovery(frame){
   const message=document.createElement('span');message.textContent='Battlefield loading is taking longer than expected. ';
   const button=document.createElement('button');button.type='button';button.textContent='OPEN DIRECTLY';
   button.style.cssText='padding:6px 9px;background:#e6bb57;color:#061422;border:0;border-radius:5px;font-weight:bold;cursor:pointer;';
-  button.onclick=()=>location.assign(GL_PVP_BATTLE_BASE+(new URLSearchParams(location.search).has('pvpPerf')?'?pvpPerf=1':''));
+  button.onclick=()=>location.assign('/battle/'+(new URLSearchParams(location.search).has('pvpPerf')?'?pvpPerf=1':''));
   bar.appendChild(message);bar.appendChild(button);document.body.appendChild(bar);
 }
 
@@ -73,7 +71,7 @@ function ensureBattleFrame({warm=false}={}){
   startupPerf.prewarmed=!!warm;
   startupPerf.frameCreatedAt=perfNow();
   // No other-origin content or cross-window socket control is permitted.
-  frame.src=GL_PVP_BATTLE_BASE+'?embedded=1'+(new URLSearchParams(location.search).has('pvpPerf')?'&pvpPerf=1':'');
+  frame.src='/battle/?embedded=1'+(new URLSearchParams(location.search).has('pvpPerf')?'&pvpPerf=1':'');
   battleReady=false;battleFrame=frame;document.body.appendChild(frame);
   if(!warm)revealBattleFrame();
 }
@@ -167,8 +165,8 @@ function preloadImages(urls){return Promise.allSettled([...new Set((urls||[]).fi
 function deckAssetUrls(deck){const ids=new Set();(deck?.legacy_deck_expanded||[]).filter(x=>String(x.card_type||'').toLowerCase()==='hero').forEach(x=>x?.card_id&&ids.add(String(x.card_id)));return [...ids].map(localCardArt)}
 function visibleBoardAssetUrls(snap){const s=snap?.match?.board?.appState||snap?.appState||null;if(!s)return[];const ids=new Set(),walk=v=>{if(typeof v==='string'){if(/^S0-[A-Z0-9-]+$/i.test(v)&&v!=='__GL_HIDDEN_CARD__')ids.add(v);return}if(Array.isArray(v)){v.forEach(walk);return}if(v&&typeof v==='object')Object.values(v).forEach(walk)};for(const k of ['playerHand','playerDiscard','aiDiscard','playerHeroes','aiHeroes','activeAttachments','presentationEvents'])walk(s[k]);return [...ids].map(localCardArt)}
 function preloadDeckAssets(deck){return preloadImages([...deckAssetUrls(deck),'assets/ui/back-main.webp','assets/ui/back-legacy.webp','assets/ui/back-shard.webp','assets/shards/Generic.webp','assets/shards/Warrior.webp','assets/shards/Mage.webp','assets/shards/Archer.webp','assets/shards/Cleric.webp','assets/shards/Thief.webp'])}
-const BATTLE_VFX_ASSETS=['battle/engine/assets/battle/P.Attack.png','battle/engine/assets/battle/M.Attack.png','battle/engine/assets/battle/P.Defense.png','battle/engine/assets/battle/M.Defense.png','battle/engine/assets/battle/Heal.png','battle/engine/assets/battle/Blade.png'];
-const BATTLE_AUDIO_ASSETS=['engine/assets/audio/battle/P.Atk.mp3','engine/assets/audio/battle/M.Atk.mp3','engine/assets/audio/battle/P.Def.mp3','engine/assets/audio/battle/M.Def.mp3','engine/assets/audio/battle/Dodge.mp3','engine/assets/audio/battle/Heal.mp3'];
+const BATTLE_VFX_ASSETS=['/engine/assets/battle/P.Attack.png','/engine/assets/battle/M.Attack.png','/engine/assets/battle/P.Defense.png','/engine/assets/battle/M.Defense.png','/engine/assets/battle/Heal.png','/engine/assets/battle/Blade.png'];
+const BATTLE_AUDIO_ASSETS=['/engine/assets/audio/battle/P.Atk.mp3','/engine/assets/audio/battle/M.Atk.mp3','/engine/assets/audio/battle/P.Def.mp3','/engine/assets/audio/battle/M.Def.mp3','/engine/assets/audio/battle/Dodge.mp3','/engine/assets/audio/battle/Heal.mp3'];
 const battleAudioPrime=new Map();
 const earlyBattleEventIds=new Set();
 window.GL_PVP_EARLY_BATTLE_EVENT_IDS=earlyBattleEventIds;
@@ -178,10 +176,10 @@ function primeBattleAssets(){
 }
 function battleAudioSpec(evt){
   if(!evt||evt.play_sound===false)return null;
-  if(evt.kind==='heal')return['engine/assets/audio/battle/Heal.mp3',.52];
-  if(evt.outcome==='dodge')return['engine/assets/audio/battle/Dodge.mp3',.62];
-  if(evt.outcome==='block')return[(evt.defense_kind||'P')==='M'?'engine/assets/audio/battle/M.Def.mp3':'engine/assets/audio/battle/P.Def.mp3',.60];
-  return[(evt.attack_kind||'P')==='M'?'engine/assets/audio/battle/M.Atk.mp3':'engine/assets/audio/battle/P.Atk.mp3',.60];
+  if(evt.kind==='heal')return['/engine/assets/audio/battle/Heal.mp3',.52];
+  if(evt.outcome==='dodge')return['/engine/assets/audio/battle/Dodge.mp3',.62];
+  if(evt.outcome==='block')return[(evt.defense_kind||'P')==='M'?'/engine/assets/audio/battle/M.Def.mp3':'/engine/assets/audio/battle/P.Def.mp3',.60];
+  return[(evt.attack_kind||'P')==='M'?'/engine/assets/audio/battle/M.Atk.mp3':'/engine/assets/audio/battle/P.Atk.mp3',.60];
 }
 function playEarlyBattleAudio(evt){
   if(nativeEngine()?.getSoundEnabled?.()===false)return false;
@@ -412,14 +410,14 @@ function formationHtml(){
   lanes.forEach((lane,i)=>{
     const rankOne=formation[lane]||'',id=heroAtRank(deck,rankOne);
     parts.push('<article class="formation-card"><button type="button" data-pvp-progression="'+esc(rankOne)+'" aria-label="View '+esc(lane)+' Hero Progression"><img draggable="false" decoding="async" data-showcase-card-id="'+esc(id)+'" src="'+esc(cardSrc(id))+'" alt="'+esc(cardName(id))+'"></button><span class="formation-position">'+esc(lane.charAt(0)+lane.slice(1).toLowerCase())+'</span></article>');
-    if(i<lanes.length-1)parts.push('<button class="vsai-v643-swap-button" type="button" data-swap-left="'+i+'" data-swap-right="'+(i+1)+'" aria-label="Swap '+lane+' and '+lanes[i+1]+'"><img src="engine/assets/lobby/Swap.png" alt="" draggable="false" aria-hidden="true"></button>');
+    if(i<lanes.length-1)parts.push('<button class="vsai-v643-swap-button" type="button" data-swap-left="'+i+'" data-swap-right="'+(i+1)+'" aria-label="Swap '+lane+' and '+lanes[i+1]+'"><img src="/engine/assets/lobby/Swap.png" alt="" draggable="false" aria-hidden="true"></button>');
   });
   return parts.join('');
 }
 function seatHtml(n){const p=(state.snapshot?.players||[]).find(x=>Number(x.seat)===n),online=!!p?.connected,me=local(),canKick=n===2&&p&&Number(me?.seat)===1&&match()?.status==='setup';return'<article class="pvp-v260-seat"><div><span>Player '+n+'</span><strong>'+esc(p?.name||'Empty')+'</strong></div><p class="'+(online?'online':'')+'"><i></i>'+esc(p?(online?'online':'offline'):'offline')+(p?.ready?' · READY':'')+'</p>'+(canKick?'<button class="pvp-seat-kick" type="button" data-kick-seat="2" aria-label="Kick Player 2"><img src="assets/lobby/exit.png" alt=""></button>':'')+'</article>'}
 function ensureLobby(){
   if($('pvpSetupOverlay'))return;const wrap=document.createElement('div');wrap.id='pvpSetupOverlay';wrap.className='pvp-v260-lobby open';
-  wrap.innerHTML='<div class="pvp-v260-page"><header class="pvp-v260-topbar"><a id="pvpHomeLogo" class="pvp-v260-logo" aria-label="Back to Grandis Legacy home"><img src="assets/lobby/grandis-legacy-logo.webp" alt="Grandis Legacy"></a><div class="pvp-v260-heading"><h1>PVP LOBBY</h1><p>Choose your deck, then ready up or spectate.</p></div><nav class="pvp-v260-app-links" aria-label="Other Grandis Legacy games"><a class="pvp-v260-app-link pvp-v260-app-link--deck" href="https://grandislegacytcg.web.id/deck-builder/">GO TO DECK BUILDER</a><a class="pvp-v260-app-link pvp-v260-app-link--vsai" href="https://grandislegacytcg.web.id/vs-ai/">GO TO VS AI</a></nav></header><main class="pvp-v260-layout"><section class="pvp-v260-panel pvp-v260-deck-panel"><div class="pvp-v260-picker"><label for="pvpSetupDeck">Choose a Deck</label><div class="gl-pvp-mobile-actions"><button id="pvpMobileDeckMenuToggle" class="gl-pvp-mobile-menu-toggle" type="button" aria-label="Deck actions" aria-controls="pvpMobileDeckMenu" aria-expanded="false">&#9776;</button><div id="pvpMobileDeckMenu" class="gl-pvp-mobile-menu" hidden><button type="button" data-pvp-mobile-deck="choose">Choose Deck</button><button type="button" data-pvp-mobile-deck="import">Import Deck</button></div></div><div class="pvp-v260-select"><select id="pvpSetupDeck"></select></div><div class="pvp-v260-import-area"><input id="pvpImportDeckInput" type="file" accept="application/json,.json" hidden><button id="pvpImportDeckButton" class="pvp-v260-btn pvp-v260-gold pvp-v260-import-button" type="button">IMPORT DECK</button></div></div><div id="pvpLoadedDeckStatus" class="pvp-v260-status pvp-v260-import-status"></div><div class="pvp-v260-title"><h2 id="pvpDeckTitle">Starter Deck</h2><p id="pvpDeckClassLine"></p></div><div class="pvp-v260-showcase"><div class="pvp-v260-formation-wrap"><div id="pvpFormationPreview" class="vsai-v643-formation-grid clean-hero-preview"></div><div class="vsai-v643-rank-control"><button id="pvpRankPrev" type="button">‹</button><strong id="pvpRankLabel">RANK I</strong><button id="pvpRankNext" type="button">›</button></div></div><aside class="pvp-v260-summary"><h3>YOUR DECK</h3><dl id="pvpDeckStats"></dl></aside></div></section><aside class="pvp-v260-panel pvp-v260-room-panel"><h2>MATCH PANEL</h2><label class="pvp-v260-label" for="pvpSetupName">PLAYER NAME</label><div class="pvp-v260-name"><input id="pvpSetupName" maxlength="25" placeholder="Your player name" autocomplete="off"><span id="pvpNameStateIcon" class="pvp-v260-name-icon"></span></div><div class="pvp-v260-actions"><button id="pvpSetupSpectatorButton" class="pvp-v260-btn pvp-v260-outline pvp-v260-gold-outline" type="button">SPECTATE</button><button id="pvpSetupReadyButton" class="pvp-v260-btn pvp-v260-gold" type="button">READY</button></div><div class="pvp-v260-divider"></div><div id="pvpSetupPeople" class="pvp-v260-seats"></div><div id="pvpSetupHint" class="pvp-v260-message"></div><div class="pvp-v260-room-footer"><button id="pvpSetupStartButton" class="pvp-v260-btn pvp-v260-gold" type="button" disabled>START MATCH</button><button id="pvpSetupReconnectButton" class="pvp-v260-btn pvp-v260-outline pvp-v260-gold-outline" type="button">RECONNECT</button></div></aside></main></div>';
+  wrap.innerHTML='<div class="pvp-v260-page"><header class="pvp-v260-topbar"><a id="pvpHomeLogo" class="pvp-v260-logo" aria-label="Back to Grandis Legacy home"><img src="/assets/site/web-s0/logo-transparent.webp" alt="Grandis Legacy"></a><div class="pvp-v260-heading"><h1>PVP LOBBY</h1><p>Choose your deck, then ready up or spectate.</p></div><nav class="pvp-v260-app-links" aria-label="Other Grandis Legacy games"><a class="pvp-v260-app-link pvp-v260-app-link--deck" href="https://grandislegacytcg.web.id/deck-builder/">GO TO DECK BUILDER</a><a class="pvp-v260-app-link pvp-v260-app-link--vsai" href="https://grandislegacytcg.web.id/vs-ai/">GO TO VS AI</a></nav></header><main class="pvp-v260-layout"><section class="pvp-v260-panel pvp-v260-deck-panel"><div class="pvp-v260-picker"><label for="pvpSetupDeck">Choose a Deck</label><div class="gl-pvp-mobile-actions"><button id="pvpMobileDeckMenuToggle" class="gl-pvp-mobile-menu-toggle" type="button" aria-label="Deck actions" aria-controls="pvpMobileDeckMenu" aria-expanded="false">&#9776;</button><div id="pvpMobileDeckMenu" class="gl-pvp-mobile-menu" hidden><button type="button" data-pvp-mobile-deck="choose">Choose Deck</button><button type="button" data-pvp-mobile-deck="import">Import Deck</button></div></div><div class="pvp-v260-select"><select id="pvpSetupDeck"></select></div><div class="pvp-v260-import-area"><input id="pvpImportDeckInput" type="file" accept="application/json,.json" hidden><button id="pvpImportDeckButton" class="pvp-v260-btn pvp-v260-gold pvp-v260-import-button" type="button">IMPORT DECK</button></div></div><div id="pvpLoadedDeckStatus" class="pvp-v260-status pvp-v260-import-status"></div><div class="pvp-v260-title"><h2 id="pvpDeckTitle">Starter Deck</h2><p id="pvpDeckClassLine"></p></div><div class="pvp-v260-showcase"><div class="pvp-v260-formation-wrap"><div id="pvpFormationPreview" class="vsai-v643-formation-grid clean-hero-preview"></div><div class="vsai-v643-rank-control"><button id="pvpRankPrev" type="button">‹</button><strong id="pvpRankLabel">RANK I</strong><button id="pvpRankNext" type="button">›</button></div></div><aside class="pvp-v260-summary"><h3>YOUR DECK</h3><dl id="pvpDeckStats"></dl></aside></div></section><aside class="pvp-v260-panel pvp-v260-room-panel"><h2>MATCH PANEL</h2><label class="pvp-v260-label" for="pvpSetupName">PLAYER NAME</label><div class="pvp-v260-name"><input id="pvpSetupName" maxlength="25" placeholder="Your player name" autocomplete="off"><span id="pvpNameStateIcon" class="pvp-v260-name-icon"></span></div><div class="pvp-v260-actions"><button id="pvpSetupSpectatorButton" class="pvp-v260-btn pvp-v260-outline pvp-v260-gold-outline" type="button">SPECTATE</button><button id="pvpSetupReadyButton" class="pvp-v260-btn pvp-v260-gold" type="button">READY</button></div><div class="pvp-v260-divider"></div><div id="pvpSetupPeople" class="pvp-v260-seats"></div><div id="pvpSetupHint" class="pvp-v260-message"></div><div class="pvp-v260-room-footer"><button id="pvpSetupStartButton" class="pvp-v260-btn pvp-v260-gold" type="button" disabled>START MATCH</button><button id="pvpSetupReconnectButton" class="pvp-v260-btn pvp-v260-outline pvp-v260-gold-outline" type="button">RECONNECT</button></div></aside></main></div>';
   document.body.appendChild(wrap);$('pvpHomeLogo').href=CFG.homeUrl||'https://grandislegacytcg.web.id/';wrap.onclick=e=>{const k=e.target.closest?.('[data-kick-seat="2"]');if(k){send('kick-seat-2');return}const p=e.target.closest?.('[data-pvp-progression]');if(p)openProgression(p.dataset.pvpProgression)};
   // VS AI RC40 M01, adapted to PvP's native single-deck lobby. Desktop
   // import/select remain untouched; handset hamburger is presentation-only.
@@ -439,9 +437,9 @@ function ensureLobby(){
 }
 function syncLobbyScale(){const wrap=$('pvpSetupOverlay');wrap?.style.removeProperty('--pvp-lobby-scale')}
 const BATTLE_PREFETCH=[
-  GL_PVP_BATTLE_BASE+'engine/js/static-data.js',GL_PVP_BATTLE_BASE+'engine/shared-app/app.bundle.js',
-  GL_PVP_BATTLE_BASE+'engine/js/runtime-authority.js',GL_PVP_BATTLE_BASE+'shared-app/app-runtime.js',
-  GL_PVP_BATTLE_BASE+'engine/shared-ui/battlefield-ui.js'
+  '/battle/engine/js/static-data.js','/battle/engine/shared-app/app.bundle.js',
+  '/battle/engine/js/runtime-authority.js','/battle/shared-app/app-runtime.js',
+  '/battle/engine/shared-ui/battlefield-ui.js'
 ];
 let battlePrefetchStarted=false;
 function canWarmBattleFrame(){

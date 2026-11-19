@@ -130,7 +130,7 @@ function applyItemPrintedMetric(card,rootNode){
  function keywordImg(k){
   const name=k.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
   const img=node('img','review-keyword-image');
-  img.src=(root.GL_DECK_BUILDER_BASE||'')+'assets/keywords-review/'+name+'.png';
+  img.src=(root.GL_DECK_BUILDER_BASE||'')+'/assets/keywords-review/'+name+'.png';
   img.alt=k;img.title=k;img.loading='lazy';
   return img;
  }

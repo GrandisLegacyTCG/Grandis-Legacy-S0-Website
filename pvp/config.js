@@ -1,4 +1,4 @@
-/* Grandis Legacy S0 PvP RC40 Patch 3.2: static website -> Node backend.
+/* Grandis Legacy S0 PvP RC41 / R3.9: static website -> Node backend.
  * Current approved Northflank hostname (confirmed by project owner via /health).
  * Static GitHub Pages cannot proxy /ws; use WSS on the backend host.
  */
