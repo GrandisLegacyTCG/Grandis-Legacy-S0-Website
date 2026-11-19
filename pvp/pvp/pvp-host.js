@@ -38,7 +38,7 @@ function offerBattleRecovery(frame){
   const message=document.createElement('span');message.textContent='Battlefield loading is taking longer than expected. ';
   const button=document.createElement('button');button.type='button';button.textContent='OPEN DIRECTLY';
   button.style.cssText='padding:6px 9px;background:#e6bb57;color:#061422;border:0;border-radius:5px;font-weight:bold;cursor:pointer;';
-  button.onclick=()=>location.assign('/battle/'+(new URLSearchParams(location.search).has('pvpPerf')?'?pvpPerf=1':''));
+  button.onclick=()=>location.assign('/pvp/battle/'+(new URLSearchParams(location.search).has('pvpPerf')?'?pvpPerf=1':''));
   bar.appendChild(message);bar.appendChild(button);document.body.appendChild(bar);
 }
 
@@ -71,7 +71,7 @@ function ensureBattleFrame({warm=false}={}){
   startupPerf.prewarmed=!!warm;
   startupPerf.frameCreatedAt=perfNow();
   // No other-origin content or cross-window socket control is permitted.
-  frame.src='/battle/?embedded=1'+(new URLSearchParams(location.search).has('pvpPerf')?'&pvpPerf=1':'');
+  frame.src='/pvp/battle/?embedded=1'+(new URLSearchParams(location.search).has('pvpPerf')?'&pvpPerf=1':'');
   battleReady=false;battleFrame=frame;document.body.appendChild(frame);
   if(!warm)revealBattleFrame();
 }
@@ -437,9 +437,9 @@ function ensureLobby(){
 }
 function syncLobbyScale(){const wrap=$('pvpSetupOverlay');wrap?.style.removeProperty('--pvp-lobby-scale')}
 const BATTLE_PREFETCH=[
-  '/battle/engine/js/static-data.js','/battle/engine/shared-app/app.bundle.js',
-  '/battle/engine/js/runtime-authority.js','/battle/shared-app/app-runtime.js',
-  '/battle/engine/shared-ui/battlefield-ui.js'
+  '/pvp/battle/engine/js/static-data.js','/pvp/battle/engine/shared-app/app.bundle.js',
+  '/pvp/battle/engine/js/runtime-authority.js','/pvp/battle/shared-app/app-runtime.js',
+  '/pvp/battle/engine/shared-ui/battlefield-ui.js'
 ];
 let battlePrefetchStarted=false;
 function canWarmBattleFrame(){
