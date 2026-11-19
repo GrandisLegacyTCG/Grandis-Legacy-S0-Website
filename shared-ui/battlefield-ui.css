@@ -2534,3 +2534,13 @@ html.gl-mobile-gameplay-stage:not(.gl-mobile-landscape-stage) :is(
 .played-public-pickup{width:104px;flex:0 0 104px;text-align:center}
 .played-public-pickup img{display:block;width:104px;height:auto;aspect-ratio:320/448;object-fit:contain;border:1px solid #638197;border-radius:7px}
 .played-public-pickup small{display:block;margin-top:5px;font-size:9px;line-height:1.25;color:#d7e5ef;overflow-wrap:anywhere}
+
+
+/* RC41 Mobile Hotfix (2026-11-20): animated cards live in viewport-fixed
+   portals, outside the rotated .app. The CSS individual rotate property keeps
+   the same +90deg orientation as the logical portrait battlefield. Movement
+   uses independent translate/left/top, never transform translations that would
+   be accidentally rotated with the card. Desktop/mobile landscape unchanged. */
+html.gl-mobile-gameplay-stage.gl-stage-portrait:not(.gl-mobile-landscape-stage) .gl-flying-card{
+  rotate:90deg!important;transform-origin:center center!important;
+}

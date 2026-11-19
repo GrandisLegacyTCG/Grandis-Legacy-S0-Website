@@ -1,0 +1,152 @@
+/* Grandis Legacy | Season 0 Homepage content parity with Season 1.
+   Base: S0 Website GitHub main, verified against v2.3.14 CSS/JS.
+   This additive stylesheet intentionally does NOT modify header, footer,
+   nav dots, gameplay carousel, or other section geometry. 2026-11-20. */
+
+/* S1 uses a more restrained headline stroke. S0's available fallback font
+   appears visibly heavier at its former 750 weight, so use 700 for the four
+   corresponding headline groups while retaining colors and sizes. */
+.hero #hero-title,
+.heroes #heroes-title,
+.gameplay #gameplay-title,
+.play-section #play-title {
+  font-weight: 700;
+}
+
+/* Homepage section 1: EXACTLY TWO equal-width content zones.
+   The copy group is centered inside the left half, remaining left-aligned
+   internally as in the Season 1 reference. The hero art centers inside the
+   right half. Zero column gap keeps both allocation zones exactly 50/50. */
+@media (min-width: 901px) {
+  .hero.wrap {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: 0;
+  }
+  .hero .hero-copy {
+    box-sizing: border-box;
+    min-width: 0;
+    width: min(100%, 665px);
+    padding-inline: clamp(14px, 2vw, 30px);
+    justify-self: center;
+    text-align: left;
+  }
+  .hero .hero-fan {
+    box-sizing: border-box;
+    min-width: 0;
+    width: min(94%, 650px);
+    max-width: 100%;
+    justify-self: center;
+    object-fit: contain;
+  }
+}
+
+/* Narrow tablet: the half-width copy would be too narrow, so revert to a
+   natural single-column stack (art above copy), matching the phone layout. */
+@media (min-width: 601px) and (max-width: 900px) {
+  .hero.wrap {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: clamp(18px, 3svh, 32px);
+  }
+  .hero .hero-fan {
+    grid-row: 1;
+    justify-self: center;
+    width: min(85%, 520px);
+    max-height: min(38svh, 380px);
+    object-fit: contain;
+  }
+  .hero .hero-copy {
+    grid-row: 2;
+    justify-self: center;
+    width: min(100%, 620px);
+    text-align: left;
+  }
+  .hero h1 { font-size: clamp(38px, 6vw, 52px); }
+}
+
+/* On phones keep the approved art-first ordering and original spacing.
+   Only the four heading weights are different. */
+
+
+/* v2.3.16 | Align S0 header brand and hero-copy with the S1 page frame.
+   S1's header and hero use the SAME page inset. Former S0 header was 24px
+   from each edge while the hero text began near 140px; that is why the
+   logo was visually too far left even though grid 50/50 was correct.
+   Only desktop/tablet layout is adjusted here. Phone layout is preserved. */
+@media (min-width: 901px) {
+  /* S1's fluid wide-pad values at each desktop breakpoint. */
+  :root { --s1-aligned-inset: clamp(140px, calc(80px + 4.1667vw), 160px); }
+  .site-header.wrap,
+  .hero.wrap {
+    width: calc(100% - 2 * var(--s1-aligned-inset));
+    max-width: none;
+    margin-inline: auto;
+  }
+  /* Preserve 50%-50% equal tracks and horizontal centering of the artwork.
+     The first text glyph begins on the same frame line as the header logo. */
+  .hero.wrap {
+    grid-template-columns: minmax(0,1fr) minmax(0,1fr);
+    column-gap: 0;
+  }
+  .hero .hero-copy {
+    min-width: 0;
+    width: 100%;
+    max-width: none;
+    padding-inline: 0;
+    /* Transparent logo has ~8px visible left inset; align real glyphs. */
+    padding-inline-start: 8px;
+    margin-inline: 0;
+    justify-self: start;
+    text-align: left;
+  }
+  .hero .hero-fan {
+    justify-self: center;
+    width: min(94%, 650px);
+    max-width: 100%;
+    object-fit: contain;
+  }
+}
+@media (min-width: 901px) and (max-width: 1439px) {
+  :root { --s1-aligned-inset: clamp(72px, 9.72vw, 140px); }
+  .site-header .brand, .site-header .brand img { width: 158px; }
+}
+@media (min-width: 901px) and (max-width: 1120px) {
+  :root { --s1-aligned-inset: 48px; }
+  .site-header .brand, .site-header .brand img { width: 146px; }
+}
+@media (min-width: 1440px) {
+  .site-header .brand, .site-header .brand img { width: 170px; }
+}
+/* Tablet: keep the image-above-text stack while aligning the copy's left
+   edge with the logo, instead of floating the text in a separately centered
+   620px box. 390px / 360px phone rendering stays unchanged. */
+@media (min-width: 601px) and (max-width: 900px) {
+  .hero .hero-copy {
+    width: 100%;
+    max-width: none;
+    justify-self: start;
+    margin-inline: 0;
+    padding-inline: 0;
+    padding-inline-start: 8px;
+  }
+}
+
+
+/* v2.3.17 | Homepage Hero ONLY (desktop).
+   Title: 10% larger than the former responsive S0 scale; 58.5px -> 65px
+   at the reference 1580x750 viewport. Three-card fan: visual size +10%.
+   Transform preserves 50/50 grid allocation, centroid and scroll anchors.
+   Other headings and mobile/tablet layouts are deliberately unchanged. */
+@media (min-width:901px) {
+  .hero #hero-title {
+    font-size: 88px;
+  }
+  .hero .hero-fan {
+    transform: scale(1.1);
+    transform-origin: center center;
+  }
+}
+@media (min-width:901px) and (max-height:930px) {
+  .hero #hero-title {
+    font-size: clamp(46.2px, min(5.115vw, 8.6667svh), 88px);
+  }
+}

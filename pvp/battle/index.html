@@ -230,6 +230,10 @@ button{font:inherit}
 .gl-sound-panel[hidden]{display:none!important}
 .gl-sound-row{display:flex;align-items:center;justify-content:space-between;min-height:33px;gap:10px;padding:3px 5px;color:#f3e1a8;font-size:11px;font-weight:800;line-height:1.2;cursor:pointer}
 .gl-sound-row input{position:absolute;width:1px;height:1px;opacity:0}
+.gl-sound-volume{display:grid;grid-template-columns:1fr auto;gap:5px 9px;padding:5px;color:#f3e1a8;font-size:11px;font-weight:800}
+.gl-sound-volume>span{grid-column:1;grid-row:1}
+.gl-sound-volume input[type=range]{grid-column:1;grid-row:2;width:100%;min-width:0;accent-color:#e1ba62;cursor:pointer}
+.gl-sound-volume output{grid-column:2;grid-row:2;min-width:33px;text-align:right;color:#fff1c0;font-size:10px}
 .gl-sound-switch-track{position:relative;display:block;width:32px;height:18px;flex:0 0 32px;border-radius:20px;border:1px solid #566577;background:#25323e;transition:background .14s}
 .gl-sound-switch-track::after{content:"";position:absolute;left:2px;top:2px;width:12px;height:12px;border-radius:50%;background:#e4e9f1;transition:transform .14s}
 .gl-sound-row input:checked+.gl-sound-switch-track{background:#b1933c;border-color:#e6ce72}
@@ -292,9 +296,10 @@ html.gl-adaptive-stage .played{column-gap:5px;row-gap:5px}
 </style>
 
 <link rel="stylesheet" href="shared-ui/battlefield-ui.css?v=gl-s0-pvp-rc41-r39-v34-part5-2026-11-19">
-<link rel="stylesheet" href="runtime/pvp-mobile-landscape-fix.css?v=gl-s0-pvp-rc41-r39-v34-part5-2026-11-19">
+<link rel="stylesheet" href="runtime/pvp-mobile-landscape-fix.css?v=gl-s0-pvp-rc41-r39-v34-part5-2026-11-19&amp;ui=20261120-preview">
 
 <script src="/assets/js/s0-artwork-fallback.js"></script>
+<script defer src="/assets/js/gl-site-analytics.js?v=20261120-v1"></script>
 </head>
 <body>
 <div class="app gl-lobby-hidden">
@@ -382,7 +387,7 @@ html.gl-adaptive-stage .played{column-gap:5px;row-gap:5px}
       <button class="battle-log-btn" id="battleLogBtn" type="button">Battle Log</button>
       <div class="preview-overlay"><img id="hoverPreviewCard" class="preview-card" alt="Card preview"></div>
     </section>
-    <div class="bottom-actions"><span class="match-timer" id="matchTimer" aria-label="Match time">00:00</span><div class="gl-sound-control" id="glSoundControl"><button type="button" id="glSoundButton" aria-haspopup="true" aria-expanded="false" aria-controls="glSoundPanel">Sound</button><div class="gl-sound-panel" id="glSoundPanel" hidden><label class="gl-sound-row"><span>SFX</span><input type="checkbox" id="glSfxSwitch" role="switch" aria-label="Sound effects" checked><span class="gl-sound-switch-track" aria-hidden="true"></span></label></div></div><button type="button" id="matchActionButton" class="danger">Surrender</button></div>
+    <div class="bottom-actions"><span class="match-timer" id="matchTimer" aria-label="Match time">00:00</span><div class="gl-sound-control" id="glSoundControl"><button type="button" id="glSoundButton" aria-haspopup="true" aria-expanded="false" aria-controls="glSoundPanel">Sound</button><div class="gl-sound-panel" id="glSoundPanel" hidden><label class="gl-sound-row"><span>Music</span><input type="checkbox" id="glMusicSwitch" role="switch" aria-label="Background music"><span class="gl-sound-switch-track" aria-hidden="true"></span></label><label class="gl-sound-volume"><span>Music Volume</span><input type="range" id="glMusicVolume" min="0" max="100" value="100" step="1" aria-label="Music volume"><output id="glMusicVolumeValue" for="glMusicVolume">100%</output></label><label class="gl-sound-row"><span>SFX</span><input type="checkbox" id="glSfxSwitch" role="switch" aria-label="Sound effects" checked><span class="gl-sound-switch-track" aria-hidden="true"></span></label></div></div><button type="button" id="matchActionButton" class="danger">Surrender</button></div>
     <section class="battlelog-panel" id="battleLogPanel" aria-hidden="true"><div class="history-head"><h3>Battle Log</h3><button class="history-close" id="battleLogClose" type="button">Close</button></div></section>
     <section class="history-panel" id="historyPanel" aria-hidden="true"><div class="history-head"><h3>Full Card History</h3><button class="history-close" id="historyClose" type="button">Close</button></div><div class="history-grid"></div></section>
   </aside>
@@ -496,7 +501,7 @@ html.gl-adaptive-stage .played{column-gap:5px;row-gap:5px}
   <script src="../build-meta.js"></script>
   <script src="runtime/pvp-mana-draft.js?v=gl-s0-pvp-rc41-r39-v34-part5-2026-11-19"></script>
   <script src="runtime/pvp-network.js?v=gl-s0-pvp-rc41-r39-v34-part5-2026-11-19"></script>
-  <script src="shared-app/app-runtime.js?v=gl-s0-pvp-rc41-r39-v34-part5-2026-11-19&amp;hotfix=handart-20261115&amp;itemarrow-paladin=20261115"></script>
+  <script src="shared-app/app-runtime.js?v=gl-s0-pvp-rc41-r39-v34-part5-2026-11-19&amp;hotfix=handart-20261115&amp;itemarrow-paladin=20261115&amp;ui=20261120-preview&amp;music=20261120-v1"></script>
   <script src="shared-ui/mobile-landscape-lobby.js?v=gl-s0-pvp-rc41-r39-v34-part5-2026-11-19"></script>
   
 

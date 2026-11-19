@@ -1,0 +1,53 @@
+/* Grandis Legacy S0 | Shared website header navigation v1 | 2026-11-20.
+   Style reference: Deck Builder v1.67 .global-nav-link. Used by Deck Builder
+   Style 1/2 and VS AI Lobby. PvP excluded; developer can opt-in later.
+   All non-PvP navigation hover/focus is styled from this single source. */
+.gl-site-app-nav > a.gl-site-nav-btn,
+.gl-lobby-head .gl-lobby-website-links > a.gl-site-nav-btn {
+  box-sizing:border-box!important;
+  display:inline-flex!important;align-items:center!important;justify-content:center!important;
+  height:38px!important;min-height:38px!important;
+  padding:0 18px!important;
+  border:1px solid transparent!important;border-radius:10px!important;
+  color:#fff!important;text-decoration:none!important;
+  font:900 11px/1.15 Noto,'Noto Sans',Arial,sans-serif!important;
+  letter-spacing:.025em!important;white-space:nowrap!important;
+  transform:none!important;outline:0!important;box-shadow:none!important;
+  filter:none!important;
+  transition:filter .15s ease!important;
+}
+.gl-site-app-nav > a.gl-site-nav-btn--outline,
+.gl-lobby-head .gl-lobby-website-links > a.gl-site-nav-btn--outline,
+.gl-lobby-head .gl-lobby-website-links > a.gl-site-nav-btn:first-child {
+  border-color:rgba(236,240,248,.42)!important;
+  background:rgba(4,9,16,.35)!important;
+  color:#fff!important;
+}
+.gl-site-app-nav > a.gl-site-nav-btn--primary,
+.gl-lobby-head .gl-lobby-website-links > a.gl-site-nav-btn--primary,
+.gl-lobby-head .gl-lobby-website-links > a.gl-site-nav-btn:last-child {
+  min-width:132px!important;
+  border-color:#075b86!important;background:#075b86!important;color:#fff!important;
+}
+.gl-site-app-nav > a.gl-site-nav-btn:hover,
+.gl-lobby-head .gl-lobby-website-links > a.gl-site-nav-btn:hover,
+.gl-lobby-head .gl-lobby-website-links > a.gl-site-nav-btn:first-child:hover,
+.gl-lobby-head .gl-lobby-website-links > a.gl-site-nav-btn:last-child:hover {
+  filter:brightness(1.08)!important;
+  transform:none!important;box-shadow:none!important;
+  outline:none!important;
+}
+.gl-site-app-nav > a.gl-site-nav-btn:focus-visible,
+.gl-lobby-head .gl-lobby-website-links > a.gl-site-nav-btn:focus-visible {
+  outline:2px solid #76c6ee!important;
+  outline-offset:3px!important;
+}
+@media(max-width:900px){
+  .gl-site-app-nav > a.gl-site-nav-btn,
+  .gl-lobby-head .gl-lobby-website-links > a.gl-site-nav-btn {
+    height:34px!important;min-height:34px!important;padding:0 11px!important;
+    font-size:9px!important;
+  }
+  .gl-site-app-nav > a.gl-site-nav-btn--primary,
+  .gl-lobby-head .gl-lobby-website-links > a.gl-site-nav-btn--primary {min-width:100px!important}
+}

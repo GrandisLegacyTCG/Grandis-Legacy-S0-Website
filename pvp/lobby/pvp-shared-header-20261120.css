@@ -1,0 +1,113 @@
+/* Season 0 PvP integration with the website's canonical shared header.
+ * Scope every override to /pvp/, preserving homepage, builder, rulebook and VS AI.
+ * Link styles load after PvP's legacy lobby CSS; assets live in the SITE ROOT.
+ */
+#pvpSetupOverlay .pvp-v260-page{padding:0 var(--gl-brand-left-gutter,24px) 16px}
+#pvpSetupOverlay .pvp-v260-topbar{
+  box-sizing:border-box!important;
+  display:grid!important;
+  grid-template-columns:var(--gl-brand-width,174px) minmax(0,1fr) auto!important;
+  align-items:center!important;
+  min-height:var(--gl-brand-header-height,90px)!important;
+  height:auto!important;
+  padding:0 var(--gl-brand-left-gutter,24px)!important;
+  margin:0 calc(-1 * var(--gl-brand-left-gutter,24px)) 14px!important;
+  gap:16px!important;
+  border:0!important;
+  box-shadow:none!important;
+  background:var(--gl-brand-header-bg,#1e1e27)!important;
+}
+#pvpSetupOverlay .pvp-v260-topbar a.pvp-v260-logo.gl-site-brand{
+  display:flex!important;box-sizing:border-box!important;align-items:center!important;
+  justify-content:flex-start!important;overflow:visible!important;
+  width:var(--gl-brand-width,174px)!important;min-width:var(--gl-brand-width,174px)!important;
+  max-width:var(--gl-brand-width,174px)!important;
+  height:var(--gl-brand-header-height,90px)!important;min-height:0!important;
+  flex:0 0 var(--gl-brand-width,174px)!important;
+  margin:0!important;padding:0!important;border:0!important;transform:none!important;
+}
+#pvpSetupOverlay .pvp-v260-topbar a.gl-site-brand img.gl-site-brand-img{
+  display:block!important;box-sizing:border-box!important;
+  width:100%!important;height:auto!important;min-height:0!important;max-height:none!important;
+  object-fit:contain!important;object-position:left center!important;
+  margin:0!important;padding:0!important;border:0!important;
+  filter:none!important;opacity:1!important;transform:none!important;
+}
+#pvpSetupOverlay .pvp-v260-heading{min-width:0!important;padding-top:0!important}
+#pvpSetupOverlay .pvp-v260-app-links.gl-site-app-nav{
+  display:flex!important;flex-wrap:wrap!important;align-items:center!important;
+  justify-content:flex-end!important;gap:10px!important;min-width:0!important;
+  grid-column:auto!important;width:auto!important;margin:0!important;
+}
+/* A scoped specificity bridge: legacy PvP .pvp-v260-app-link CSS may load
+ * before the shared sheet and otherwise wins its hover border/background. */
+#pvpSetupOverlay .pvp-v260-app-links .gl-site-nav-btn{
+  display:inline-flex!important;box-sizing:border-box!important;
+  height:38px!important;min-height:38px!important;max-height:38px!important;
+  border-radius:10px!important;border:1px solid rgba(236,240,248,.40)!important;
+  padding:0 15px!important;text-decoration:none!important;
+  color:#f3f6fa!important;white-space:nowrap!important;
+  font:900 11px/1.15 "Noto Sans",Noto,Arial,sans-serif!important;
+  letter-spacing:.03em!important;
+  box-shadow:none!important;transform:none!important;
+  transition:filter .15s ease!important;
+}
+#pvpSetupOverlay .pvp-v260-app-links .gl-site-nav-btn--outline{
+  background:rgba(4,9,16,.6)!important;border-color:rgba(236,240,248,.40)!important;
+}
+#pvpSetupOverlay .pvp-v260-app-links .gl-site-nav-btn--primary{
+  background:#075b86!important;border-color:#075b86!important;color:white!important;
+}
+#pvpSetupOverlay .pvp-v260-app-links .gl-site-nav-btn:hover{
+  filter:brightness(1.08)!important;transform:none!important;
+  border-color:inherit; /* no old gold/blue hover stroke */
+}
+#pvpSetupOverlay .pvp-v260-app-links .gl-site-nav-btn:focus-visible{
+  outline:2px solid #9ecde8!important;outline-offset:3px!important;
+}
+@media(max-width:900px){
+  #pvpSetupOverlay .pvp-v260-topbar{grid-template-columns:var(--gl-brand-width,152px) minmax(0,1fr)!important;gap:8px 14px!important;padding-top:4px!important;padding-bottom:7px!important}
+  #pvpSetupOverlay .pvp-v260-app-links.gl-site-app-nav{grid-column:1 / -1!important;justify-content:flex-end!important;gap:8px!important}
+}
+@media(max-width:600px){
+  #pvpSetupOverlay .pvp-v260-page{padding:0 var(--gl-brand-left-gutter,20px) 16px}
+  #pvpSetupOverlay .pvp-v260-topbar{margin-right:calc(-1 * var(--gl-brand-left-gutter,20px))!important;margin-left:calc(-1 * var(--gl-brand-left-gutter,20px))!important;grid-template-columns:var(--gl-brand-width,150px) minmax(0,1fr)!important;gap:6px 10px!important;padding-right:var(--gl-brand-left-gutter,20px)!important;padding-left:var(--gl-brand-left-gutter,20px)!important}
+  #pvpSetupOverlay .pvp-v260-heading h1{font-size:15px!important}
+  #pvpSetupOverlay .pvp-v260-heading p{font-size:11px!important}
+  #pvpSetupOverlay .pvp-v260-app-links.gl-site-app-nav{grid-column:1 / -1!important;justify-content:stretch!important;width:100%!important}
+  #pvpSetupOverlay .pvp-v260-app-links .gl-site-nav-btn{flex:1 1 0!important;min-width:0!important;padding:0 7px!important;font-size:10px!important}
+}
+@media(prefers-reduced-motion:reduce){
+  #pvpSetupOverlay .pvp-v260-app-links .gl-site-nav-btn{transition:none!important}
+}
+
+/* Touch phones use a scaled 1180x590 LOGICAL desktop lobby. Do not apply
+ * physical-device @max-width 600px wrap rules to the rotated logical stage;
+ * that made header/nav span the entire portrait screen height. */
+html.gl-pvp-mobile-desktop #pvpSetupOverlay .pvp-v260-page{
+  padding:12px 26px 14px!important;
+}
+html.gl-pvp-mobile-desktop #pvpSetupOverlay .pvp-v260-topbar{
+  display:grid!important;
+  grid-template-columns:var(--gl-brand-width,174px) minmax(0,1fr) auto!important;
+  align-items:center!important;
+  min-height:64px!important;height:64px!important;
+  gap:12px!important;
+  padding:0 26px!important;
+  margin:0 -26px 10px!important;
+}
+html.gl-pvp-mobile-desktop #pvpSetupOverlay .pvp-v260-topbar a.pvp-v260-logo.gl-site-brand{
+  height:64px!important;min-height:64px!important;
+}
+html.gl-pvp-mobile-desktop #pvpSetupOverlay .pvp-v260-heading{
+  padding:0!important;min-width:0!important;
+}
+html.gl-pvp-mobile-desktop #pvpSetupOverlay .pvp-v260-app-links.gl-site-app-nav{
+  grid-column:auto!important;width:auto!important;
+  flex-wrap:nowrap!important;justify-content:flex-end!important;gap:8px!important;
+}
+html.gl-pvp-mobile-desktop #pvpSetupOverlay .pvp-v260-app-links .gl-site-nav-btn{
+  flex:0 0 auto!important;width:auto!important;
+  padding:0 12px!important;font-size:11px!important;
+  height:38px!important;min-height:38px!important;max-height:38px!important;
+}

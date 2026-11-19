@@ -258,8 +258,32 @@ function promoteTemporaryCardPreview(active){
 }
 let battlefieldHoverSource=null;
 function hideBattlefieldHoverPreview(){battlefieldHoverSource=null;battlefieldHoverPreview.classList.remove('open','is-hero');battlefieldHoverPreview.style.removeProperty('width');battlefieldHoverPreview.style.removeProperty('height');battlefieldHoverPreview.setAttribute('aria-hidden','true');battlefieldHoverImg.removeAttribute('src')}
+function hasUnifiedMobilePreviewStage(){
+  const c=document.documentElement.classList;
+  return c.contains('gl-mobile-gameplay-stage')&&!c.contains('gl-mobile-landscape-stage');
+}
+function isRotatedMobileGameplay(){
+  return hasUnifiedMobilePreviewStage()&&document.documentElement.classList.contains('gl-stage-portrait');
+}
+function normalizeRotatedMobilePreview(layer){
+  if(!hasUnifiedMobilePreviewStage()||!layer)return false;
+  for(const prop of ['width','height','left','top','right','bottom'])layer.style.removeProperty(prop);
+  return true;
+}
+function mobileFlightRect(rect){
+  if(!rect)return null;
+  const r={left:rect.left,top:rect.top,width:rect.width,height:rect.height};
+  if(!isRotatedMobileGameplay())return r;
+  // Screen rects are already +90deg: swap CSS dimensions back to portrait,
+  // keeping the exact same visual bounding box centered on the same point.
+  r.left=rect.left+(rect.width-rect.height)/2;
+  r.top=rect.top+(rect.height-rect.width)/2;
+  r.width=rect.height;r.height=rect.width;
+  return r;
+}
 function placeBattlefieldHoverPreview(kind,anchor){
   if(!anchor||!battlefieldHoverPreview)return;
+  if(normalizeRotatedMobilePreview(battlefieldHoverPreview))return;
   const cs=getComputedStyle(battlefieldHoverPreview),g=8,vp=uiViewportSize(),vw=vp.width,vh=vp.height;
   let w=parseFloat(cs.width)||259,h=parseFloat(cs.height)||362,left=g,top=g;
   // Fixed-position previews are in viewport pixels, even when game canvas is scaled.
@@ -351,6 +375,7 @@ function renderInteractionFocus(s){
 function hideSidebarHoverPreview(){sidebarHoverPreview.classList.remove('open');sidebarHoverPreview.setAttribute('aria-hidden','true');sidebarHoverImg.removeAttribute('src')}
 function placeSidebarHoverPreview(anchor){
   if(!anchor||!sidebarHoverPreview||!sidebar)return;
+  if(normalizeRotatedMobilePreview(sidebarHoverPreview))return;
   const sr=uiRect(sidebar),ar=uiRect(anchor),cs=getComputedStyle(sidebarHoverPreview);
   const vp=uiViewportSize(),w=parseFloat(cs.width)||259,h=parseFloat(cs.height)||362,g=10,vw=vp.width,vh=vp.height;
   let left=sr.left-w-g;
@@ -378,6 +403,7 @@ function bindFixedChoicePreview(img,cardId){
   img.addEventListener('mouseenter',show);img.addEventListener('focus',show);
 }
 function placeModalHoverPreview(anchor){
+  if(normalizeRotatedMobilePreview(modalHoverPreview))return;
   const panel=choiceOverlay.querySelector('.choice-panel');
   const r=uiRect(panel||anchor);if(!r)return;
   const cs=getComputedStyle(modalHoverPreview),w=parseFloat(cs.width)||225,h=parseFloat(cs.height)||315,g=12,vp=uiViewportSize(),vw=vp.width,vh=vp.height;
@@ -405,6 +431,7 @@ function bindModalPreview(img){
 function placeContextualModalHoverPreview(anchor,compactHero){
   if(!anchor||!modalHoverPreview)return;
   modalHoverPreview.classList.toggle('is-context-hero',!!compactHero);
+  if(normalizeRotatedMobilePreview(modalHoverPreview))return;
   const cs=getComputedStyle(modalHoverPreview),w=parseFloat(cs.width)||259,h=parseFloat(cs.height)||362,g=10,vp=uiViewportSize(),vw=vp.width,vh=vp.height,ar=uiRect(anchor);
   // Contextual popup previews belong to the hovered card, but should not cover the
   // popup grid. Pick the outside edge that corresponds to the hovered card's half
@@ -428,6 +455,7 @@ function placeContextualModalHoverPreview(anchor,compactHero){
    interaction as the Legacy Deck hover even when the selection row fills 94vw. */
 function placeClassChoiceHoverPreview(anchor){
   if(!anchor)return;
+  if(normalizeRotatedMobilePreview(modalHoverPreview))return;
   const vp=uiViewportSize(),margin=12,gap=12,card=anchor.closest?.('.gl-center-choice-card')||anchor;
   const bounds=[...centerChoiceStage.querySelectorAll('.gl-center-choice-card')]
     .map(uiRect).filter(r=>r&&r.width>0&&r.height>0);
@@ -959,9 +987,10 @@ function flyBetween(src,fromEl,toEl,duration=380,onFinish,playSound=true,ghost=f
   flyer.className='gl-flying-card'+(ghost?' gl-return-ghost':'')+(reveal?' gl-draw-flip-flight':'');
   const im=reveal?document.createElement('img'):flyer;
   im.src=src;im.alt='';if(reveal)flyer.appendChild(im);
-  if(ghost)flyer.style.opacity='.55';flyer.style.left=fr.left+'px';flyer.style.top=fr.top+'px';flyer.style.width=fr.width+'px';flyer.style.height=fr.height+'px';animationLayer.appendChild(flyer);
+  const start=mobileFlightRect(fr),end=mobileFlightRect(tr);
+  if(ghost)flyer.style.opacity='.55';flyer.style.left=start.left+'px';flyer.style.top=start.top+'px';flyer.style.width=start.width+'px';flyer.style.height=start.height+'px';animationLayer.appendChild(flyer);
   if(playSound)E()?.playCardMotionSound?.();
-  requestAnimationFrame(()=>requestAnimationFrame(()=>{flyer.style.transition='transform '+duration+'ms cubic-bezier(.2,.75,.2,1),opacity '+duration+'ms ease,width '+duration+'ms ease,height '+duration+'ms ease';flyer.style.transform='translate('+(tr.left-fr.left)+'px,'+(tr.top-fr.top)+'px)';flyer.style.width=tr.width+'px';flyer.style.height=tr.height+'px';flyer.style.opacity=ghost?'.42':'.88'}));
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{flyer.style.transition='translate '+duration+'ms cubic-bezier(.2,.75,.2,1),opacity '+duration+'ms ease,width '+duration+'ms ease,height '+duration+'ms ease';flyer.style.translate=(end.left-start.left)+'px '+(end.top-start.top)+'px';flyer.style.width=end.width+'px';flyer.style.height=end.height+'px';flyer.style.opacity=ghost?'.42':'.88'}));
   if(reveal){
     const half=Math.max(35,Math.min(65,Math.round(duration*.17))),start=Math.max(25,Math.round(duration*.38));
     setTimeout(()=>{if(!flyer.isConnected)return;im.style.transition='transform '+half+'ms ease-in';im.style.transform='rotateY(90deg)';
@@ -978,14 +1007,16 @@ function flyPublicSelectedPickup(event,fromEl,toEl,onFinish){
   if(!target||target.width<1||target.height<1)return false;
   const side=event.side==='AI'?'AI':'PLAYER',epoch=glPresentationEpoch;
   const width=Math.min(146,Math.max(90,Math.round(vw*.12))),height=Math.round(width*1.4);
-  const left=Math.max(10,Math.min(vw-width-10,target.left+target.width/2-width/2));
-  const preferred=side==='AI'?target.bottom+20:target.top-height-20;
-  const top=Math.max(8,Math.min(vh-height-8,preferred));
-  const destLeft=target.left+target.width/2-width/2,destTop=target.top+target.height/2-height/2;
+  const rotated=isRotatedMobileGameplay();
+  const visualW=rotated?height:width,visualH=rotated?width:height;
+  const visualLeft=Math.max(10,Math.min(vw-visualW-10,target.left+target.width/2-visualW/2));
+  const preferred=side==='AI'?target.bottom+20:target.top-visualH-20;
+  const visualTop=Math.max(8,Math.min(vh-visualH-8,preferred));
+  const hold=mobileFlightRect({left:visualLeft,top:visualTop,width:visualW,height:visualH});
   const origin=from&&from.width>=1?from:{left:target.left,top:target.top,width:target.width,height:target.height};
   glPresentationActive++;glPresentationBusyUntil=Math.max(glPresentationBusyUntil,Date.now()+3200);
   const img=document.createElement('img');img.className='gl-flying-card gl-public-pickup-reveal';img.src=art(event.card_id);img.alt='';img.draggable=false;
-  img.style.left=origin.left+'px';img.style.top=origin.top+'px';img.style.width=origin.width+'px';img.style.height=origin.height+'px';
+  const launch=mobileFlightRect(origin);img.style.left=launch.left+'px';img.style.top=launch.top+'px';img.style.width=launch.width+'px';img.style.height=launch.height+'px';
   img.style.transform='rotateY(0deg)';animationLayer.appendChild(img);
   E()?.playCardMotionSound?.();
   const isCurrent=()=>epoch===glPresentationEpoch;
@@ -997,7 +1028,7 @@ function flyPublicSelectedPickup(event,fromEl,toEl,onFinish){
   requestAnimationFrame(()=>requestAnimationFrame(()=>{
     if(!isCurrent())return;
     img.style.transition='left 350ms ease,top 350ms ease,width 350ms ease,height 350ms ease,transform 180ms ease';
-    img.style.left=left+'px';img.style.top=top+'px';img.style.width=width+'px';img.style.height=height+'px';
+    img.style.left=hold.left+'px';img.style.top=hold.top+'px';img.style.width=hold.width+'px';img.style.height=hold.height+'px';
   }));
   // Hold 2,000ms after arriving, not including travel or flip duration.
   later(2350,()=>{
@@ -1007,9 +1038,9 @@ function flyPublicSelectedPickup(event,fromEl,toEl,onFinish){
       void img.offsetWidth;
       img.style.transition='transform 150ms ease';img.style.transform='rotateY(0deg)';
       later(165,()=>{
-        const final=uiRect(toEl);const dw=Math.max(1,final.width||target.width),dh=Math.max(1,final.height||target.height);
+        const final=mobileFlightRect(uiRect(toEl)||target);
         img.style.transition='left 320ms ease,top 320ms ease,width 320ms ease,height 320ms ease,opacity 320ms ease';
-        img.style.left=(final.left||destLeft)+'px';img.style.top=(final.top||destTop)+'px';img.style.width=dw+'px';img.style.height=dh+'px';img.style.opacity='.74';
+        img.style.left=final.left+'px';img.style.top=final.top+'px';img.style.width=Math.max(1,final.width)+'px';img.style.height=Math.max(1,final.height)+'px';img.style.opacity='.74';
         later(345,finish);
       });
     });
@@ -1026,12 +1057,13 @@ function flyToHeroOrientation(src,fromEl,toEl,side,lane,duration=390,onFinish,pl
   // rotates smoothly to landscape while preserving the destination's visual box.
   // Using final left/top (rather than a center delta while width/height change)
   // prevents the clone from jumping off-target or disappearing on landscape Heroes.
-  const targetW=exhausted?Math.max(1,tr.height):Math.max(1,tr.width);
-  const targetH=exhausted?Math.max(1,tr.width):Math.max(1,tr.height);
+  const rotated=isRotatedMobileGameplay();
+  const targetW=rotated?(exhausted?Math.max(1,tr.width):Math.max(1,tr.height)):(exhausted?Math.max(1,tr.height):Math.max(1,tr.width));
+  const targetH=rotated?(exhausted?Math.max(1,tr.height):Math.max(1,tr.width)):(exhausted?Math.max(1,tr.width):Math.max(1,tr.height));
   const targetLeft=tcx-targetW/2,targetTop=tcy-targetH/2,rot=exhausted?-90:0;
   glPresentationActive++;glPresentationBusyUntil=Math.max(glPresentationBusyUntil,Date.now()+60);
   const im=document.createElement('img');
-  im.className='gl-flying-card';im.src=src;im.style.left=fr.left+'px';im.style.top=fr.top+'px';im.style.width=fr.width+'px';im.style.height=fr.height+'px';im.style.transform='rotate(0deg)';im.style.transformOrigin='center center';
+  const launch=mobileFlightRect(fr);im.className='gl-flying-card';im.src=src;im.style.left=launch.left+'px';im.style.top=launch.top+'px';im.style.width=launch.width+'px';im.style.height=launch.height+'px';im.style.transform='rotate(0deg)';im.style.transformOrigin='center center';
   animationLayer.appendChild(im);if(playSound)E()?.playCardMotionSound?.();
   requestAnimationFrame(()=>requestAnimationFrame(()=>{
     im.style.transition='left '+duration+'ms cubic-bezier(.2,.75,.2,1),top '+duration+'ms cubic-bezier(.2,.75,.2,1),transform '+duration+'ms cubic-bezier(.2,.75,.2,1),opacity '+duration+'ms ease,width '+duration+'ms ease,height '+duration+'ms ease';
@@ -1140,7 +1172,7 @@ function runAtomicTrialReturnBatch(side,items,onComplete){
       const target=hand?.querySelector('.hand-card[data-hand-index="'+Number(item.hand_index)+'"]');
       const from=item.from,fr=uiRect(from),to=uiRect(target);
       if(!fr||!to||fr.width<1||fr.height<1||to.width<1||to.height<1){missing.push(item);continue;}
-      movements.push({src:item.src||((side==='AI')?'assets/ui/back-main.webp':art(item.card_id)),fr,to});
+      movements.push({src:item.src||((side==='AI')?'assets/ui/back-main.webp':art(item.card_id)),fr:mobileFlightRect(fr),to:mobileFlightRect(to)});
     }
     if(missing.length){
       // Recover the final Hand nodes if the periodic renderer replaced them.
@@ -1158,7 +1190,7 @@ function runAtomicTrialReturnBatch(side,items,onComplete){
       const im=document.createElement('img');im.className='gl-flying-card gl-trial-exp-flight';
       im.src=m.src;im.style.left=m.fr.left+'px';im.style.top=m.fr.top+'px';
       im.style.width=m.fr.width+'px';im.style.height=m.fr.height+'px';
-      im.style.transform='translate(0px,0px)';fragment.appendChild(im);clones.push(im);
+      im.style.translate='0px 0px';fragment.appendChild(im);clones.push(im);
     });
     animationLayer.appendChild(fragment);active=clones.length;
     glPresentationActive+=active;glPresentationBusyUntil=Math.max(glPresentationBusyUntil,Date.now()+duration+70);
@@ -1167,8 +1199,8 @@ function runAtomicTrialReturnBatch(side,items,onComplete){
       if(settled||epoch!==glPresentationEpoch)return;
       // A single requestAnimationFrame writes all destinations. No stagger.
       movements.forEach((m,i)=>{
-        const im=clones[i];im.style.transition='transform '+duration+'ms cubic-bezier(.2,.75,.2,1),opacity '+duration+'ms ease,width '+duration+'ms ease,height '+duration+'ms ease';
-        im.style.transform='translate('+(m.to.left-m.fr.left)+'px,'+(m.to.top-m.fr.top)+'px)';
+        const im=clones[i];im.style.transition='translate '+duration+'ms cubic-bezier(.2,.75,.2,1),opacity '+duration+'ms ease,width '+duration+'ms ease,height '+duration+'ms ease';
+        im.style.translate=(m.to.left-m.fr.left)+'px '+(m.to.top-m.fr.top)+'px';
         im.style.width=m.to.width+'px';im.style.height=m.to.height+'px';im.style.opacity='.76';
       });
       // Start the ONE completion timer only after the ONE animation frame

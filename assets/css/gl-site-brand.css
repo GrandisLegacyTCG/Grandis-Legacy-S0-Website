@@ -4,20 +4,37 @@
    /assets/site/web-s0/logo-transparent.webp (940x310 transparent WebP).
    This stylesheet is loaded AFTER each application's own and parity CSS.
    Header logo is visually anchored to the same x/y coordinate on every route.
+   Desktop coordinates follow the Homepage v2.3.17 Season 1-alignment formula.
    PvP is maintained separately; its developer can reuse these classes and URL.
    NB: RC41 mobile-landscape lobby has separate scaling rules intentionally left
    untouched; only its artwork URL is unified. */
+/* v3 / 20 Nov 2026: Source-of-truth alignment is Homepage 2.3.17.
+   Desktop >=901 uses the same frame inset and logo width as S1-aligned Homepage.
+   All non-PvP app headers use this one responsive inset + logo dimension. */
 :root {
-  --gl-brand-width: 174px;
+  --gl-brand-width: 170px;
   --gl-brand-header-height: 90px;
-  --gl-brand-left-gutter: 24px;
+  --gl-brand-left-gutter: clamp(140px, calc(80px + 4.1667vw), 160px);
   --gl-brand-header-bg: #1e1e27;
 }
-@media (max-width: 900px) {
-  :root { --gl-brand-width: 152px; --gl-brand-header-height: 80px; }
+@media (min-width:901px) and (max-width:1439px) {
+  :root {
+    --gl-brand-width:158px;
+    --gl-brand-left-gutter:clamp(72px,9.72vw,140px);
+  }
 }
-@media (max-width: 600px) {
-  :root { --gl-brand-width: 150px; --gl-brand-left-gutter: 20px; }
+@media (min-width:901px) and (max-width:1120px) {
+  :root { --gl-brand-width:146px;--gl-brand-left-gutter:48px; }
+}
+@media (max-width:900px) {
+  :root {
+    --gl-brand-width:152px;
+    --gl-brand-left-gutter:24px;
+    --gl-brand-header-height:80px;
+  }
+}
+@media (max-width:600px) {
+  :root { --gl-brand-width:150px;--gl-brand-left-gutter:20px; }
 }
 
 /* Common brand element. Specific selectors deliberately beat the legacy
@@ -82,6 +99,9 @@ html:not(.gl-mobile-landscape-lobby) .gl-lobby-panel > .gl-lobby-head {
    rules; keep it and prevent alternate mobile rules from shifting the logo. */
 html:not(.gl-mobile-landscape-lobby) body .app-shell > header.topbar {
   padding-left: var(--gl-brand-left-gutter) !important;
+  /* Prevent 13px padding shifting Style 1's logo at 901-1100px. */
+  padding-top:0!important;
+  padding-bottom:0!important;
 }
 html:not(.gl-mobile-landscape-lobby) body:has(> #sidebar) > header {
   padding-left: var(--gl-brand-left-gutter) !important;
@@ -89,8 +109,8 @@ html:not(.gl-mobile-landscape-lobby) body:has(> #sidebar) > header {
 html:not(.gl-mobile-landscape-lobby) .gl-lobby-panel > .gl-lobby-head {
   padding-left: var(--gl-brand-left-gutter) !important;
 }
-/* Homepage's .site-header.wrap already has the authoritative 24/20px gutter.
-   Do not alter the Homepage's position, nav, scroll or mobile menu. */
+/* Homepage's v2.3.17 content stylesheet sets the same desktop responsive
+   frame. Keep its grid and nav behavior intact; only share logo dimensions. */
 
 /* Apply the same solid header backdrop everywhere; older Builder theme CSS
    could otherwise retain a gradient/image behind this transparent logo. */
@@ -116,4 +136,14 @@ html:not(.gl-mobile-landscape-lobby) .gl-lobby-panel > .gl-lobby-head {
 .site-header.is-scrolled::before {
   border-bottom: 0 !important;
   box-shadow: none !important;
+}
+
+/* At 901-1023px the original Style 1 header's long subtitle forced the
+   app-navigation row below the fixed 90px header. Keep title/style-switch
+   visible, hide only the explanatory subtitle at this breakpoint. */
+@media (min-width:901px) and (max-width:1023px) {
+  body .app-shell > header.topbar {flex-wrap:nowrap!important;}
+  body .app-shell > header.topbar .brand-copy p {display:none!important;}
+  body .app-shell > header.topbar .brand-block {min-width:0!important;flex:1 1 auto!important;}
+  body .app-shell > header.topbar .global-nav {flex:0 0 auto!important;}
 }

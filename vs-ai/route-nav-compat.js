@@ -31,8 +31,10 @@
     header.appendChild(desktop);
   }
   [['GO TO DECK BUILDER','deck-builder/'],['GO TO PVP','pvp/']].forEach(([label,path])=>{
-    const a=document.createElement('a');a.href=at(path);a.textContent=label;desktop.appendChild(a);
+    const a=document.createElement('a');a.href=at(path);a.textContent=label;
+    a.className='gl-site-nav-btn '+(path==='pvp/'?'gl-site-nav-btn--primary':'gl-site-nav-btn--outline');
+    desktop.appendChild(a);
   });
-  // Navigation styling lives exclusively in /assets/css/gl-header-parity.css.
+  // Navigation styling lives exclusively in /assets/css/gl-site-navigation.css.
   // Avoid late-injected duplicate styles that caused the gold hover stroke.
 })();

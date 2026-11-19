@@ -693,8 +693,8 @@
     var w=Math.min(86,Math.max(54,item.from.width||72)), h=Math.round(w*1.4); img.style.width=w+'px'; img.style.height=h+'px'; img.style.left=(item.from.left+(item.from.width-w)/2)+'px'; img.style.top=(item.from.top+(item.from.height-h)/2)+'px'; layer.appendChild(img);
     var origin=visualRectCenter({left:parseFloat(img.style.left)||0,top:parseFloat(img.style.top)||0,width:w,height:h});
     var ghostAlpha=item.ghost?0.74:1;
-    var frames=[{transform:'translate(0px,0px) scale(1)',opacity:ghostAlpha}], lastRect=item.from;
-    item.steps.forEach(function(step,idx){ var c=visualRectCenter(step.rect); if(!c) return; lastRect=step.rect; var isLast=idx===item.steps.length-1; frames.push({transform:'translate('+(c.x-origin.x)+'px,'+(c.y-origin.y)+'px) scale('+(isLast?(item.hold_key?.88:.78):.92)+')',opacity:isLast?(item.hold_key?ghostAlpha:.10):ghostAlpha,offset:(idx+1)/item.steps.length}); });
+    var frames=[{translate:'0px 0px',scale:'1',opacity:ghostAlpha}], lastRect=item.from;
+    item.steps.forEach(function(step,idx){ var c=visualRectCenter(step.rect); if(!c) return; lastRect=step.rect; var isLast=idx===item.steps.length-1; frames.push({translate:(c.x-origin.x)+'px '+(c.y-origin.y)+'px',scale:String(isLast?(item.hold_key?.88:.78):.92),opacity:isLast?(item.hold_key?ghostAlpha:.10):ghostAlpha,offset:(idx+1)/item.steps.length}); });
     var total=Math.max(220,Number(item.duration||520));
     var finished=false,completionWatchdog=null;
     function done(){
@@ -711,8 +711,8 @@
     function startVisualAnimation(){
       if(item.play_sound!==false) playCardMotionSound();
       if(typeof img.animate==='function'){ try{ var a=img.animate(frames,{duration:total,easing:'cubic-bezier(.2,.75,.2,1)',fill:'forwards'}); a.onfinish=done; a.oncancel=done; completionWatchdog=setTimeout(done,total+1250); return; }catch(e){} }
-      var last=frames[frames.length-1]; img.style.transition='transform '+total+'ms cubic-bezier(.2,.75,.2,1), opacity '+total+'ms ease';
-      img.style.transform=last.transform; img.style.opacity=String(last.opacity); setTimeout(done,total+40);
+      var last=frames[frames.length-1]; img.style.transition='translate '+total+'ms cubic-bezier(.2,.75,.2,1), scale '+total+'ms ease, opacity '+total+'ms ease';
+      img.style.translate=last.translate; img.style.scale=last.scale; img.style.opacity=String(last.opacity); setTimeout(done,total+40);
     }
     if(item.eager_start)nextVisualFrame(startVisualAnimation);else prepareImageForPaint(img).then(function(){nextVisualFrame(startVisualAnimation);});
   }
@@ -730,7 +730,7 @@
     var prepared=parts.map(function(part,idx){
       var img=document.createElement('img');img.className='gl-flying-card';img.src=part.src||'assets/ui/back-main.webp';img.alt='';img.dataset.animationId=String(item.id)+'-'+idx;
       var w=Math.min(86,Math.max(54,part.from.width||72)),h=Math.round(w*1.4);img.style.width=w+'px';img.style.height=h+'px';img.style.left=(part.from.left+(part.from.width-w)/2)+'px';img.style.top=(part.from.top+(part.from.height-h)/2)+'px';layer.appendChild(img);
-      var origin=visualRectCenter({left:parseFloat(img.style.left)||0,top:parseFloat(img.style.top)||0,width:w,height:h}),dest=visualRectCenter(part.to),frames=[{transform:'translate(0px,0px) scale(1)',opacity:1},{transform:'translate('+(dest.x-origin.x)+'px,'+(dest.y-origin.y)+'px) scale(.78)',opacity:.12}];
+      var origin=visualRectCenter({left:parseFloat(img.style.left)||0,top:parseFloat(img.style.top)||0,width:w,height:h}),dest=visualRectCenter(part.to),frames=[{translate:'0px 0px',scale:'1',opacity:1},{translate:(dest.x-origin.x)+'px '+(dest.y-origin.y)+'px',scale:'.78',opacity:.12}];
       return {img:img,frames:frames,ready:prepareImageForPaint(img)};
     });
     Promise.all(prepared.map(function(entry){return entry.ready;})).then(function(){nextVisualFrame(function(){
@@ -740,7 +740,7 @@
         var completionWatchdog=null;
         function done(){if(doneCalled)return;doneCalled=true;if(completionWatchdog)clearTimeout(completionWatchdog);oneDone(img);}
         if(typeof img.animate==='function'){try{var a=img.animate(frames,{duration:total,easing:'cubic-bezier(.2,.75,.2,1)',fill:'forwards'});a.onfinish=done;a.oncancel=done;completionWatchdog=setTimeout(done,total+1250);return;}catch(e){}}
-        img.style.transition='transform '+total+'ms cubic-bezier(.2,.75,.2,1), opacity '+total+'ms ease';img.style.transform=frames[1].transform;img.style.opacity='.12';setTimeout(done,total+40);
+        img.style.transition='translate '+total+'ms cubic-bezier(.2,.75,.2,1), scale '+total+'ms ease, opacity '+total+'ms ease';img.style.translate=frames[1].translate;img.style.scale=frames[1].scale;img.style.opacity='.12';setTimeout(done,total+40);
       });
     });});
   }
@@ -3791,9 +3791,105 @@
     });
     return best;
   }
+  // RC41 Intermediate tactical custody: skills whose original base-Class Hero
+  // is defeated are reserved for the once-per-Reform EXP Tribute before a
+  // Legacy discard cost. Check Tribute receiver legality independently of
+  // the current Phase; never change the authoritative Tribute rules.
+  function aiIntermediateDeadLineageSkill(state,c){
+    if(!state||!c||!isSkillCard(c))return false;
+    var family=cardBaseSkillClass(c),heroes=state.aiHeroes||{},dead=false,live=false;
+    LANE_ORDER.forEach(function(lane){
+      var h=heroes[lane];if(!h)return;
+      var code=String(heroIdFrom(h)||'').match(/^S0-(ARC|CLE|MAG|THF|WAR)-L\d{3}$/),
+        legacyFamily=code?({ARC:'Archer',CLE:'Cleric',MAG:'Mage',THF:'Thief',WAR:'Warrior'}[code[1]]):null,
+        ownerFamily=legacyFamily||baseFamilyForHero(h);
+      if(ownerFamily!==family)return;
+      if(isActiveHeroSlot(h))live=true;else dead=true;
+    });
+    return dead&&!live;
+  }
+  function aiIntermediateTributableDeadSkill(state,id){
+    var c=card(id);return aiIntermediateDeadLineageSkill(state,c)&&
+      (state.phase==='Deploy'||!state.tributeUsedThisReform)&&LANE_ORDER.some(function(lane){
+        return canReceiveTributeFor(state,'AI',id,lane);
+      });
+  }
+  function aiIntermediateLegacyCosts(state,ability){
+    var all=legacyCostCandidates(state,'AI',ability).slice();
+    if(!aiIntermediate(state))return all;
+    return all.filter(function(x){return !aiIntermediateTributableDeadSkill(state,x.card_id);});
+  }
+  // Evaluate a future Rank without consuming an actual Rank-Up card.
+  // Expired exhaustion/statuses are not permanent lineage restrictions.
+  function aiIntermediateSkillUsableByLiving(state,c){
+    if(!state||!c||!isSkillCard(c))return false;
+    return LANE_ORDER.some(function(lane){
+      var h=(state.aiHeroes||{})[lane];if(!isActiveHeroSlot(h))return false;
+      for(var rank=heroRank(h);rank<=3;rank++){
+        var futureId=rank===heroRank(h)?heroIdFrom(h):rankHeroIdFromProgression(heroProgressionId(h),rank);
+        if(!futureId||(rank>heroRank(h)&&(state.aiLegacy||[]).indexOf(futureId)<0))continue;
+        var trial=Object.assign({},h,{card_id:futureId,hp:Math.max(1,Number(h.hp||1)),exhausted:false,
+          statuses:[],attachments:[null,null],stamina_no_proactive_skill_turn:null});
+        if(sourceCompatibleForMode(c,trial,{response:true}))return true;
+      }
+      return false;
+    });
+  }
+  function aiIntermediateLivingAttackHandCount(state){
+    return (state.aiHand||[]).filter(function(id){var c=card(id);return c&&isSkillCard(c)&&
+      isAttackCard(c)&&aiIntermediateSkillUsableByLiving(state,c);}).length;
+  }
+  // Legacy 002: attack first while fewer than TWO viable Attack Skills are
+  // in Hand; then defensive Skills. A dead owner's Skill cannot win priority.
+  // Thief 002 is a distinct ITEM-return ability: no unwanted item recycling.
+  function aiIntermediateLegacyEffectPriority(state,ability,id){
+    var c=card(id),eff=ability&&ability.effect||{},isThief=String(ability&&ability.action_key||'')==='hidden_archives';
+    if(!c)return -10000;
+    if(isThief){
+      var heroes=LANE_ORDER.map(function(l){return (state.aiHeroes||{})[l];}).filter(Boolean),
+        alive=heroes.filter(isActiveHeroSlot),defeated=heroes.filter(function(h){return !isActiveHeroSlot(h);}),
+        missing=alive.map(function(h){return Math.max(0,Number(h.maxHp||100)-Number(h.hp||0));}),
+        maxMissing=missing.length?Math.max.apply(null,missing):0;
+      if(id==='S0-ITM-018'){
+        var canFind=(state.aiDeck||[]).some(function(x){var skill=card(x);return skill&&isSkillCard(skill)&&
+          !isUltimateCard(skill)&&aiIntermediateSkillUsableByLiving(state,skill);});
+        return canFind&&!(state.aiHand||[]).includes(id)?1700:-10000;
+      }
+      if(id==='S0-ITM-002')return maxMissing>=40?1100+maxMissing*4:-10000;
+      if(id==='S0-ITM-008')return defeated.length?1450+defeated.length*50:-10000;
+      if(cardFamily(c)==='Item'&&String(c.classification||'')==='Protection'){
+        if(!alive.length)return -10000;
+        var gates=itemLineageGate(c);
+        if(!alive.some(function(h){return heroMatchesLineageGate(h,gates);}))return -10000;
+        var enemy=LANE_ORDER.map(function(l){return (state.playerHeroes||{})[l];}).filter(isActiveHeroSlot);
+        if(!enemy.length)return -10000;
+        var physical=enemy.filter(function(h){return ['Archer','Thief','Warrior'].indexOf(baseFamilyForHero(h))>=0;}).length;
+        var magical=enemy.length-physical;
+        return id==='S0-ITM-016'?600+physical*75:
+          (id==='S0-ITM-007'?600+magical*75:670);
+      }
+      return -10000;
+    }
+    if(!isSkillCard(c)||!aiIntermediateSkillUsableByLiving(state,c))return -10000;
+    var attackCount=aiIntermediateLivingAttackHandCount(state),attack=isAttackCard(c),
+      defense=isResponseOnly(c)||/defen[cs]e/i.test(String(cardSubtype(c)||c.classification||''));
+    if(!attack&&!defense)return -10000;
+    if(attack&&attackCount>=2)return -10000;
+    var duplicates=(state.aiHand||[]).filter(function(x){return x===id;}).length;
+    var base=attack?1300:attackCount>=2?1300:450;
+    if(attack&&/sure hit|piercing/i.test(String(c.card_text||'')))base+=85;
+    if(attack)base+=Math.min(120,Number(currentClassDamage(c,LANE_ORDER.map(function(l){return (state.aiHeroes||{})[l];}).find(function(h){return isActiveHeroSlot(h)&&sourceCompatibleForMode(c,Object.assign({},h,{exhausted:false,statuses:[]}),{response:true});})||{})||0));
+    return base-duplicates*220-Math.max(0,Number(cardCost(c)||0)-Number(state.aiManaRegen||1)-2)*25;
+  }
+  function aiIntermediateLegacyAvailableChoices(state,ability){
+    var pool=legacyAbilityNeedsDeckChoice(ability)?legacyDeckSearchCandidates(state,'AI',ability):
+      legacyAbilityNeedsDiscardChoice(ability)?legacyDiscardReturnCandidates(state,'AI',ability,[]):[];
+    return pool.filter(function(row){return aiIntermediateLegacyEffectPriority(state,ability,row.card_id)>0;});
+  }
   function aiLegacyStrategicCardScore(state,id){
     var c=card(id),score=0;if(!c)return -9999;
     if(state&&state.aiPlan){var p=state.aiPlan;if(id===p.preferred_card_id||id===p.preferred_attack_card_id)score+=500;}
+    if(aiIntermediate(state)&&aiIntermediateTributableDeadSkill(state,id))score+=5000;
     if(isUltimateCard(c))score+=260;
     if(isAttackCard(c))score+=130;
     else if(isResponseOnly(c))score+=110;
@@ -3824,12 +3920,30 @@
         candidates.push({type:'LEGACY_ABILITY',side:'AI',source_side:'AI',source_lane:lane,card_id:heroIdFrom(h),ability_id:entry.abilityId,label:entry.label||cardName(card(heroIdFrom(h))),legacy_entry:entry,score:aiLegacyAbilityScore(state,lane,entry)});
       });
     });
-    if(!aiIntermediate(state))return candidates[0]||null; // Beginner: first legal Legacy, no value optimization.
+    if(!aiIntermediate(state))return candidates[0]||null; // Beginner unchanged.
+    candidates=candidates.filter(function(a){
+      var ability=a.legacy_entry&&a.legacy_entry.ability||{},effect=ability.effect||{},
+        costs=aiIntermediateLegacyCosts(state,ability),need=legacyCostCount(ability);
+      if(costs.length<need)return false; // Tribute reserved dead-Hero Skills first.
+      if(effect.type==='DRAW_CARDS'||effect.type==='DRAW_PER_DISCARD'){
+        // L001: the owner's threshold is Hand <= 5 BEFORE paying 1 Skill.
+        // Keep it above 5, and avoid consuming the last few mandatory draws.
+        if((state.aiHand||[]).length>5||(state.aiDeck||[]).length<=3)return false;
+        a.score=100+Number(a.score||0);
+      }else if(effect.type==='SEARCH_DECK_TO_HAND'||effect.type==='RETURN_DISCARD_TO_HAND'){
+        var picks=aiIntermediateLegacyAvailableChoices(state,ability);
+        if(picks.length<legacyResultCount(ability))return false;
+        var best=Math.max.apply(null,picks.map(function(x){return aiIntermediateLegacyEffectPriority(state,ability,x.card_id);}));
+        // Always prefer a meaningful L002 over L001 whenever both are legal.
+        a.score=700+best/10+Number(a.score||0);
+      }else a.score=Number(a.score||0);
+      return a.score>0;
+    });
     candidates.sort(function(a,b){return Number(b.score||0)-Number(a.score||0);});
-    return candidates.length&&Number(candidates[0].score||0)>0?candidates[0]:null;
+    return candidates[0]||null;
   }
   function aiChooseLegacyCostIndexes(state,ability){
-    var need=legacyCostCount(ability),candidates=legacyCostCandidates(state,'AI',ability).slice();
+    var need=legacyCostCount(ability),candidates=aiIntermediateLegacyCosts(state,ability).slice();
     if(aiIntermediate(state))candidates.sort(function(a,b){return aiLegacyStrategicCardScore(state,a.card_id)-aiLegacyStrategicCardScore(state,b.card_id)||Number(a.hand_index)-Number(b.hand_index);});
     // Beginner pays with the earliest eligible Hand cards rather than optimizing value.
     return candidates.slice(0,Math.min(need,candidates.length)).map(function(x){return Number(x.hand_index);});
@@ -3839,7 +3953,10 @@
     if(legacyAbilityNeedsDiscardChoice(ability))choices=legacyDiscardReturnCandidates(state,'AI',ability,costPaid||[]);
     else if(legacyAbilityNeedsDeckChoice(ability))choices=legacyDeckSearchCandidates(state,'AI',ability);
     choices=choices.slice();
-    if(aiIntermediate(state))choices.sort(function(a,b){return aiLegacyStrategicCardScore(state,b.card_id)-aiLegacyStrategicCardScore(state,a.card_id);});
+    if(aiIntermediate(state)){
+      choices=choices.filter(function(x){return aiIntermediateLegacyEffectPriority(state,ability,x.card_id)>0;});
+      choices.sort(function(a,b){return aiIntermediateLegacyEffectPriority(state,ability,b.card_id)-aiIntermediateLegacyEffectPriority(state,ability,a.card_id);});
+    }
     return choices.slice(0,Math.max(0,count||1));
   }
   function executeAILegacyAbility(state,action){
@@ -3881,7 +3998,7 @@
   function isArcaneScrollCard(c){ return !!(c && c.card_id==='S0-ITM-010'); }
   function isHolyMedallionCard(c){ return !!(c && c.card_id==='S0-ITM-014'); }
   function isEnrageSetupCard(c){ return !!(c && c.card_id==='S0-WAR-013'); }
-  function isAttackBuffSetupCard(c){ return !!(c && (isPoisonVialCard(c) || isCoordinationAttackCard(c) || isHolyMedallionCard(c) || isArcaneScrollCard(c) || isBlessingMightCard(c) || isBlessingWisdomCard(c) || isEnrageSetupCard(c) || isLastResortCard(c) || c.card_id==='S0-CLE-018' || c.card_id==='S0-CLE-028')); }
+  function isAttackBuffSetupCard(c){ return !!(c && (isPoisonVialCard(c) || isCoordinationAttackCard(c) || isHolyMedallionCard(c) || isArcaneScrollCard(c) || isBlessingMightCard(c) || isBlessingWisdomCard(c) || isEnrageSetupCard(c) || isLastResortCard(c) || isTripleShotCard(c) || c.card_id==='S0-MAG-022' || c.card_id==='S0-CLE-018' || c.card_id==='S0-CLE-028')); }
   function isTacticalFollowUpSetupCard(c){ return isAttackBuffSetupCard(c) || isRingOfGraceCard(c) || isDoubleCastingCard(c) || isWildfireCard(c) || isHeavensFuryCard(c) || !!(c&&c.card_id==='S0-ITM-020'); }
   function aiRemainingManaAfterAction(state, action){
     if(!state||!action)return manaPoolCardsForSide(state||{},'AI').length;
@@ -3909,6 +4026,10 @@
     if(setupCard.card_id==='S0-CLE-028')return attackAction.source_lane===setupAction.target_lane;
     if(setupCard.card_id==='S0-CLE-018')return true;
     if(isPoisonVialCard(setupCard)) return attackAction.source_lane===setupAction.target_lane && isPoisonVialEligibleAttack(attackCard) && actualType==='Physical';
+    if(isTripleShotCard(setupCard))return attackAction.source_lane===setupAction.source_lane &&
+      ['S0-ARC-002','S0-ARC-007'].indexOf(attackCard.card_id)>=0 && aiAreaCoverageCount(state,attackAction.source_lane)>=2;
+    if(setupCard.card_id==='S0-MAG-022')return attackAction.source_lane===setupAction.source_lane &&
+      explicitAttackLabel(attackCard)==='Physical Attack';
     if(isArcaneScrollCard(setupCard)) return attackAction.source_lane===setupAction.target_lane && attackSubtype==='Magical Attack';
     if(isHolyMedallionCard(setupCard)) return attackAction.source_lane===setupAction.target_lane && (attackSubtype==='Physical Attack' || attackSubtype==='Magical Attack');
     if(isBlessingMightCard(setupCard)) return attackAction.source_lane===setupAction.target_lane && attackSubtype==='Physical Attack';
@@ -3920,7 +4041,9 @@
   }
   function aiAttackPlanValue(state, setupAction, attackAction){
     var value=aiAttackTacticalScore(state,attackAction), setupCard=card(setupAction.card_id), attackCard=card(attackAction.card_id);
-    if(isPoisonVialCard(setupCard)){
+    if(isTripleShotCard(setupCard))value+=Math.max(0,aiAreaCoverageCount(state,attackAction.source_lane)-1)*45;
+    else if(setupCard.card_id==='S0-MAG-022')value+=40;
+    else if(isPoisonVialCard(setupCard)){
       if(isDualArrowCard(attackCard)) value+=30;
       else value+=20;
     } else if(isArcaneScrollCard(setupCard) || isHolyMedallionCard(setupCard) || isBlessingMightCard(setupCard) || isBlessingWisdomCard(setupCard) || isEnrageSetupCard(setupCard)) value+=20;
@@ -3938,7 +4061,9 @@
     if(!state || !setupAction) return null;
     var sim=aiManaSimulationAfterSetup(state,setupAction,'Battle',false);
     var legal=getLegalActions('AI',sim).filter(function(a){
-      return a.type==='PLAY_CARD' && isAttackCard(card(a.card_id)) && !isAIChoiceHeavyCard(card(a.card_id)) && aiAttackMatchesSetup(sim,setupAction,a) && aiIntermediateCastingTargetAllowed(sim,a);
+      return a.type==='PLAY_CARD' && isAttackCard(card(a.card_id)) && !isCastingCard(card(a.card_id)) &&
+        !isAIChoiceHeavyCard(card(a.card_id)) && aiAttackMatchesSetup(sim,setupAction,a) &&
+        aiIntermediateCastingTargetAllowed(sim,a) && aiAttackTacticalScore(sim,a)>0;
     });
     legal=aiPreferStatusPrimedAttacks(sim,legal);
     legal.sort(function(a,b){ return aiAttackPlanValue(sim,setupAction,b)-aiAttackPlanValue(sim,setupAction,a) || Number(b.cost||0)-Number(a.cost||0); });
@@ -4319,19 +4444,38 @@
       return profile.effective>=Number(h.hp||Infinity);
     });
   }
+  function aiIntermediatePrintedRankOwner(state,c){
+    if(!state||!c||!isSkillCard(c)||!isAttackCard(c))return null;
+    var rows=(c.requirement&&c.requirement.printed_class_rank_requirements)||[],highest=aiIntermediateHighestPrintedRank(c);
+    if(highest<=1)return null;
+    var printed=rows.filter(function(row){return row&&parseRank(row.rank||'Rank I')===highest&&row.class;});
+    for(var p=0;p<printed.length;p++){
+      var req=printed[p],wanted=normalizedClassToken(req.class);
+      for(var i=0;i<LANE_ORDER.length;i++){
+        var lane=LANE_ORDER[i],h=(state.aiHeroes||{})[lane];
+        if(!isActiveHeroSlot(h))continue;
+        var futureId=rankHeroIdFromProgression(heroProgressionId(h),highest);
+        if(!futureId)continue;
+        if(heroRank(h)<highest&&(state.aiLegacy||[]).indexOf(futureId)<0)continue;
+        if(normalizedClassToken(heroClass({card_id:futureId}))===wanted)
+          return {lane:lane,hero:h,rank:highest,printed_class:req.class};
+      }
+    }
+    return null; // Owner defeated or unavailable: other legal Hero may use it.
+  }
   function aiIntermediatePreserveSkillForRank(state,action){
     if(!aiIntermediate(state)||!action||action.type!=='PLAY_CARD')return false;
     var c=card(action.card_id);if(!c||!isSkillCard(c))return false;
-    // The only exception is a credible immediate MATCH win, not any normal kill.
+    var source=action.source_lane&&(state.aiHeroes||{})[action.source_lane];
+    // A certain match-winning Attack outranks conserving the printed rank.
     if(isAttackCard(c)&&aiIntermediateAttackWinsMatch(state,action))return false;
+    if(source&&isActiveHeroSlot(source)&&isAttackCard(c)){
+      var premium=aiIntermediatePrintedRankOwner(state,c);
+      if(premium && (action.source_lane!==premium.lane||heroRank(premium.hero)<premium.rank))
+        return true; // Save for a living Hero that can use its best printed Class row.
+    }
     if(aiStarterIs(state,4)&&c.card_id==='S0-ARC-025'&&
       !aiS4DreadDamageClearsTarget(state,action))return true;
-    var source=action.source_lane&&(state.aiHeroes||{})[action.source_lane];
-    if(source&&isActiveHeroSlot(source)&&isAttackCard(c)){
-      var rank=heroRank(source),highest=aiIntermediateHighestPrintedRank(c),exp=Number(source.exp_total||0);
-      if(rank===1&&highest>=2)return true; // Silver and Gold should not be spent at Rank I.
-      if(rank===2&&highest>=3&&exp>=500)return true; // Gold is playable early in Rank II.
-    }
     // At 200/600 EXP, do not spend the FINAL normal Skill before Reform Tribute.
     if(!isUltimateCard(c)){
       var needsOne=LANE_ORDER.some(function(l){var h=(state.aiHeroes||{})[l];
@@ -4396,6 +4540,7 @@
       klass=String(c.classification||''),cost=Number(cardCost(c)||0),regen=Number(state.aiManaRegen||1),score=0;
     if(same>1)score+=240;
     if(isUltimateCard(c))score+=Number(h.exp_total||0)<700?235:0;
+    if(aiIntermediateTributableDeadSkill(state,c.card_id))score+=800;
     // Finish a Rank Up with exactly the needed EXP and enable Return EXP + Mana Regen bonus.
     if(missing===val)score+=900;
     // Prefer sacrificing ordinary low-value Skills over a valuable printed Rank II/III Attack.
@@ -4875,6 +5020,30 @@
     var repeatedAttacks=opponents.length>=2&&availableNext>=6;
     return endangered?{score:320,reason:'critical allied Hero'}:(repeatedAttacks?{score:225,reason:'multiple opposing attacks affordable'}:null);
   }
+  function aiIntermediateDefensiveBuffOpportunity(state,action){
+    var id=action.card_id,allies=state.aiHeroes||{},opponents=state.playerHeroes||{},
+      alive=LANE_ORDER.map(function(l){return allies[l];}).filter(isActiveHeroSlot),
+      enemy=LANE_ORDER.map(function(l){return opponents[l];}).filter(isActiveHeroSlot),
+      source=allies[action.source_lane],host=allies[action.target_lane||action.source_lane];
+    if(!alive.length||!enemy.length)return -1000;
+    var opponentMana=manaPoolCardsForSide(state,'PLAYER').length;
+    var threat=opponentMana+Math.max(0,Number(state.manaRegen||1))>=3;
+    if(id==='S0-ITM-015'||id==='S0-THF-028'){
+      if(!host||!threat||hasActiveAttachmentForHero(state,host,id))return -1000;
+      var hpRatio=Number(host.hp||0)/Math.max(1,Number(host.maxHp||100));
+      return (hpRatio<=0.60?220:(aiNormalAttackExposure(state,action.target_lane||action.source_lane)>=1?95:-1000));
+    }
+    if(id==='S0-WAR-005'){
+      if(!source||!threat||Number(source.hp||0)<50||hasActiveAttachmentForHero(state,source,id))return -1000;
+      var threatened=alive.some(function(h){return h!==source&&Number(h.hp||0)<Number(h.maxHp||100)*0.70;});
+      return threatened?145:-1000;
+    }
+    if(id==='S0-MAG-028'){
+      if(!source||opponentMana>3||hasActiveAttachmentForHero(state,source,id))return -1000;
+      return enemy.length>0?95:-1000;
+    }
+    return null;
+  }
   function aiIntermediateDeployGate(state,action){
     var c=card(action.card_id);if(!c)return null;
     var id=c.card_id,hand=(state.aiHand||[]),count=hand.length;
@@ -4882,6 +5051,10 @@
     if(id==='S0-EVT-012'){
       var defenseDecision=aiIntermediateDefensiveFormationDecision(state);
       return defenseDecision?defenseDecision.score-Number(action.cost||0):-1000;
+    }
+    if(['S0-ITM-015','S0-THF-028','S0-WAR-005','S0-MAG-028'].indexOf(id)>=0){
+      var protective=aiIntermediateDefensiveBuffOpportunity(state,action);
+      return protective===null?-1000:(protective<0?protective:protective-Number(action.cost||0));
     }
     if(aiAuraShouldReserveDraw(state,action))return -1000;
     if(!aiIntermediateDrawTwoPermitted(state,action))return -1000;
@@ -4926,6 +5099,9 @@
       var hasFinisher=bestAttack&&bestAttack.card_id==='S0-ARC-010';
       return 60+(recycle.hasLoop?80:0)+(hasFinisher?45:0)+urgency-Number(action.cost||0);
     }
+    if(/\bBUFF\b/i.test(String(c.card_text||''))&&!isTacticalFollowUpSetupCard(c) &&
+      ['S0-EVT-012','S0-WAR-005','S0-MAG-028','S0-THF-028','S0-ITM-015'].indexOf(id)<0)
+      return -1000; // An unplanned timed BUFF must never be spent for a bare +55 score.
     if(id==='S0-ITM-008'){
       // Phoenix Feather is valuable only if the revived hero survives or has a healing follow-up.
       var healed=hand.some(function(x){return isHealCard(card(x))&&x!==id;});
@@ -5322,7 +5498,7 @@
     if(phase==='Deploy'){
       // Beginner does not sequence multi-turn Casting, combo setup, or Warp
       // Scroll tactical positioning. It can still use straightforward cards.
-      var basic=play.filter(function(a){var c=card(a.card_id);return !isAttackCard(c)&&!isTacticalFollowUpSetupCard(c)&&!isWarpScrollCard(c);});
+      var basic=play.filter(function(a){var c=card(a.card_id);return !isAttackCard(c)&&(!isTacticalFollowUpSetupCard(c)||isTripleShotCard(c)||(c&&c.card_id==='S0-MAG-022'))&&!isWarpScrollCard(c);});
       if(!basic.length)return skip;
       function value(a){
         var c=card(a.card_id),family=cardFamily(c),score=0;
@@ -12494,7 +12670,7 @@ function getActivatedHeroAbilities(state, side, lane){
     var root=$('app');
     root.innerHTML=''+
       '<main class="deck-setup-screen runtime-ui-v14-setup">'+
-        '<header class="ai-lobby-topbar">'+(IS_TUTORIAL_APP?'<div class="ai-lobby-logo"><img src="/assets/site/web-s0/logo-transparent.webp" alt="Grandis Legacy"></div>':'<a class="ai-lobby-logo" href="https://grandislegacytcg.github.io/" aria-label="Grandis Legacy homepage"><img src="/assets/site/web-s0/logo-transparent.webp" alt="Grandis Legacy"></a>')+'<div class="ai-lobby-heading"><h1>'+(IS_TUTORIAL_APP?'NON-SCRIPTED — TUTORIAL GAMEPLAY':'VS AI LOBBY')+'</h1></div>'+(IS_TUTORIAL_APP?'':'<nav class="ai-lobby-actions" aria-label="Grandis Legacy applications"><a id="aiLobbyDeckBuilderButton" class="ai-lobby-btn ai-lobby-btn--outline" href="https://grandislegacytcg.github.io/Grandis-Legacy-Deck-Builder/style-1/">GO TO DECK BUILDER</a><a id="aiLobbyTutorialButton" class="ai-lobby-btn ai-lobby-btn--outline" href="https://grandislegacytcg.github.io/Grandis-Legacy-VS-AI/tutorial/">GO TO TUTORIAL</a><a id="aiLobbyPvpButton" class="ai-lobby-btn ai-lobby-btn--blue" href="https://grandislegacytcg.github.io/pvp/">GO TO PVP LOBBY</a></nav>')+'</header>'+
+        '<header class="ai-lobby-topbar">'+(IS_TUTORIAL_APP?'<div class="ai-lobby-logo"><img src="/assets/site/web-s0/logo-transparent.webp" alt="Grandis Legacy"></div>':'<a class="ai-lobby-logo" href="https://grandislegacytcg.web.id/" aria-label="Grandis Legacy homepage"><img src="/assets/site/web-s0/logo-transparent.webp" alt="Grandis Legacy"></a>')+'<div class="ai-lobby-heading"><h1>'+(IS_TUTORIAL_APP?'NON-SCRIPTED — TUTORIAL GAMEPLAY':'VS AI LOBBY')+'</h1></div>'+(IS_TUTORIAL_APP?'':'<nav class="ai-lobby-actions" aria-label="Grandis Legacy applications"><a id="aiLobbyDeckBuilderButton" class="ai-lobby-btn ai-lobby-btn--outline" href="https://grandislegacytcg.github.io/Grandis-Legacy-Deck-Builder/style-1/">GO TO DECK BUILDER</a><a id="aiLobbyTutorialButton" class="ai-lobby-btn ai-lobby-btn--outline" href="https://grandislegacytcg.github.io/Grandis-Legacy-VS-AI/tutorial/">GO TO TUTORIAL</a><a id="aiLobbyPvpButton" class="ai-lobby-btn ai-lobby-btn--blue" href="https://grandislegacytcg.github.io/pvp/">GO TO PVP LOBBY</a></nav>')+'</header>'+
         '<section class="deck-setup-shell">'+deckSetupHtml()+'</section>'+ 
       '</main>';
     closeChoice();

@@ -25,6 +25,8 @@ const soundBtn=document.getElementById('glSoundButton');
 const soundControl=document.getElementById('glSoundControl');
 const soundPanel=document.getElementById('glSoundPanel');
 const musicSwitch=document.getElementById('glMusicSwitch');
+const musicVolumeSlider=document.getElementById('glMusicVolume');
+const musicVolumeValue=document.getElementById('glMusicVolumeValue');
 const sfxSwitch=document.getElementById('glSfxSwitch');
 const matchActionBtn=document.getElementById('matchActionButton');
 const payBtn=document.createElement('button');payBtn.className='gl-pay-button';payBtn.type='button';payBtn.textContent='PAY';BF.appendChild(payBtn);
@@ -306,9 +308,16 @@ function promoteTemporaryCardPreview(active){
   if(active&&active.parentElement===document.body)document.body.appendChild(active);
 }
 let battlefieldHoverSource=null;
+function normalizePvpPortraitCardPreview(layer){
+  const cls=document.documentElement.classList;
+  if(!cls.contains('gl-pvp-mobile-gameplay')||!cls.contains('gl-stage-portrait')||cls.contains('gl-mobile-landscape-stage')||!layer)return false;
+  for(const prop of ['width','height','left','top','right','bottom'])layer.style.removeProperty(prop);
+  return true;
+}
 function hideBattlefieldHoverPreview(){battlefieldHoverSource=null;battlefieldHoverPreview.classList.remove('open','is-hero');battlefieldHoverPreview.style.removeProperty('width');battlefieldHoverPreview.style.removeProperty('height');battlefieldHoverPreview.setAttribute('aria-hidden','true');battlefieldHoverImg.removeAttribute('src')}
 function placeBattlefieldHoverPreview(kind,anchor){
   if(!anchor||!battlefieldHoverPreview)return;
+  if(normalizePvpPortraitCardPreview(battlefieldHoverPreview))return;
   const cs=getComputedStyle(battlefieldHoverPreview),g=8,vp=uiViewportSize(),vw=vp.width,vh=vp.height;
   let w=parseFloat(cs.width)||259,h=parseFloat(cs.height)||362,left=g,top=g;
   // Adopt RC36 viewport-fit for Hero previews; keep them within actual visual viewport.
@@ -399,6 +408,7 @@ function renderInteractionFocus(s){
 function hideSidebarHoverPreview(){sidebarHoverPreview.classList.remove('open');sidebarHoverPreview.setAttribute('aria-hidden','true');sidebarHoverImg.removeAttribute('src')}
 function placeSidebarHoverPreview(anchor){
   if(!anchor||!sidebarHoverPreview||!sidebar)return;
+  if(normalizePvpPortraitCardPreview(sidebarHoverPreview))return;
   const sr=uiRect(sidebar),ar=uiRect(anchor),cs=getComputedStyle(sidebarHoverPreview);
   const vp=uiViewportSize(),w=parseFloat(cs.width)||259,h=parseFloat(cs.height)||362,g=10,vw=vp.width,vh=vp.height;
   let left=sr.left-w-g;
@@ -426,6 +436,7 @@ function bindFixedChoicePreview(img,cardId){
   img.addEventListener('mouseenter',show);img.addEventListener('focus',show);
 }
 function placeModalHoverPreview(anchor){
+  if(normalizePvpPortraitCardPreview(modalHoverPreview))return;
   const panel=choiceOverlay.querySelector('.choice-panel');
   const r=uiRect(panel||anchor);if(!r)return;
   const cs=getComputedStyle(modalHoverPreview),w=parseFloat(cs.width)||225,h=parseFloat(cs.height)||315,g=12,vp=uiViewportSize(),vw=vp.width,vh=vp.height;
@@ -452,6 +463,7 @@ function bindModalPreview(img){
 }
 function placeContextualModalHoverPreview(anchor,compactHero){
   if(!anchor||!modalHoverPreview)return;
+  if(normalizePvpPortraitCardPreview(modalHoverPreview))return;
   modalHoverPreview.classList.toggle('is-context-hero',!!compactHero);
   const cs=getComputedStyle(modalHoverPreview),w=parseFloat(cs.width)||259,h=parseFloat(cs.height)||362,g=10,vp=uiViewportSize(),vw=vp.width,vh=vp.height,ar=uiRect(anchor);
   // Contextual popup previews belong to the hovered card, but should not cover the
@@ -476,6 +488,7 @@ function placeContextualModalHoverPreview(anchor,compactHero){
    interaction as the Legacy Deck hover even when the selection row fills 94vw. */
 function placeClassChoiceHoverPreview(anchor){
   if(!anchor)return;
+  if(normalizePvpPortraitCardPreview(modalHoverPreview))return;
   const vp=uiViewportSize(),margin=12,gap=12,card=anchor.closest?.('.gl-center-choice-card')||anchor;
   const bounds=[...centerChoiceStage.querySelectorAll('.gl-center-choice-card')]
     .map(uiRect).filter(r=>r&&r.width>0&&r.height>0);
@@ -828,32 +841,91 @@ function renderInspectModal(){
 // Part 5: music remains OFF by default; the existing engine SFX switch remains ON by default.
 // Save user choices without coupling BGM to the card / battle / coin sound effect setting.
 const GL_S0_MUSIC_STORAGE_KEY='grandis_legacy_s0_background_music_v1';
-let glMusicEnabled=false;
-try{glMusicEnabled=window.GL_APP_MODE!=='PVP'&&window.localStorage?.getItem(GL_S0_MUSIC_STORAGE_KEY)==='on'}catch(_){}
-const glBackgroundMusic=(window.GL_APP_MODE!=='PVP'&&typeof Audio==='function')?new Audio('/engine/assets/audio/Tavern Quest.mp3'):null;
-if(glBackgroundMusic){glBackgroundMusic.loop=true;glBackgroundMusic.volume=.36;glBackgroundMusic.preload='none'}
-function playS0BackgroundMusic(){
-  if(!glMusicEnabled||!glBackgroundMusic||!glBackgroundMusic.paused)return;
-  try{const p=glBackgroundMusic.play();if(p&&typeof p.catch==='function')p.catch(()=>{});}catch(_){}
+// RC36: the approved ceiling is 45% of the original music-file gain.
+// The on-screen 0-100% slider is relative to this ceiling (50% = .225).
+const GL_S0_MUSIC_BASE_GAIN=.45;
+const GL_S0_MUSIC_VOLUME_KEY='grandis_legacy_s0_background_music_relative_volume_v2';
+const GL_S0_MUSIC_OLD_VOLUME_KEY='grandis_legacy_s0_background_music_volume_v1';
+let glMusicEnabled=false,glMusicVolume=100;
+try{
+  glMusicEnabled=window.localStorage?.getItem(GL_S0_MUSIC_STORAGE_KEY)==='on';
+  const stored=window.localStorage?.getItem(GL_S0_MUSIC_VOLUME_KEY);
+  if(stored!==null&&stored!==undefined&&stored!==''){
+    glMusicVolume=Math.max(0,Math.min(100,Math.round(Number(stored)||0)));
+  }else{
+    // One-time migration: RC35.4/5 stored the percentage of raw file gain.
+    // Preserve lower user-selected levels, capping loud settings at the baseline.
+    const previous=window.localStorage?.getItem(GL_S0_MUSIC_OLD_VOLUME_KEY);
+    if(previous!==null&&previous!==undefined&&previous!==''){
+      const oldGain=Math.max(0,Math.min(100,Number(previous)||0))/100;
+      glMusicVolume=Math.max(0,Math.min(100,Math.round(oldGain/GL_S0_MUSIC_BASE_GAIN*100)));
+    }
+    window.localStorage?.setItem(GL_S0_MUSIC_VOLUME_KEY,String(glMusicVolume));
+  }
+}catch(_){}
+const glBackgroundMusic=(typeof Audio==='function')?new Audio('/engine/assets/audio/Tavern Quest.mp3'):null;
+function glAppliedMusicGain(){return GL_S0_MUSIC_BASE_GAIN*(glMusicVolume/100);}
+if(glBackgroundMusic){glBackgroundMusic.loop=true;glBackgroundMusic.volume=glAppliedMusicGain();glBackgroundMusic.preload='none'}
+function setS0MusicVolume(percent){
+  glMusicVolume=Math.max(0,Math.min(100,Math.round(Number(percent)||0)));
+  if(glBackgroundMusic)glBackgroundMusic.volume=glAppliedMusicGain();
+  if(musicVolumeSlider)musicVolumeSlider.value=String(glMusicVolume);
+  if(musicVolumeValue)musicVolumeValue.textContent=glMusicVolume+'%';
+  try{window.localStorage?.setItem(GL_S0_MUSIC_VOLUME_KEY,String(glMusicVolume))}catch(_){}
 }
+function glMusicGameplayActive(){
+  // Website/standalone PvP must follow the server's match lifecycle. Music is
+  // exclusively local UI and is NEVER sent over WebSocket or used as an intent.
+  const game=st();
+  if(window.GL_APP_MODE==='PVP'){
+    const net=window.GL_S0_PVP_NETWORK?.state;
+    return !!game && !game.gameOver && net?.status==='started' &&
+      !coinOverlay.classList.contains('open') && !openingPresentationActive &&
+      !appRoot?.classList.contains('gl-lobby-hidden') &&
+      // The initial snapshot arrives before the opening animation begins.
+      // Hold music until that presentation finishes. Reconnected players
+      // can start from a later authoritative revision without replaying it.
+      (presentationPrimed || Number(net.revision)>2 || net.role==='spectator');
+  }
+  return !!game && !game.gameOver && !lobbyIsOpen &&
+    !coinOverlay.classList.contains('open') && !openingPresentationActive &&
+    matchStartedAt>0;
+}
+function syncS0MusicForGameState(){
+  if(!glBackgroundMusic)return;
+  if(!glMusicEnabled||!glMusicGameplayActive()){
+    if(!glBackgroundMusic.paused)glBackgroundMusic.pause();
+    return;
+  }
+  if(glBackgroundMusic.paused){
+    try{const p=glBackgroundMusic.play();if(p&&typeof p.catch==='function')p.catch(()=>{});}catch(_){}
+  }
+}
+function playS0BackgroundMusic(){syncS0MusicForGameState();}
+window.addEventListener('pagehide',()=>{if(glBackgroundMusic&&!glBackgroundMusic.paused)glBackgroundMusic.pause()});
 function setS0MusicEnabled(enabled){
   glMusicEnabled=!!enabled;
   try{window.localStorage?.setItem(GL_S0_MUSIC_STORAGE_KEY,glMusicEnabled?'on':'off')}catch(_){}
   if(musicSwitch)musicSwitch.checked=glMusicEnabled;
-  if(glMusicEnabled)playS0BackgroundMusic();
-  else if(glBackgroundMusic)glBackgroundMusic.pause();
+  syncS0MusicForGameState();
 }
 function closeSoundSettings(){if(!soundPanel||!soundBtn)return;soundPanel.hidden=true;soundBtn.setAttribute('aria-expanded','false')}
 function syncSoundButton(){
+  // Invoked by the existing battlefield renderer after every committed snapshot.
+  // This keeps music in lockstep with server lifecycle without changing gameplay.
+  syncS0MusicForGameState();
   if(!soundBtn)return;
   soundBtn.textContent='Sound';
   if(musicSwitch)musicSwitch.checked=glMusicEnabled;
+  if(musicVolumeSlider)musicVolumeSlider.value=String(glMusicVolume);
+  if(musicVolumeValue)musicVolumeValue.textContent=glMusicVolume+'%';
   if(sfxSwitch)sfxSwitch.checked=E()?.getSoundEnabled?.()!==false;
 }
 function initSoundSettings(){
   if(!soundBtn||!soundPanel)return;
   soundBtn.onclick=e=>{e.stopPropagation();const open=soundPanel.hidden;soundPanel.hidden=!open;soundBtn.setAttribute('aria-expanded',open?'true':'false')};
-  if(musicSwitch)musicSwitch.onchange=()=>setS0MusicEnabled(musicSwitch.checked);
+  musicSwitch.onchange=()=>setS0MusicEnabled(musicSwitch.checked);
+  if(musicVolumeSlider)musicVolumeSlider.oninput=()=>setS0MusicVolume(musicVolumeSlider.value);
   sfxSwitch.onchange=()=>{E()?.setSoundEnabled?.(sfxSwitch.checked);syncSoundButton()};
   document.addEventListener('pointerdown',e=>{if(!soundControl.contains(e.target))closeSoundSettings()});
   document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!soundPanel.hidden)closeSoundSettings()});

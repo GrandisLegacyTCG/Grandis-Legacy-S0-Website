@@ -3,7 +3,7 @@
  * Static GitHub Pages cannot proxy /ws; use WSS on the backend host.
  */
 window.GL_PVP_CONFIG=Object.assign({
-  wsBase:'wss://p01--grandis-legacy-pvp-room2--2kwws8nzlcc2.code.run',
+  wsBase:'wss://p01--grandis-legacy-s0-pvp--2kwws8nzlcc2.code.run',
   wsPath:'/ws',
   homeUrl:'https://grandislegacytcg.web.id/',
   vsAiUrl:'https://grandislegacytcg.web.id/vs-ai/',
