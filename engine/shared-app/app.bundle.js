@@ -7648,6 +7648,49 @@
     var damageNotice=''; // Banner is already shown once at TOP CENTER while Response is live.
     return '<article class="response-context-card"><h3>Incoming Card</h3><button class="response-context-tile" type="button" data-preview="'+esc(rw.card_id)+'"><img src="'+esc(thumbFor(rw.card_id))+'" alt="'+esc(cardName(c))+'"><span><strong>'+esc(cardName(c))+'</strong><small>'+esc(cardFamily(c))+' · '+esc(cardSubtype(c)||'Attack')+'</small><small>'+esc(currentDamageType(c))+' · '+esc(rw.damage)+' damage</small></span></button>'+damageNotice+'<div class="incoming-summary">'+esc(activeEffectSummary(c,source))+'</div></article>';
   }
+  // RC41 F19: state-authored, player-perspective notices for card-effect swaps.
+  // The local UI displays these only to the side whose Hero was moved (or
+  // whose Swap failed). Keep the bounded event queue across rapid resolutions.
+  function recordCardSwapNotice(state, detail){
+    if(!state||!detail)return;
+    state.cardSwapNoticeSeq=Number(state.cardSwapNoticeSeq||0)+1;
+    var notice=Object.assign({sequence:state.cardSwapNoticeSeq},detail);
+    state.cardSwapNotices=state.cardSwapNotices||[];
+    state.cardSwapNotices.push(notice);
+    if(state.cardSwapNotices.length>32)state.cardSwapNotices.splice(0,state.cardSwapNotices.length-32);
+  }
+  function recordMandatorySwapCompleted(state, action, side, from, to){
+    if(!state||!action||!side||!from||!to)return;
+    state.swapCompletedSeq=Number(state.swapCompletedSeq||0)+1;
+    state.lastSwapCompleted={sequence:state.swapCompletedSeq,card_id:action.card_id,side:side,from_lane:from,to_lane:to};
+    recordCardSwapNotice(state,{kind:'completed',card_id:action.card_id,side:side,from_lane:from,to_lane:to});
+  }
+  // RC41 F17: report a post-resolution Swap that has no legal partner, not
+  // an interactive choice. The rule engine is the authority for legality.
+  function notifyNoLegalCardSwap(state, action, kind){
+    if(!state||!action)return;
+    var side=kind==='target'?action.target_side:action.source_side;
+    var lane=kind==='target'?action.target_lane:action.source_lane;
+    var heroes=sideHeroes(state,side)||{}, h=heroes[lane], name=side==='PLAYER'?'Your Hero':'The affected Hero';
+    var reason='No legal Hero or Legacy is available to Swap.';
+    if(positionLockedOneVsOne(state))reason='The 1v1 Center position is locked.';
+    else if(h&&hasStatus(h,'Freeze')&&hasStatus(h,'Stun'))reason=name+' is Frozen and Stunned.';
+    else if(h&&hasStatus(h,'Freeze'))reason=name+' is Frozen.';
+    else if(h&&hasStatus(h,'Stun'))reason=name+' is Stunned.';
+    else if(!h||!isActiveHeroSlot(h))reason='The selected Hero is no longer active.';
+    else {
+      var neighbors=kind==='target'?adjacentLanes(lane):(isAnyAlliedSwapCard(card(action.card_id))?LANE_ORDER.filter(function(l){return l!==lane;}):[action.target_lane]);
+      var affected=neighbors.map(function(l){return heroes[l];}).filter(function(x){return !!x;});
+      var frozen=affected.find(function(x){return isActiveHeroSlot(x)&&hasStatus(x,'Freeze');});
+      var stunned=affected.find(function(x){return isActiveHeroSlot(x)&&hasStatus(x,'Stun');});
+      if(frozen)reason='The available Swap partner is Frozen.';
+      else if(stunned)reason='The available Swap partner is Stunned.';
+    }
+    state.swapCanceledSeq=Number(state.swapCanceledSeq||0)+1;
+    state.lastSwapCanceled={sequence:state.swapCanceledSeq,reason:reason,card_id:action.card_id,side:side};
+    recordCardSwapNotice(state,{kind:'canceled',card_id:action.card_id,side:side,reason:reason});
+    pushLog(state,'Swap canceled — '+reason+' ('+cardName(card(action.card_id))+').');
+  }
   function resolvePostAttackChoices(state, action, post, result, options){
     options=options||{};
     var legacyPending=(state&&state.pending&&state.pending.type==='legacy_defeat_choice')?state.pending:null;
@@ -7686,11 +7729,13 @@
       var sourcePrompt=promptOptionalSwap(state, action, null);
       if(sourcePrompt===true) return true;
       if(sourcePrompt==='AUTO_RESOLVED') return false;
+      notifyNoLegalCardSwap(state,action,'source');
     }
     if(targetSwapRequested){
       var targetPrompt=promptOptionalTargetSwap(state, action, null);
       if(targetPrompt===true) return true;
       if(targetPrompt==='AUTO_RESOLVED') return false;
+      notifyNoLegalCardSwap(state,action,'target');
     }
     // No legal reposition option (including same-column source/front no-op): finish deferred discard only when this card was held for continuation.
     if(post.defer_reposition_discard || post.deferred_discard_card_id) finalizeDeferredRepositionDiscard(state,post,action.source_side,action.card_id);
@@ -9568,6 +9613,7 @@
     if(!positionLockedOneVsOne(appState) && lane && opts.indexOf(lane)!==-1 && skillEffectSwapPairEligible(heroes[a],heroes[lane])){
       var targetId=heroIdFrom(heroes[a]), adjacentId=heroIdFrom(heroes[lane]);
       swapBoardStateLanes(appState,p.target_side,a,lane);
+      recordMandatorySwapCompleted(appState,p,p.target_side,a,lane);
       pushLog(appState, cardName(card(p.card_id))+' force reposition resolved: '+cardName(card(targetId))+' '+a+' ↔ '+cardName(card(adjacentId))+' '+lane+'.');
     } else if(!positionLockedOneVsOne(appState) && opts.some(function(opt){return skillEffectSwapPairEligible(heroes[a],heroes[opt]);})){
       // Printed 'swap' is mandatory. A missing/invalid input cannot decline a legal move.
@@ -9967,15 +10013,20 @@
   }
 
   function promptOptionalTargetSwap(state, action, nextPending){
-    var opts=soulBlastTargetSwapOptions(state,action); if(!opts.length) return false;
-    state.pending={type:'optional_target_swap', card_id:action.card_id, source_side:action.source_side, source_lane:action.source_lane, source_card_id:action.source_card_id||null, decision_side:action.source_side, target_side:action.target_side, target_lane:action.target_lane, swap_options:opts, next_pending:nextPending?clone(nextPending):null, deferred_discard_card_id:action.deferred_discard_card_id||action.card_id, deferred_discard_side:action.deferred_discard_side||action.source_side, visual_hold_key:action.visual_hold_key||(nextPending&&nextPending.visual_hold_key)||null, commit_token:action.commit_token||(nextPending&&nextPending.commit_token)||null};
-    if(action.source_side==='AI' && !state.pvpHumanVsHuman && state===appState){
-      pushLog(state,'AI chooses mandatory Soul Blast Shot reposition with '+opts[0]+'.');
-      performOptionalTargetSwapDecision(opts[0]);
-      return 'AUTO_RESOLVED';
-    }
-    renderOptionalTargetSwapChoice();
-    pushLog(state,'Soul Blast Shot force reposition decision pending.'); return true;
+    // RC41 F19: a printed mandatory target Swap never opens a choice popup.
+    // One legal partner: use it. Two legal partners: choose fairly at random.
+    // In either case the affected side, not the attacking side, owns the notice.
+    var opts=soulBlastTargetSwapOptions(state,action); if(!opts.length)return false;
+    var from=action.target_lane,to=opts[Math.floor(Math.random()*opts.length)];
+    var heroes=sideHeroes(state,action.target_side)||{};
+    if(!skillEffectSwapPairEligible(heroes[from],heroes[to]))return false;
+    var targetId=heroIdFrom(heroes[from]),partnerId=heroIdFrom(heroes[to]);
+    swapBoardStateLanes(state,action.target_side,from,to);
+    recordMandatorySwapCompleted(state,action,action.target_side,from,to);
+    pushLog(state,cardName(card(action.card_id))+' mandatory target Swap: '+cardName(card(targetId))+' '+from+' ↔ '+cardName(card(partnerId))+' '+to+'.');
+    finalizeDeferredRepositionDiscard(state,action,action.source_side,action.card_id);
+    if(state===appState){syncCounts(state);render();}
+    return 'AUTO_RESOLVED';
   }
   function optionalSwapAvailable(state, action){
     if(!action || !isChargeSwapCard(card(action.card_id))) return false;
@@ -10007,6 +10058,7 @@
       if(skillEffectSwapPairEligible(heroes[from],heroes[to])){
         var oldSource=heroIdFrom(heroes[from]),oldPartner=heroIdFrom(heroes[to]);
         swapBoardStateLanes(state,action.source_side,from,to);
+        recordMandatorySwapCompleted(state,action,action.source_side,from,to);
         pushLog(state,cardName(card(action.card_id))+' mandatory swap: '+cardName(card(oldSource))+' '+from+' ↔ '+cardName(card(oldPartner))+' '+to+'.');
       }
       finalizeDeferredRepositionDiscard(state,action,action.source_side,action.card_id);
@@ -12702,7 +12754,7 @@ function getActivatedHeroAbilities(state, side, lane){
     var root=$('app');
     root.innerHTML=''+
       '<main class="deck-setup-screen runtime-ui-v14-setup">'+
-        '<header class="ai-lobby-topbar">'+(IS_TUTORIAL_APP?'<div class="ai-lobby-logo"><img src="/assets/site/web-s0/logo-transparent.webp" alt="Grandis Legacy"></div>':'<a class="ai-lobby-logo" href="https://grandislegacytcg.web.id/" aria-label="Grandis Legacy homepage"><img src="/assets/site/web-s0/logo-transparent.webp" alt="Grandis Legacy"></a>')+'<div class="ai-lobby-heading"><h1>'+(IS_TUTORIAL_APP?'NON-SCRIPTED — TUTORIAL GAMEPLAY':'VS AI LOBBY')+'</h1></div>'+(IS_TUTORIAL_APP?'':'<nav class="ai-lobby-actions" aria-label="Grandis Legacy applications"><a id="aiLobbyDeckBuilderButton" class="ai-lobby-btn ai-lobby-btn--outline" href="https://grandislegacytcg.github.io/Grandis-Legacy-Deck-Builder/style-1/">GO TO DECK BUILDER</a><a id="aiLobbyTutorialButton" class="ai-lobby-btn ai-lobby-btn--outline" href="https://grandislegacytcg.github.io/Grandis-Legacy-VS-AI/tutorial/">GO TO TUTORIAL</a><a id="aiLobbyPvpButton" class="ai-lobby-btn ai-lobby-btn--blue" href="https://grandislegacytcg.github.io/pvp/">GO TO PVP LOBBY</a></nav>')+'</header>'+
+        '<header class="ai-lobby-topbar">'+(IS_TUTORIAL_APP?'<div class="ai-lobby-logo"><img src="engine/assets/lobby/grandis-legacy-logo.webp" alt="Grandis Legacy"></div>':'<a class="ai-lobby-logo" href="https://grandislegacytcg.github.io/" aria-label="Grandis Legacy homepage"><img src="engine/assets/lobby/grandis-legacy-logo.webp" alt="Grandis Legacy"></a>')+'<div class="ai-lobby-heading"><h1>'+(IS_TUTORIAL_APP?'NON-SCRIPTED — TUTORIAL GAMEPLAY':'VS AI LOBBY')+'</h1></div>'+(IS_TUTORIAL_APP?'':'<nav class="ai-lobby-actions" aria-label="Grandis Legacy applications"><a id="aiLobbyDeckBuilderButton" class="ai-lobby-btn ai-lobby-btn--outline" href="https://grandislegacytcg.github.io/Grandis-Legacy-Deck-Builder/style-1/">GO TO DECK BUILDER</a><a id="aiLobbyTutorialButton" class="ai-lobby-btn ai-lobby-btn--outline" href="https://grandislegacytcg.github.io/Grandis-Legacy-VS-AI/tutorial/">GO TO TUTORIAL</a><a id="aiLobbyPvpButton" class="ai-lobby-btn ai-lobby-btn--blue" href="https://grandislegacytcg.github.io/pvp/">GO TO PVP LOBBY</a></nav>')+'</header>'+
         '<section class="deck-setup-shell">'+deckSetupHtml()+'</section>'+ 
       '</main>';
     closeChoice();
@@ -13933,8 +13985,8 @@ var desktopMarkup='<div class="gl-lab-authority '+(state.turn==='AI'?'turn-ai':'
     s.phase='Battle'; s.mana=30; s.aiMana=30; s.playerHeroes.CENTER.card_id='S0-ARC-H002'; s.playerHeroes.CENTER.hp=100; s.playerHeroes.CENTER.maxHp=100; s.playerHeroes.CENTER.exhausted=false; s.playerHand=['S0-ARC-012']; s.aiHeroes.CENTER.card_id='S0-WAR-H001'; s.aiHeroes.CENTER.exhausted=false; s.aiHand=['S0-WAR-002']; commitPlayedCard(s,{card_id:'S0-WAR-002', hand_index:0, source_side:'AI', source_lane:'CENTER', target_side:'PLAYER', target_lane:'CENTER'}); var def=s.responseWindow&&s.responseWindow.options.find(function(o){return o.card_id==='S0-ARC-012';}); if(!def) return {ok:false, reason:'Deflect Arrow response option missing', rw:s.responseWindow}; resolveResponseWindow(def); if(s.playerHeroes.CENTER.hp!==100) return {ok:false, reason:'Deflect Arrow block amount failed', hp:s.playerHeroes.CENTER.hp};
     // Replenish uses compact multi-select card choice from discard.
     s.phase='Deploy'; s.mana=30; s.playerHeroes.CENTER.exhausted=false; s.playerHand=['S0-ARC-014']; s.playerDiscard=['S0-ARC-001','S0-ARC-002','S0-ARC-003','S0-WAR-001']; beginPlayFromHand(0); chooseHeroFromBoard('PLAYER','CENTER'); if(!s.pending || s.pending.type!=='card_search_choice' || !s.pending.multi_select || s.pending.required_count!==2 || s.pending.candidates.length!==3) return {ok:false, reason:'Replenish choice UI missing', pending:s.pending}; s.pending.selected_indices=[0,1]; var deckBefore=s.playerDeck.length,handBefore=s.playerHand.length; commitCardSearchChoice(); if(s.playerDeck.length!==deckBefore+1 || s.playerHand.length!==handBefore+1 || s.playerDiscard.indexOf('S0-ARC-014')===-1) return {ok:false, reason:'Replenish return 2, shuffle, draw 1 resolution failed', deck:s.playerDeck, hand:s.playerHand, discard:s.playerDiscard};
-    // Soul Blast Shot optional target swap after actual HP damage.
-    s.phase='Battle'; s.mana=30; s.playerHeroes.CENTER.card_id='S0-ARC-H002'; s.playerHeroes.CENTER.hp=100; s.playerHeroes.CENTER.maxHp=100; s.playerHeroes.CENTER.exhausted=false; s.playerHand=['S0-ARC-016']; LANE_ORDER.forEach(function(l){s.aiHeroes[l].hp=100;}); beginPlayFromHand(0); chooseHeroFromBoard('PLAYER','RIGHT'); chooseHeroFromBoard('AI','CENTER'); resolveResponseWindow(null); if(!s.pending || s.pending.type!=='optional_target_swap') return {ok:false, reason:'Soul Blast optional target swap pending missing', pending:s.pending}; performOptionalTargetSwapDecision('LEFT'); if(s.aiHeroes.LEFT.lane!=='LEFT' || s.aiHeroes.CENTER.lane!=='CENTER') return {ok:false, reason:'Soul Blast target swap lane labels failed'};
+    // Soul Blast Shot mandatory target swap after a printed hit (no choice popup).
+    s.phase='Battle'; s.mana=30; s.playerHeroes.CENTER.card_id='S0-ARC-H002'; s.playerHeroes.CENTER.hp=100; s.playerHeroes.CENTER.maxHp=100; s.playerHeroes.CENTER.exhausted=false; s.playerHand=['S0-ARC-016']; LANE_ORDER.forEach(function(l){s.aiHeroes[l].hp=100;}); beginPlayFromHand(0); chooseHeroFromBoard('PLAYER','RIGHT'); chooseHeroFromBoard('AI','CENTER'); resolveResponseWindow(null); if(s.pending || !s.lastSwapCompleted || s.lastSwapCompleted.card_id!=='S0-ARC-016') return {ok:false, reason:'Soul Blast mandatory Swap did not auto-resolve', pending:s.pending}; if(s.aiHeroes.LEFT.lane!=='LEFT' || s.aiHeroes.CENTER.lane!=='CENTER' || s.aiHeroes.RIGHT.lane!=='RIGHT') return {ok:false, reason:'Soul Blast target swap lane labels failed'};
     // Charged Shot can target outside default coverage and doubles damage.
     s.phase='Battle'; s.mana=30; s.playerHeroes.LEFT.card_id='S0-ARC-H002'; s.playerHeroes.LEFT.hp=100; s.playerHeroes.LEFT.maxHp=100; s.playerHeroes.LEFT.exhausted=false; s.playerHand=['S0-ARC-018']; s.aiHeroes.RIGHT.hp=100; beginPlayFromHand(0); chooseHeroFromBoard('PLAYER','LEFT'); if(!s.pending || s.pending.legal_targets.indexOf('RIGHT')===-1) return {ok:false, reason:'Charged Shot outside coverage target missing', pending:s.pending}; chooseHeroFromBoard('AI','RIGHT'); if(s.responseWindow){ if(s.responseWindow.damage!==60) return {ok:false, reason:'Charged Shot double damage failed', rw:s.responseWindow}; resolveResponseWindow(null); } if(s.aiHeroes.RIGHT.hp!==40) return {ok:false, reason:'Charged Shot HP result failed', hp:s.aiHeroes.RIGHT.hp};
     appState=oldApp; matchStarted=oldMatch; SUPPRESS_RENDER=oldSuppress; return {ok:true, archerSkillCardsAudited:18, bowBash:true, aimShot:true, burningPoisonStatuses:true, arrowVolleyCoverage:true, powerShotPassive:true, reload:true, eyesOfHawk:true, archerDefResponses:true, replenishChoice:true, soulBlastOptionalTargetSwap:true, chargedShotUltimateOutsideCoverage:true, phase3Resolved:['Arrow Barrage automatic all-Mana damage','Triple Shot chosen-card binding','Dual Arrow center lane-pair picker'], uiKeyword:'LOCAL_AI_UI v5.35'};
@@ -14966,7 +15018,7 @@ function withUnshuffledSelfTest(fn){ return function(){ var old=STARTUP_SHUFFLE_
       addStatus(s.playerHeroes.LEFT,'Poison',1,'test poison'); resolveStatusTicksForSide(s,'PLAYER');
       if(!opponentPlayedVisibleEvents(s).some(function(e){ return e.label==='RESOLVE' && /Status Tick/i.test(e.title||''); })) return {ok:false, reason:'Status tick resolve not visible in Opponent Played', events:opponentPlayedVisibleEvents(s)};
       // Soul Blast Shot hit opens force reposition decision and supports Hero ↔ Legacy.
-      s=buildInitialMatchState(); appState=s; s.turn='PLAYER'; s.phase='Battle'; s.round=2; s.mana=30; s.playerHeroes.CENTER.card_id='S0-ARC-H002'; s.playerHeroes.CENTER.hp=100; s.playerHeroes.CENTER.maxHp=100; s.playerHeroes.CENTER.exhausted=false; s.playerHand=['S0-ARC-016']; s.aiHeroes.CENTER.hp=100; s.aiHeroes.CENTER.maxHp=100; s.aiHeroes.RIGHT=sanitizeLegacySlot({card_id:'S0-ARC-L001', side:'AI', lane:'RIGHT', mode:'LEGACY', legacy_mode:true, defeated_hero_snapshot:{card_id:'S0-ARC-H001'}}); beginPlayFromHand(0); chooseHeroFromBoard('PLAYER','CENTER'); chooseHeroFromBoard('AI','CENTER'); if(s.responseWindow) resolveResponseWindow(null); if(!s.pending || s.pending.type!=='optional_target_swap' || s.pending.swap_options.indexOf('RIGHT')===-1) return {ok:false, reason:'Soul Blast force reposition did not offer adjacent Legacy partner', pending:s.pending}; performOptionalTargetSwapDecision('RIGHT'); if(!isLegacySlot(s.aiHeroes.CENTER) || !isHeroSlot(s.aiHeroes.RIGHT)) return {ok:false, reason:'Soul Blast force reposition did not swap Hero and Legacy', center:s.aiHeroes.CENTER, right:s.aiHeroes.RIGHT};
+      s=buildInitialMatchState(); appState=s; s.turn='PLAYER'; s.phase='Battle'; s.round=2; s.mana=30; s.playerHeroes.CENTER.card_id='S0-ARC-H002'; s.playerHeroes.CENTER.hp=100; s.playerHeroes.CENTER.maxHp=100; s.playerHeroes.CENTER.exhausted=false; s.playerHand=['S0-ARC-016']; s.aiHeroes.CENTER.hp=100; s.aiHeroes.CENTER.maxHp=100; s.aiHeroes.RIGHT=sanitizeLegacySlot({card_id:'S0-ARC-L001', side:'AI', lane:'RIGHT', mode:'LEGACY', legacy_mode:true, defeated_hero_snapshot:{card_id:'S0-ARC-H001'}}); addStatus(s.aiHeroes.LEFT,'Freeze',1,'QA force RIGHT'); beginPlayFromHand(0); chooseHeroFromBoard('PLAYER','CENTER'); chooseHeroFromBoard('AI','CENTER'); if(s.responseWindow) resolveResponseWindow(null); if(s.pending || !s.lastSwapCompleted || s.lastSwapCompleted.to_lane!=='RIGHT') return {ok:false, reason:'Soul Blast force reposition did not auto-select unique Legacy partner', pending:s.pending, notice:s.lastSwapCompleted}; if(!isLegacySlot(s.aiHeroes.CENTER) || !isHeroSlot(s.aiHeroes.RIGHT)) return {ok:false, reason:'Soul Blast force reposition did not swap Hero and Legacy', center:s.aiHeroes.CENTER, right:s.aiHeroes.RIGHT};
       return {ok:true, spectralValidator:true, opponentPlayedSupportTacticalResolve:true, soulBlastForceReposition:true, uiKeyword:'LOCAL_AI_UI v5.35'};
     } finally { appState=oldApp; matchStarted=oldMatch; SUPPRESS_RENDER=oldSuppress; STARTUP_SHUFFLE_ENABLED=oldShuffle; closeResponseWindowUI(); closeChoice(); closeInfo(); }
   }
@@ -16814,10 +16866,10 @@ function withUnshuffledSelfTest(fn){ return function(){ var old=STARTUP_SHUFFLE_
 
       s=fresh(); setHero(s.aiHeroes.CENTER,'S0-WAR-H001',150); setHero(s.aiHeroes.LEFT,'S0-MAG-H001',100); setHero(s.aiHeroes.RIGHT,'S0-CLE-H001',100);
       var soulAction={card_id:'S0-ARC-016',source_side:'PLAYER',source_lane:'CENTER',target_side:'AI',target_lane:'CENTER'};
-      if(!resolvePostAttackChoices(s,soulAction,{}, {damage:30,hp_damage:30,connected:true}) || !s.pending || s.pending.type!=='optional_target_swap') return {ok:false,reason:'Soul Blast HP damage did not open target-adjacent reposition',pending:s.pending};
-      var soulOpts=s.pending.swap_options||[]; if(JSON.stringify(soulOpts)!==JSON.stringify(['LEFT','RIGHT'])) return {ok:false,reason:'Soul Blast adjacent target options failed',opts:soulOpts};
-      var targetId=heroIdFrom(s.aiHeroes.CENTER), leftId=heroIdFrom(s.aiHeroes.LEFT); performOptionalTargetSwapDecision('LEFT');
-      if(heroIdFrom(s.aiHeroes.LEFT)!==targetId || heroIdFrom(s.aiHeroes.CENTER)!==leftId) return {ok:false,reason:'Soul Blast target swap did not update board',heroes:s.aiHeroes};
+      var targetId=heroIdFrom(s.aiHeroes.CENTER),sideHeroesBefore={LEFT:heroIdFrom(s.aiHeroes.LEFT),RIGHT:heroIdFrom(s.aiHeroes.RIGHT)};
+      if(resolvePostAttackChoices(s,soulAction,{}, {damage:30,hp_damage:30,connected:true}) || s.pending || !s.lastSwapCompleted) return {ok:false,reason:'Soul Blast HP damage did not immediately force adjacent Swap',pending:s.pending};
+      var targetDest=s.lastSwapCompleted.to_lane; if(['LEFT','RIGHT'].indexOf(targetDest)<0) return {ok:false,reason:'Soul Blast destination outside adjacent lanes',to:targetDest};
+      if(heroIdFrom(s.aiHeroes[targetDest])!==targetId || heroIdFrom(s.aiHeroes.CENTER)!==sideHeroesBefore[targetDest]) return {ok:false,reason:'Soul Blast target swap did not update board',heroes:s.aiHeroes};
 
       s=fresh(); setHero(s.playerHeroes.CENTER,'S0-WAR-H003',140); setHero(s.playerHeroes.LEFT,'S0-CLE-H001',100); setHero(s.aiHeroes.CENTER,'S0-WAR-H001',100); s.playerHand=['S0-WAR-004'];
       var coverIncoming={damage:40,damage_type:'Physical',attack_type:'Single Target',card_id:'S0-WAR-001',source_side:'AI',source_lane:'CENTER',target_side:'PLAYER',target_lane:'LEFT'};
@@ -16864,9 +16916,9 @@ function withUnshuffledSelfTest(fn){ return function(){ var old=STARTUP_SHUFFLE_
       var soulAction={card_id:'S0-ARC-016',source_side:'PLAYER',source_lane:'CENTER',target_side:'AI',target_lane:'CENTER'};
       var soulOpts=soulBlastTargetSwapOptions(s,soulAction);
       if(soulOpts.indexOf('LEFT')===-1 || soulOpts.indexOf('RIGHT')===-1) return {ok:false,reason:'Soul Blast Shot did not offer adjacent Hero and Legacy',options:soulOpts};
+      addStatus(s.aiHeroes.RIGHT,'Freeze',1,'QA force LEFT');
       resolvePostAttackChoices(s,soulAction,{defer_reposition_discard:true},{damage:0,hp_damage:0,prevented:true,connected:false});
-      if(!s.pending || s.pending.type!=='optional_target_swap') return {ok:false,reason:'Soul Blast Shot connected hit did not open target reposition',pending:s.pending};
-      performOptionalTargetSwapDecision('LEFT');
+      if(s.pending || !s.lastSwapCompleted || s.lastSwapCompleted.to_lane!=='LEFT') return {ok:false,reason:'Soul Blast Shot printed hit did not auto-swap with available Legacy',pending:s.pending,notice:s.lastSwapCompleted};
       if(!isLegacySlot(s.aiHeroes.CENTER) || heroIdFrom(s.aiHeroes.LEFT)!=='S0-WAR-H001') return {ok:false,reason:'Soul Blast Shot Hero-Legacy target swap failed',heroes:s.aiHeroes};
 
       s=fresh(); s.turn='AI'; setHero(s.aiHeroes.LEFT,'S0-WAR-H008',130); s.aiHeroes.CENTER=legacy('AI','CENTER','S0-WAR-L001'); setHero(s.playerHeroes.CENTER,'S0-CLE-H001',100);
@@ -17156,8 +17208,8 @@ function withUnshuffledSelfTest(fn){ return function(){ var old=STARTUP_SHUFFLE_
       if(!s.aiHeroes.CENTER.exhausted) return {ok:false,reason:'Defense response incorrectly readied prior Exhaust'};
 
       s=buildInitialMatchState();appState=s;s.turn='PLAYER';s.phase='Battle';s.round=2;s.mana=30;s.aiMana=30;s.playerHeroes.CENTER.card_id='S0-ARC-H003';s.playerHeroes.CENTER.exhausted=false;s.aiHeroes.CENTER.card_id='S0-WAR-H001';s.aiHeroes.CENTER.hp=100;s.aiHeroes.LEFT.card_id='S0-ARC-H001';s.aiHeroes.LEFT.hp=80;s.aiHand=['S0-WAR-003'];
-      resolveAttackWithOwnerGating(s,{card_id:'S0-ARC-016',source_side:'PLAYER',source_lane:'CENTER',target_side:'AI',target_lane:'CENTER'},{damage:50,persistent:false,attachmentSlot:-1,defer_reposition_discard:true});
-      if(s.aiHeroes.CENTER.hp!==80||!s.pending||s.pending.type!=='optional_target_swap') return {ok:false,reason:'Soul Blast partial-block HP damage did not open swap effect',hp:s.aiHeroes.CENTER.hp,pending:s.pending};
+      var partialTarget=heroIdFrom(s.aiHeroes.CENTER);resolveAttackWithOwnerGating(s,{card_id:'S0-ARC-016',source_side:'PLAYER',source_lane:'CENTER',target_side:'AI',target_lane:'CENTER'},{damage:50,persistent:false,attachmentSlot:-1,defer_reposition_discard:true});
+      if(s.pending || !s.lastSwapCompleted || heroIdFrom(s.aiHeroes[s.lastSwapCompleted.to_lane])!==partialTarget || s.aiHeroes[s.lastSwapCompleted.to_lane].hp!==80) return {ok:false,reason:'Soul Blast partial-block HP damage did not auto-swap affected Hero',notice:s.lastSwapCompleted,pending:s.pending};
 
       s=buildInitialMatchState();appState=s;s.turn='PLAYER';s.phase='Battle';s.round=2;s.mana=30;s.playerHeroes.CENTER.card_id='S0-WAR-H001';s.playerHeroes.LEFT.card_id='S0-CLE-H002';s.playerHeroes.LEFT.exhausted=true;s.playerHand=['S0-CLE-010'];
       var hb=responseOptionsFor(s,'PLAYER',{card_id:'S0-WAR-009',source_side:'AI',source_lane:'CENTER',target_side:'PLAYER',target_lane:'CENTER',damage:50,damage_type:'Physical',attack_type:'Single Target',cannot_dodge:false,cannot_block:false});
@@ -17243,9 +17295,9 @@ function withUnshuffledSelfTest(fn){ return function(){ var old=STARTUP_SHUFFLE_
       var s=buildInitialMatchState();appState=s;s.turn='PLAYER';s.phase='Battle';s.round=2;s.mana=30;
       s.playerHeroes.CENTER.card_id='S0-ARC-H003';s.playerHeroes.CENTER.exhausted=false;s.aiHeroes.CENTER.card_id='S0-WAR-H001';s.aiHeroes.LEFT.card_id='S0-MAG-H001';s.aiHeroes.RIGHT.card_id='S0-CLE-H001';
       var soulAction={card_id:'S0-ARC-016',source_side:'PLAYER',source_lane:'CENTER',target_side:'AI',target_lane:'CENTER'};
-      if(!resolvePostAttackChoices(s,soulAction,{defer_reposition_discard:true},{damage:0,hp_damage:0,prevented:true,connected:false})||!s.pending||s.pending.type!=='optional_target_swap') return {ok:false,reason:'Soul Blast Prevent-to-0 did not count as printed hit',pending:s.pending};
-      closeChoice();s.pending=null;
-      if(resolvePostAttackChoices(s,soulAction,{defer_reposition_discard:true},{damage:0,hp_damage:0,dodged:true,connected:false})||s.pending) return {ok:false,reason:'Soul Blast Dodge incorrectly counted as hit',pending:s.pending};
+      if(resolvePostAttackChoices(s,soulAction,{defer_reposition_discard:true},{damage:0,hp_damage:0,prevented:true,connected:false})||s.pending||!s.lastSwapCompleted) return {ok:false,reason:'Soul Blast Prevent-to-0 did not count as printed hit',pending:s.pending};
+      var swapSeq=s.swapCompletedSeq;
+      if(resolvePostAttackChoices(s,soulAction,{defer_reposition_discard:true},{damage:0,hp_damage:0,dodged:true,connected:false})||s.pending||s.swapCompletedSeq!==swapSeq) return {ok:false,reason:'Soul Blast Dodge incorrectly counted as hit',pending:s.pending};
       s=buildInitialMatchState();appState=s;s.turn='PLAYER';s.phase='Battle';s.round=2;s.playerHeroes.CENTER.card_id='S0-THF-H009';s.playerDeck=['S0-WAR-001'];s.playerHand=[];
       applySourcePostAttackEffects(s,'S0-THF-030',s.playerHeroes.CENTER,'PLAYER','CENTER','AI','CENTER',{damage:0,hp_damage:0,prevented:true,connected:false});
       if(s.playerHand.length!==1||s.playerHand[0]!=='S0-WAR-001') return {ok:false,reason:'Flash Combo Prevent-to-0 did not draw',hand:s.playerHand};
@@ -18809,9 +18861,10 @@ function withUnshuffledSelfTest(fn){ return function(){ var old=STARTUP_SHUFFLE_
       });
       var s=fresh('PLAYER');hero(s.aiHeroes.CENTER,'S0-WAR-H001',100);hero(s.aiHeroes.LEFT,'S0-THF-H001',100);hero(s.aiHeroes.RIGHT,'S0-CLE-H001',100);
       var a={card_id:'S0-ARC-016',source_side:'PLAYER',source_lane:'CENTER',target_side:'AI',target_lane:'CENTER'};
-      check(promptOptionalTargetSwap(s,a,null)===true&&s.pending&&s.pending.type==='optional_target_swap','Soul Blast Shot forces choice of adjacent position');
-      check(performOptionalTargetSwapDecision(false)===false&&s.pending&&s.pending.type==='optional_target_swap','Soul Blast Shot cannot skip legal forced swap');
-      check(performOptionalTargetSwapDecision('LEFT')===true&&heroIdFrom(s.aiHeroes.LEFT)==='S0-WAR-H001','Soul Blast Shot target moved to selected adjacent lane');
+      var forcedHeroId=heroIdFrom(s.aiHeroes.CENTER);
+      check(promptOptionalTargetSwap(s,a,null)==='AUTO_RESOLVED'&&!s.pending&&!!s.lastSwapCompleted,'Soul Blast Shot automatically completes mandatory Swap');
+      check(['LEFT','RIGHT'].indexOf(s.lastSwapCompleted.to_lane)>=0&&heroIdFrom(s.aiHeroes[s.lastSwapCompleted.to_lane])===forcedHeroId,'Soul Blast Shot target moved to legal adjacent lane');
+      check(s.cardSwapNotices.some(function(n){return n.kind==='completed'&&n.side==='AI'&&n.card_id==='S0-ARC-016';}),'Soul Blast Shot notice belongs to affected defender');
       check(cardEffectSwapModel(card('S0-THF-023'))==='dodge_then_reposition','Shadow Switch registered as forced post-DODGE swap');
       check(cardEffectSwapModel(card('S0-WAR-004'))==='response_redirect','Cover Up remains Response redirect swap');
       check(isWarpScrollCard(card('S0-ITM-019')),'Warp Scroll separate Item path registered');

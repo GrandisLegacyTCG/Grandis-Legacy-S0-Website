@@ -1060,6 +1060,7 @@ function scheduleCompletedMatchRefresh(s){
   updateCompletedMatchCountdown();
 }
 function resetPresentationState(){
+  glSwapNoticeGameRef=null;glLastCardSwapNoticeSeq=0;
   glPresentationEpoch++;
   for(const batch of [...glTrialReturnBatches])batch.cancel();
   glTrialReturnBatches.clear();animationLayer.querySelectorAll('.gl-trial-exp-flight').forEach(x=>x.remove());
@@ -3431,7 +3432,8 @@ function renderPhase(s){
   if(uiResponseSourceChoice){mode='cancel-response-source';label='CANCEL'}
   else if(pendingOwner(p)==='PLAYER'&&p?.type==='response_payment_choice'){mode='cancel-response-payment';label='CANCEL'}
   else if(responseOwned){mode='pass';label='PASS'}
-  else if(pendingOwner(p)==='PLAYER'&&(p?.type==='optional_swap'||p?.type==='optional_target_swap')){mode='decline-swap';label='CANCEL'}
+  // F17: all optional card-effect Swaps use the dedicated three-button popup.
+  // Do not expose a second phase-bar Cancel next to that decision.
   else if(isPrecommitCancelable(s)||p?.type==='manual_reposition'){mode='cancel';label='CANCEL'}
   else{
     const pairs=E().getRepositionPairs()||[];
@@ -3448,7 +3450,6 @@ function renderPhase(s){
     else if(mode==='cancel-response-source'){uiResponseSourceChoice=null;responseRollbackSnapshot=null;renderNow()}
     else if(mode==='cancel-response-payment'){if(!cancelResponsePrecommit())intent('cancelPendingAction',[])}
     else if(mode==='cancel'){intent('cancelPendingAction',[])}
-    else if(mode==='decline-swap'){if(p?.type==='optional_swap')intent('performOptionalSwapDecision',[false]);else if(p?.type==='optional_target_swap')intent('performOptionalTargetSwapDecision',[false])}
     else if(mode==='reposition')intent('openManualRepositionChoice',[]);
   };
   const blocked=s.turn!=='PLAYER'||!!s.pending||!!s.responseWindow||!!uiResponseSourceChoice||s.gameOver||s.phase==='Draw';nextBtn.disabled=blocked;nextBtn.textContent=s.phase==='End'?'END TURN':'NEXT PHASE';nextBtn.onclick=()=>intent('advancePhase',[]);renderSwap(s);
@@ -3459,10 +3460,7 @@ function renderSwap(s){
     if(p.type==='manual_reposition'){
       const pairs=p.pairs||p.swap_pairs||E().getRepositionPairs()||[];
       pairs.forEach(pair=>{let a,b;if(Array.isArray(pair)){[a,b]=pair}else{const parts=String(pair).split(/[-–—<>|/ ]+/).filter(x=>laneOrder.includes(x));[a,b]=parts}if(a&&b)descriptors.push({kind:'manual',side:'PLAYER',a,b});});
-    }else if(p.type==='optional_swap'){
-      const a=p.source_lane,opts=(p.swap_options&&p.swap_options.length)?p.swap_options:(p.swap_lane?[p.swap_lane]:[]);opts.forEach(b=>{if(a&&b)descriptors.push({kind:'optional-source',side:p.source_side||'PLAYER',a,b})});
-    }else if(p.type==='optional_target_swap'){
-      const a=p.target_lane,opts=p.swap_options||[];opts.forEach(b=>{if(a&&b)descriptors.push({kind:'optional-target',side:p.target_side||'AI',a,b})});
+    // F17: card-effect Swaps never create floating battlefield icons.
     }
   }
   const sig=JSON.stringify(descriptors);
@@ -3471,9 +3469,7 @@ function renderSwap(s){
     descriptors.forEach((d,i)=>{
       const btn=document.createElement('button');btn.type='button';btn.className='gl-swap-button';btn.setAttribute('aria-label','Swap '+d.a+' with '+d.b);btn.title='Swap '+d.a+' with '+d.b;btn.dataset.swapIndex=String(i);if(d.kind!=='manual')btn.dataset.swapPartner=d.b;
       const im=document.createElement('img');im.src='engine/assets/lobby/Swap.png';im.alt='Swap';btn.appendChild(im);
-      if(d.kind==='manual')btn.onclick=()=>intent('performManualReposition',[d.a+'|'+d.b]);
-      else if(d.kind==='optional-source')btn.onclick=()=>intent('performOptionalSwapDecision',[d.b]);
-      else btn.onclick=()=>intent('performOptionalTargetSwapDecision',[d.b]);
+      btn.onclick=()=>intent('performManualReposition',[d.a+'|'+d.b]);
       swapLayer.appendChild(btn);
     });
   }
@@ -3482,19 +3478,9 @@ function renderSwap(s){
   descriptors.forEach((d,i)=>{
     const btn=swapLayer.querySelector('[data-swap-index="'+i+'"]'),ae=uiLaneElement(d.side,d.a),be=uiLaneElement(d.side,d.b);if(!btn||!ae||!be)return;
     const ar=uiLayoutRect(ae),rr=uiLayoutRect(be);
-    let px,py;
-    if(d.kind==='manual'){
-      // Keep ordinary Reposition centered between adjacent lanes.
-      px=(ar.left+ar.width/2+rr.left+rr.width/2)/2;
-      py=(ar.top+ar.height/2+rr.top+rr.height/2)/2;
-    }else{
-      // Optional Swap (Flash Slash, etc.) can offer multiple partners.
-      // Position the icon next to EACH actual partner Hero, never in the
-      // midpoint where LEFT-to-RIGHT appeared to be a duplicate CENTER swap.
-      const target=uiLayoutRect(heroCardEl(d.side,d.b))||rr;
-      px=Math.max(br.left+20,Math.min(br.right-20,target.right+8));
-      py=Math.max(br.top+20,Math.min(br.bottom-20,target.top+target.height*.63));
-    }
+    // Manual Reposition retains the original centered-between-lanes icon.
+    const px=(ar.left+ar.width/2+rr.left+rr.width/2)/2;
+    const py=(ar.top+ar.height/2+rr.top+rr.height/2)/2;
     btn.style.left=((px-br.left)/currentUiScale())+'px';
     btn.style.top=((py-br.top)/currentUiScale())+'px';
   });
@@ -3615,7 +3601,9 @@ function isReturnToHandSearch(p){
   return (zone==='deck'||zone==='discard')&&
     !['replenish_to_deck','s0_condition_precommit','s0_response_condition_precommit'].includes(String(p.resolve_to||''));
 }
+let glHandSearchPendingRef=null;
 function resetReturnToHandSearchDisplay(){
+  glHandSearchPendingRef=null;
   choiceOverlay.classList.remove('gl-choice-to-hand');
   document.body.classList.remove('gl-choice-to-hand-active');
 }
@@ -3642,7 +3630,7 @@ function limitReturnToHandSearchRows(){
   const bs=getComputedStyle(body),gs=getComputedStyle(grid);
   const px=x=>parseFloat(x)||0;
   // Exactly the instruction and two complete rows; any further cards scroll in
-  // the body only, so the footer stays on-screen and the Hand remains visible.
+  // the candidate grid only, so the footer stays on-screen and Hand remains visible.
   const introH=intro?intro.offsetHeight+px(introStyle?.marginTop)+px(introStyle?.marginBottom):0;
   const gridRows=2*first.offsetHeight+px(gs.rowGap);
   const twoRows=gridRows+introH+px(bs.paddingTop)+px(bs.paddingBottom)+2;
@@ -3654,7 +3642,17 @@ window.addEventListener('orientationchange',()=>setTimeout(()=>{positionReturnTo
 function renderAllowedModal(s){
   // Defeat Legacy choices use the center stage; only source-zone searches
   // (Main Deck / Discard Pile) retain the standard card-list popup.
-  const p=s.pending,allowed=['card_search_choice','legacy_card_choice','crystal_ball_reorder'];
+  const p=s.pending;
+  // A pre-F19 saved match may still contain an old forced-Swap decision.
+  // Migrate it without displaying a mandatory popup; the engine validates
+  // the selected legal lane again at commit time.
+  if(p?.type==='optional_target_swap'&&pendingOwner(p)==='PLAYER'){
+    choiceOverlay.classList.remove('open','gl-choice-swap');modalRenderKey='';
+    const choices=Array.isArray(p.swap_options)?p.swap_options:[];
+    intent('performOptionalTargetSwapDecision',[choices.length?choices[Math.floor(Math.random()*choices.length)]:null]);
+    return;
+  }
+  const allowed=['card_search_choice','legacy_card_choice','crystal_ball_reorder','optional_swap'];
   if(!p||!allowed.includes(p.type)||pendingOwner(p)!=='PLAYER'||isDirectHandCardSearch(p)||isHandDiscardPending(p)){
     resetReturnToHandSearchDisplay();
     if(!p&&inspectState){renderInspectModal();return}
@@ -3669,11 +3667,19 @@ function renderAllowedModal(s){
     const expPreviewOwnedByInspector=expInspectorOverlay.classList.contains('open');
     if(!centerPreviewOwnedByCenterChoice&&!expPreviewOwnedByInspector)hideModalHoverPreview();
     if(p)inspectState=null;
-    choiceOverlay.classList.remove('open','gl-choice-main-deck-preview');activeModalType='';modalRenderKey='';return;
+    choiceOverlay.classList.remove('open','gl-choice-main-deck-preview','gl-choice-swap');activeModalType='';modalRenderKey='';return;
   }
-  const candidateZone=candidateSourceZone(p),modalSig=JSON.stringify({type:p.type,choice_id:p.choice_id||'',title:p.title||'',candidates:(p.candidates||[]).map(x=>typeof x==='string'?x:(x.card_id||x.id||x.hand_index||'')),exp_choices:(p.exp_choices||[]).map(x=>[x.card_id,x.exp_index]),selected_exp_choice:p.selected_exp_choice??null,selected_index:selectedChoiceIndex(p),selected_indices:p.selected_indices||[],selected_order:p.selected_order||[],required_count:p.required_count||p.required_choices||p.max_count||p.quota||0,multi_select:!!p.multi_select,committing:!!p.committing,confirm_text:p.confirm_text||'',candidate_zone:candidateZone,resolve_to:p.resolve_to||''});
+  const candidateZone=candidateSourceZone(p),modalSig=JSON.stringify({type:p.type,choice_id:p.choice_id||'',title:p.title||'',candidates:(p.candidates||[]).map(x=>typeof x==='string'?x:(x.card_id||x.id||x.hand_index||'')),exp_choices:(p.exp_choices||[]).map(x=>[x.card_id,x.exp_index]),selected_exp_choice:p.selected_exp_choice??null,selected_index:selectedChoiceIndex(p),selected_indices:p.selected_indices||[],selected_order:p.selected_order||[],required_count:p.required_count||p.required_choices||p.max_count||p.quota||0,multi_select:!!p.multi_select,committing:!!p.committing,confirm_text:p.confirm_text||'',candidate_zone:candidateZone,resolve_to:p.resolve_to||'',swap_lane:p.source_lane||p.target_lane||'',swap_options:p.swap_options||[],swap_card:p.card_id||''});
   activeModalType=p.type;choiceOverlay.classList.add('open');
-  const handSearch=isReturnToHandSearch(p);
+  const handSearch=isReturnToHandSearch(p),swapChoice=p.type==='optional_swap';
+  // F18: selection mutates the SAME pending choice, but the grid is rebuilt
+  // when selected_index changes. Save scroll BEFORE removing the old grid;
+  // never reuse it across a different pending search (even the same card ID).
+  const searchGridBefore=choiceOverlay.querySelector('.gl-choice-body .card-search-choice-grid');
+  const scrollBefore=handSearch&&glHandSearchPendingRef===p&&searchGridBefore?
+    Math.max(0,searchGridBefore.scrollTop):0;
+  glHandSearchPendingRef=handSearch?p:null;
+  choiceOverlay.classList.toggle('gl-choice-swap',swapChoice);
   choiceOverlay.classList.toggle('gl-choice-to-hand',handSearch);
   document.body.classList.toggle('gl-choice-to-hand-active',handSearch);
   if(handSearch)positionReturnToHandSearch();
@@ -3693,6 +3699,45 @@ function renderAllowedModal(s){
     cancel.hidden=!cancellableCondition;
     cancel.onclick=cancellableCondition?()=>intent('cancelPendingAction',[]):null;
   }
+  // F19: only optional card-effect Swaps open the three-button popup. SKIP
+  // is always active. Keep targets in LEFT→CENTER→RIGHT Battlefield order.
+  // When there is only a neighboring CENTER option, display the Hero's own
+  // edge lane as disabled, as requested; never hide another *legal* destination.
+  if(swapChoice){
+    choiceOverlay.classList.remove('gl-choice-main-deck-preview');
+    const from=p.source_lane;
+    const available=new Set((p.swap_options&&p.swap_options.length)?p.swap_options:(p.swap_lane?[p.swap_lane]:[]));
+    let destinations=laneOrder.filter(l=>l!==from);
+    if(from==='LEFT'&&available.size===1&&available.has('CENTER'))destinations=['LEFT','CENTER'];
+    if(from==='RIGHT'&&available.size===1&&available.has('CENTER'))destinations=['CENTER','RIGHT'];
+    if(from==='RIGHT'&&available.size===1&&available.has('LEFT'))destinations=['LEFT','RIGHT'];
+    if(from==='LEFT'&&available.size===1&&available.has('RIGHT'))destinations=['LEFT','RIGHT'];
+    title.textContent='Swap — Choose Position';
+    body.replaceChildren();body.classList.remove('gl-choice-body-main-deck');
+    const desc=document.createElement('p');desc.className='choice-instruction';
+    const cardLabel=cv(p.card_id)?.name||'This card';
+    desc.textContent=cardLabel+' allows a Swap of the acting Hero with one eligible allied Hero or Legacy.';
+    const row=document.createElement('div');row.className='gl-swap-choice-actions';
+    function swapButton(lane){
+      const b=document.createElement('button');b.type='button';b.className='gl-swap-choice-button';
+      b.textContent='SWAP TO '+lane;b.disabled=!available.has(lane);
+      b.title=b.disabled?'This position is not a legal Swap destination.':'Swap with the Hero or Legacy in '+lane;
+      b.setAttribute('aria-label',b.textContent);
+      if(!b.disabled)b.onclick=()=>intent('performOptionalSwapDecision',[lane]);
+      return b;
+    }
+    row.appendChild(swapButton(destinations[0]||'LEFT'));
+    const skip=document.createElement('button');skip.type='button';skip.className='gl-swap-choice-button gl-swap-choice-skip';
+    skip.textContent='SKIP';skip.disabled=false;skip.title='Do not Swap';
+    skip.onclick=()=>intent('performOptionalSwapDecision',[false]);
+    row.appendChild(skip);
+    row.appendChild(swapButton(destinations[1]||'RIGHT'));
+    body.append(desc,row);
+    cancel.hidden=true;cancel.onclick=null;
+    confirm.hidden=true;confirm.disabled=true;
+    return;
+  }
+  confirm.hidden=false;
   const choicePreviewMode=choicePreviewModeFromCandidateZone(p),mainDeckPreview=choicePreviewMode==='fixed';
   choiceOverlay.classList.toggle('gl-choice-main-deck-preview',mainDeckPreview);
   title.textContent=p.title||({card_search_choice:'Choose Card',legacy_defeat_choice:'Choose Legacy',legacy_card_choice:'Legacy Choice',crystal_ball_reorder:'Crystal Ball — Reorder Top Deck',trial_rankup_return_exp:'TRIAL · Rank '+(Number(p.rank)===2?'II':'III')+' Return EXP',scouting_exp_selection:'TRIAL · Scouting Choose EXP'}[p.type]);
@@ -3740,7 +3785,16 @@ function renderAllowedModal(s){
     });confirm.textContent='Confirm Order';confirm.disabled=false;
   }
   confirm.onclick=()=>intent('handleChoiceConfirm',[]);
-  if(handSearch)limitReturnToHandSearchRows();
+  if(handSearch){
+    limitReturnToHandSearchRows();
+    // The candidate grid is the only scroll owner (F16). Restore its exact
+    // prior position after layout, without auto-scrolling to the selected tile.
+    grid.scrollTop=scrollBefore;
+    requestAnimationFrame(()=>{
+      if(glHandSearchPendingRef===p&&grid.isConnected&&choiceOverlay.classList.contains('gl-choice-to-hand'))
+        grid.scrollTop=scrollBefore;
+    });
+  }
 }
 function autoSpecialChoices(s){
   // v6.89 center-choice UX keeps even a single opponent Shard visible as an explicit
@@ -3816,6 +3870,29 @@ function showGameResult(s){
   resultOverlay.classList.add('open');
 }
 let glStatusPhaseSeen='',glFreezeWindowSeen='';
+let glSwapNoticeGameRef=null,glLastCardSwapNoticeSeq=0;
+function renderSwapCancellationNotice(s){
+  // F19: this UI is the local PLAYER's perspective. Never show a notice to
+  // the attacking player when Soul Blast Shot moves the *opponent's* Hero.
+  if(!s)return;
+  if(glSwapNoticeGameRef!==s){glSwapNoticeGameRef=s;glLastCardSwapNoticeSeq=0;}
+  const events=Array.isArray(s.cardSwapNotices)?s.cardSwapNotices:[];
+  for(const notice of events){
+    const seq=Number(notice.sequence||0);
+    if(!seq||seq<=glLastCardSwapNoticeSeq)continue;
+    glLastCardSwapNoticeSeq=seq;
+    if(notice.side!=='PLAYER')continue;
+    const sourceCardName=cv(notice.card_id)?.name||'Card Effect';
+    if(notice.kind==='completed'){
+      presentationNoticeQueue.push({kind:'swap-completed',title:sourceCardName.toUpperCase(),
+        detail:'Your Hero was forced to swap from '+notice.from_lane+' to '+notice.to_lane+'.',duration:2600});
+    }else if(notice.kind==='canceled'){
+      presentationNoticeQueue.push({kind:'swap-canceled',title:'SWAP CANCELED',
+        detail:sourceCardName+': '+String(notice.reason||'No legal Swap is available.'),duration:2600});
+    }
+  }
+  showNextPresentationNotice();
+}
 function renderStatusReminder(s){
   if(!s||s.gameOver)return;
   const battleKey=s.phase==='Battle'?(s.turn+'|'+s.round+'|Battle'):'';
@@ -3851,7 +3928,7 @@ function renderNow(){
   if(responseRollbackSnapshot&&s.pending?.type!=='response_payment_choice'&&!uiResponseSourceChoice&&s.responseWindow?.response_owner!=='PLAYER')responseRollbackSnapshot=null;
   autoSpecialChoices(s);const chain=renderCombatStacks(s);
   for(const side of ['PLAYER','AI'])for(const lane of laneOrder)renderHero(side,lane,sideHeroes(s,side)?.[lane],s);
-  renderHand(s);renderOpponentHand(s);syncExpButtonLock();renderExpInspector();renderMana();renderCenterChoiceStage(s);renderPhase(s);renderPay(s);renderInteractionFocus(s);renderResponseRouteGuide(s);renderDeckActions(s);renderSidebar(s,chain);renderAttackLine(s,chain);renderAllowedModal(s);renderRails(s);syncSoundButton();syncMatchActionButton(s);preparePresentationTargets(presentationPlan);showGameResult(s);renderStatusReminder(s);
+  renderHand(s);renderOpponentHand(s);syncExpButtonLock();renderExpInspector();renderMana();renderCenterChoiceStage(s);renderPhase(s);renderPay(s);renderInteractionFocus(s);renderResponseRouteGuide(s);renderDeckActions(s);renderSidebar(s,chain);renderAttackLine(s,chain);renderAllowedModal(s);renderRails(s);syncSoundButton();syncMatchActionButton(s);preparePresentationTargets(presentationPlan);showGameResult(s);renderStatusReminder(s);renderSwapCancellationNotice(s);
     requestAnimationFrame(()=>{
     syncPlayerManaPoolToHeroLeft();syncPlayerHandToHeroCenter();syncOpponentHand();syncPlayerNameBox();
     layoutManaPoolCards(playerManaHost);layoutManaPoolCards(aiManaHost);

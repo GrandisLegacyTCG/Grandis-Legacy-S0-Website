@@ -1507,17 +1507,17 @@ function queuePresentationNotice(kind,title,detail,duration,cards=null){
   presentationNoticeQueue.push({kind,title,detail,duration,cards});
   showNextPresentationNotice();
 }
-// VS AI RC40 public Search/Return pickup parity. Only opponent's deliberate
-// resolved choice is shown; ordinary Draw/Opening never enters this route.
+// Public committed Search/Return pickup feedback for both seats; ordinary
+// Draw and Opening Hands never enter this route.
 function queuePvpPublicPickupNotice(events){
   if(window.GL_APP_MODE!=='PVP'||!presentationPrimed||openingPresentationActive)return;
-  const picks=events.filter(e=>e?.type==='CARD_PUBLIC_PICKUP'&&e.side==='AI'&&
+  const picks=events.filter(e=>e?.type==='CARD_PUBLIC_PICKUP'&&['PLAYER','AI'].includes(e.side)&&
     (e.from_zone==='Main Deck'||e.from_zone==='Discard')&&e.card_id);
   for(let i=0;i<picks.length;){
     const first=picks[i],group=[first];let next=i+1;
-    while(next<picks.length&&picks[next].source_card_id===first.source_card_id&&
+    while(next<picks.length&&picks[next].side===first.side&&picks[next].source_card_id===first.source_card_id&&
       picks[next].from_zone===first.from_zone){group.push(picks[next]);next++}
-    presentationNoticeQueue.push({kind:'card-art',title:'OPPONENT ADDED TO HAND',
+    presentationNoticeQueue.push({kind:'card-art',title:first.side==='PLAYER'?'CARD ADDED TO HAND':'OPPONENT ADDED TO HAND',
       detail:first.from_zone==='Discard'?'RETURNED FROM DISCARD':'SEARCHED FROM MAIN DECK',
       cardIds:group.map(e=>e.card_id),duration:2700});
     i=next;
@@ -4076,7 +4076,7 @@ function renderSwap(s){
       const pairs=p.pairs||p.swap_pairs||E().getRepositionPairs()||[];
       pairs.forEach(pair=>{let a,b;if(Array.isArray(pair)){[a,b]=pair}else{const parts=String(pair).split(/[-–—<>|/ ]+/).filter(x=>laneOrder.includes(x));[a,b]=parts}if(a&&b)descriptors.push({kind:'manual',side:'PLAYER',a,b});});
     }else if(p.type==='optional_swap'){
-      const a=p.source_lane,opts=(p.swap_options&&p.swap_options.length)?p.swap_options:(p.swap_lane?[p.swap_lane]:[]);opts.forEach(b=>{if(a&&b)descriptors.push({kind:'optional-source',side:p.source_side||'PLAYER',a,b})});
+      // F19 optional Swap has its own foreground menu; do not draw duplicate Hero-attached buttons.
     }else if(p.type==='optional_target_swap'){
       const a=p.target_lane,opts=p.swap_options||[];opts.forEach(b=>{if(a&&b)descriptors.push({kind:'optional-target',side:p.target_side||'AI',a,b})});
     }
@@ -4289,7 +4289,10 @@ function isReturnToHandSearch(p){
   return (zone==='deck'||zone==='discard')&&
     !['replenish_to_deck','s0_condition_precommit','s0_response_condition_precommit'].includes(String(p.resolve_to||''));
 }
+let glHandSearchPendingKey='';
+let glSwapNoticeSeen=0,glSwapNoticeGameRef='';
 function resetReturnToHandSearchDisplay(){
+  glHandSearchPendingKey='';
   choiceOverlay.classList.remove('gl-choice-to-hand');
   document.body.classList.remove('gl-choice-to-hand-active');
 }
@@ -4315,8 +4318,7 @@ function limitReturnToHandSearchRows(){
   const intro=body.querySelector('.choice-instruction'),introStyle=intro?getComputedStyle(intro):null;
   const bs=getComputedStyle(body),gs=getComputedStyle(grid);
   const px=x=>parseFloat(x)||0;
-  // Exactly the instruction and two complete rows; any further cards scroll in
-  // the body only, so the footer stays on-screen and the Hand remains visible.
+  // Exactly the instruction and two complete rows; only the grid scrolls.
   const introH=intro?intro.offsetHeight+px(introStyle?.marginTop)+px(introStyle?.marginBottom):0;
   const gridRows=2*first.offsetHeight+px(gs.rowGap);
   const twoRows=gridRows+introH+px(bs.paddingTop)+px(bs.paddingBottom)+2;
@@ -4326,7 +4328,7 @@ function limitReturnToHandSearchRows(){
 window.addEventListener('resize',()=>{if(choiceOverlay.classList.contains('gl-choice-to-hand')){positionReturnToHandSearch();requestAnimationFrame(limitReturnToHandSearchRows)}},{passive:true});
 window.addEventListener('orientationchange',()=>setTimeout(()=>{positionReturnToHandSearch();limitReturnToHandSearchRows()},70),{passive:true});
 function renderAllowedModal(s){
-  const p=s.pending,allowed=['card_search_choice','legacy_card_choice','crystal_ball_reorder'];
+  const p=s.pending,allowed=['card_search_choice','legacy_card_choice','crystal_ball_reorder','optional_swap'];
   if(!p||!allowed.includes(p.type)||pendingOwner(p)!=='PLAYER'||isDirectHandCardSearch(p)||isHandDiscardPending(p)){
     resetReturnToHandSearchDisplay();
     if(!p&&inspectState){renderInspectModal();return}
@@ -4339,11 +4341,19 @@ function renderAllowedModal(s){
     const expPreviewOwnedByInspector=expInspectorOverlay.classList.contains('open');
     if(!centerPreviewOwnedByCenterChoice&&!expPreviewOwnedByInspector)hideModalHoverPreview();
     if(p)inspectState=null;
-    choiceOverlay.classList.remove('open','gl-choice-main-deck-preview');activeModalType='';modalRenderKey='';return;
+    choiceOverlay.classList.remove('open','gl-choice-main-deck-preview','gl-choice-swap');activeModalType='';modalRenderKey='';return;
   }
-  const candidateZone=candidateSourceZone(p),modalSig=JSON.stringify({type:p.type,choice_id:p.choice_id||'',title:p.title||'',candidates:(p.candidates||[]).map(x=>typeof x==='string'?x:(x.card_id||x.id||x.hand_index||'')),selected_index:selectedChoiceIndex(p),selected_indices:p.selected_indices||[],selected_order:p.selected_order||[],exp_choices:(p.exp_choices||[]).map(x=>[x.card_id,x.exp_index]),selected_exp_choice:p.selected_exp_choice??null,required_count:p.required_count||p.required_choices||p.max_count||p.quota||0,multi_select:!!p.multi_select,committing:!!p.committing,confirm_text:p.confirm_text||'',candidate_zone:candidateZone,resolve_to:p.resolve_to||''});
+  const candidateZone=candidateSourceZone(p),modalSig=JSON.stringify({type:p.type,choice_id:p.choice_id||'',title:p.title||'',candidates:(p.candidates||[]).map(x=>typeof x==='string'?x:(x.card_id||x.id||x.hand_index||'')),selected_index:selectedChoiceIndex(p),selected_indices:p.selected_indices||[],selected_order:p.selected_order||[],exp_choices:(p.exp_choices||[]).map(x=>[x.card_id,x.exp_index]),selected_exp_choice:p.selected_exp_choice??null,required_count:p.required_count||p.required_choices||p.max_count||p.quota||0,multi_select:!!p.multi_select,committing:!!p.committing,confirm_text:p.confirm_text||'',candidate_zone:candidateZone,resolve_to:p.resolve_to||'',swap_lane:p.source_lane||'',swap_options:p.swap_options||[],swap_card:p.card_id||''});
   activeModalType=p.type;choiceOverlay.classList.add('open');
-  const handSearch=isReturnToHandSearch(p);
+  const handSearch=isReturnToHandSearch(p),swapChoice=p.type==='optional_swap';
+  // WebSocket snapshots deserialize a NEW pending object after every Select.
+  // F18 donor's p===previous test would always reset scroll in multiplayer.
+  const pendingKey=handSearch?String(p.choice_id||p.commit_token||''):'';
+  const gridBefore=choiceOverlay.querySelector('.gl-choice-body .card-search-choice-grid');
+  const sameSearch=handSearch&&pendingKey&&pendingKey===glHandSearchPendingKey;
+  const scrollBefore=sameSearch&&gridBefore?Math.max(0,gridBefore.scrollTop):0;
+  glHandSearchPendingKey=handSearch?pendingKey:'';
+  choiceOverlay.classList.toggle('gl-choice-swap',swapChoice);
   choiceOverlay.classList.toggle('gl-choice-to-hand',handSearch);
   document.body.classList.toggle('gl-choice-to-hand-active',handSearch);
   if(handSearch)positionReturnToHandSearch();
@@ -4363,6 +4373,41 @@ function renderAllowedModal(s){
     cancel.hidden=!cancellableCondition;
     cancel.onclick=cancellableCondition?()=>intent('cancelPendingAction',[]):null;
   }
+  // RC41 F19 donor: optional card-effect Swap uses three clear, server-owned actions.
+  // The source Hero position is already in the perspective of this client's seat.
+  if(swapChoice){
+    choiceOverlay.classList.remove('gl-choice-main-deck-preview');
+    const from=p.source_lane,available=new Set((p.swap_options?.length)?p.swap_options:(p.swap_lane?[p.swap_lane]:[]));
+    let destinations=laneOrder.filter(l=>l!==from);
+    if(from==='LEFT'&&available.size===1&&available.has('CENTER'))destinations=['LEFT','CENTER'];
+    if(from==='RIGHT'&&available.size===1&&available.has('CENTER'))destinations=['CENTER','RIGHT'];
+    if(from==='RIGHT'&&available.size===1&&available.has('LEFT'))destinations=['LEFT','RIGHT'];
+    if(from==='LEFT'&&available.size===1&&available.has('RIGHT'))destinations=['LEFT','RIGHT'];
+    title.textContent='Swap — Choose Position';
+    body.replaceChildren();body.classList.remove('gl-choice-body-main-deck');
+    const desc=document.createElement('p');desc.className='choice-instruction';
+    desc.textContent=(cv(p.card_id)?.name||'This card')+' allows a Swap of the acting Hero with one eligible allied Hero or Legacy.';
+    const row=document.createElement('div');row.className='gl-swap-choice-actions';
+    function swapButton(lane){
+      const b=document.createElement('button');b.type='button';b.className='gl-swap-choice-button';
+      b.textContent='SWAP TO '+lane;b.disabled=!available.has(lane);
+      b.title=b.disabled?'This position is not a legal Swap destination.':'Swap with the Hero or Legacy in '+lane;
+      b.setAttribute('aria-label',b.textContent);
+      if(!b.disabled)b.onclick=()=>intent('performOptionalSwapDecision',[lane]);
+      return b;
+    }
+    row.appendChild(swapButton(destinations[0]||'LEFT'));
+    const skip=document.createElement('button');skip.type='button';skip.className='gl-swap-choice-button gl-swap-choice-skip';
+    skip.textContent='SKIP';skip.disabled=false;skip.title='Do not Swap';
+    skip.onclick=()=>intent('performOptionalSwapDecision',[false]);
+    row.appendChild(skip);
+    row.appendChild(swapButton(destinations[1]||'RIGHT'));
+    body.append(desc,row);
+    if(cancel){cancel.hidden=true;cancel.onclick=null;}
+    confirm.hidden=true;confirm.disabled=true;
+    return;
+  }
+  confirm.hidden=false;
   const choicePreviewMode=choicePreviewModeFromCandidateZone(p),mainDeckPreview=choicePreviewMode==='fixed';
   choiceOverlay.classList.toggle('gl-choice-main-deck-preview',mainDeckPreview);
   title.textContent=p.title||({card_search_choice:'Choose Card',legacy_defeat_choice:'Choose Legacy',legacy_card_choice:'Legacy Choice',crystal_ball_reorder:'Crystal Ball — Reorder Top Deck',trial_rankup_return_exp:'TRIAL · Rank '+(Number(p.rank)===2?'II':'III')+' Return EXP',scouting_exp_selection:'TRIAL · Scouting Choose EXP'}[p.type]);
@@ -4408,7 +4453,14 @@ function renderAllowedModal(s){
     });confirm.textContent='Confirm Order';confirm.disabled=false;
   }
   confirm.onclick=()=>intent('handleChoiceConfirm',[]);
-  if(handSearch)limitReturnToHandSearchRows();
+  if(handSearch){
+    limitReturnToHandSearchRows();
+    grid.scrollTop=scrollBefore;
+    requestAnimationFrame(()=>{
+      if(glHandSearchPendingKey===pendingKey&&grid.isConnected&&choiceOverlay.classList.contains('gl-choice-to-hand'))
+        grid.scrollTop=scrollBefore;
+    });
+  }
 }
 function autoSpecialChoices(s){
   // v6.89 center-choice UX keeps even a single opponent Shard visible as an explicit
@@ -4514,6 +4566,23 @@ function showGameResult(s){
   resultOverlay.classList.add('open');refreshPostMatchCountdown();
 }
 let glStatusPhaseSeen='',glFreezeWindowSeen='';
+function queuePvpSwapNotices(s){
+  if(window.GL_APP_MODE!=='PVP'||!s)return;
+  const session=String(window.GL_S0_PVP_NETWORK?.state?.roomId||s.matchId||'current');
+  if(session!==glSwapNoticeGameRef){glSwapNoticeGameRef=session;glSwapNoticeSeen=0;}
+  for(const notice of s.cardSwapNotices||[]){
+    const seq=Number(notice?.sequence||0);
+    if(!seq||seq<=glSwapNoticeSeen)continue;
+    glSwapNoticeSeen=seq;
+    if(notice.side!=='PLAYER'||!presentationPrimed||openingPresentationActive)continue;
+    const cardTitle=cv(notice.card_id)?.name||'Card Effect';
+    if(notice.kind==='completed')presentationNoticeQueue.push({kind:'swap-completed',
+      title:cardTitle.toUpperCase(),detail:'Your Hero was forced to swap from '+notice.from_lane+' to '+notice.to_lane+'.',duration:2600});
+    else if(notice.kind==='canceled')presentationNoticeQueue.push({kind:'swap-canceled',
+      title:'SWAP CANCELED',detail:cardTitle+': '+String(notice.reason||'No legal Swap is available.'),duration:2600});
+  }
+  showNextPresentationNotice();
+}
 function renderStatusReminder(s){
   if(!s||s.gameOver)return;
   const battleKey=s.phase==='Battle'?(s.turn+'|'+s.round+'|Battle'):'';
@@ -4543,7 +4612,7 @@ function renderNow(){
   if(responseRollbackSnapshot&&s.pending?.type!=='response_payment_choice'&&!uiResponseSourceChoice&&s.responseWindow?.response_owner!=='PLAYER')responseRollbackSnapshot=null;
   autoSpecialChoices(s);glPvpWarmVisibleArtwork(s);const chain=renderCombatStacks(s);
   for(const side of ['PLAYER','AI'])for(const lane of laneOrder)renderHero(side,lane,pvpHeroVisualDuringArea(sideHeroes(s,side)?.[lane],side,lane),s);
-  renderHand(s);renderOpponentHand(s);syncExpButtonLock();renderExpInspector();renderMana();renderCenterChoiceStage(s);renderPhase(s);renderPay(s);renderInteractionFocus(s);renderResponseRouteGuide(s);renderPvpIncomingDamage(s);renderDeckActions(s);renderSidebar(s,chain);renderAttackLine(s,chain);renderAllowedModal(s);renderRails(s);syncSoundButton();syncMatchActionButton(s);preparePresentationTargets(presentationPlan);showGameResult(s);renderStatusReminder(s);
+  renderHand(s);renderOpponentHand(s);syncExpButtonLock();renderExpInspector();renderMana();renderCenterChoiceStage(s);renderPhase(s);renderPay(s);renderInteractionFocus(s);renderResponseRouteGuide(s);renderPvpIncomingDamage(s);renderDeckActions(s);renderSidebar(s,chain);renderAttackLine(s,chain);renderAllowedModal(s);renderRails(s);syncSoundButton();syncMatchActionButton(s);preparePresentationTargets(presentationPlan);showGameResult(s);renderStatusReminder(s);queuePvpSwapNotices(s);
   requestAnimationFrame(()=>{syncPlayerManaPoolToHeroLeft();syncPlayerHandToHeroCenter();syncOpponentHand();syncPlayerNameBox();layoutManaPoolCards(playerManaHost);layoutManaPoolCards(aiManaHost);runPresentationPlan(presentationPlan,s)});
 }
 function clearAuthoredDummyState(){

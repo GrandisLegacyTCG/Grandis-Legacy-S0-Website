@@ -2283,14 +2283,24 @@
   }
   // RC40 Part 5: only deliberately selected cards from Main Deck or Discard to Hand
   // are publicly revealed. Draw Phase and ordinary Draw effects remain hidden.
-  function recordPublicSelectedPickup(state,side,cardId,sourceZone,sourceCardId,handIndex){
+  function recordPublicSelectedPickup(state,side,cardId,sourceZone,sourceCardId,handIndex,commitToken){
     if(!state||!cardId||['Main Deck','Discard'].indexOf(sourceZone)===-1)return;
     state.presentationEvents=Array.isArray(state.presentationEvents)?state.presentationEvents:[];
     state.presentationEventSequence=Number(state.presentationEventSequence||0)+1;
+    var action=null;
+    if(state.pvpHumanVsHuman&&commitToken){
+      action=((state.pvpActionEventsBySide||{})[side]||[]).find(function(e){
+        return e&&e.commit_token===commitToken&&e.card_id===sourceCardId;
+      })||null;
+      if(action){
+        action.card_movements=action.card_movements||[];
+        action.card_movements.push({from:sourceZone,to:'Hand',count:1,card_ids:[cardId],known:true});
+      }
+    }
     state.presentationEvents.push({id:'PICKUP-'+state.presentationEventSequence,
       type:'CARD_PUBLIC_PICKUP',side:side,card_id:cardId,from_zone:sourceZone,
-      source_card_id:sourceCardId||null,hand_index:Number(handIndex),
-      sequence:state.presentationEventSequence});
+      source_card_id:sourceCardId||null,source_action_id:action&&action.id||null,
+      hand_index:Number(handIndex),sequence:state.presentationEventSequence});
     if(state.presentationEvents.length>160)state.presentationEvents=state.presentationEvents.slice(-160);
   }
   function recordCardNegationPresentation(state,counterSide,counterCardId,targetSide,targetCardId){
@@ -7502,6 +7512,49 @@
     var damageNotice=''; // Banner is already shown once at TOP CENTER while Response is live.
     return '<article class="response-context-card"><h3>Incoming Card</h3><button class="response-context-tile" type="button" data-preview="'+esc(rw.card_id)+'"><img src="'+esc(thumbFor(rw.card_id))+'" alt="'+esc(cardName(c))+'"><span><strong>'+esc(cardName(c))+'</strong><small>'+esc(cardFamily(c))+' · '+esc(cardSubtype(c)||'Attack')+'</small><small>'+esc(currentDamageType(c))+' · '+esc(rw.damage)+' damage</small></span></button>'+damageNotice+'<div class="incoming-summary">'+esc(activeEffectSummary(c,source))+'</div></article>';
   }
+  // RC41 F19: state-authored, player-perspective notices for card-effect swaps.
+  // The local UI displays these only to the side whose Hero was moved (or
+  // whose Swap failed). Keep the bounded event queue across rapid resolutions.
+  function recordCardSwapNotice(state, detail){
+    if(!state||!detail)return;
+    state.cardSwapNoticeSeq=Number(state.cardSwapNoticeSeq||0)+1;
+    var notice=Object.assign({sequence:state.cardSwapNoticeSeq},detail);
+    state.cardSwapNotices=state.cardSwapNotices||[];
+    state.cardSwapNotices.push(notice);
+    if(state.cardSwapNotices.length>32)state.cardSwapNotices.splice(0,state.cardSwapNotices.length-32);
+  }
+  function recordMandatorySwapCompleted(state, action, side, from, to){
+    if(!state||!action||!side||!from||!to)return;
+    state.swapCompletedSeq=Number(state.swapCompletedSeq||0)+1;
+    state.lastSwapCompleted={sequence:state.swapCompletedSeq,card_id:action.card_id,side:side,from_lane:from,to_lane:to};
+    recordCardSwapNotice(state,{kind:'completed',card_id:action.card_id,side:side,from_lane:from,to_lane:to});
+  }
+  // RC41 F17: report a post-resolution Swap that has no legal partner, not
+  // an interactive choice. The rule engine is the authority for legality.
+  function notifyNoLegalCardSwap(state, action, kind){
+    if(!state||!action)return;
+    var side=kind==='target'?action.target_side:action.source_side;
+    var lane=kind==='target'?action.target_lane:action.source_lane;
+    var heroes=sideHeroes(state,side)||{}, h=heroes[lane], name=side==='PLAYER'?'Your Hero':'The affected Hero';
+    var reason='No legal Hero or Legacy is available to Swap.';
+    if(positionLockedOneVsOne(state))reason='The 1v1 Center position is locked.';
+    else if(h&&hasStatus(h,'Freeze')&&hasStatus(h,'Stun'))reason=name+' is Frozen and Stunned.';
+    else if(h&&hasStatus(h,'Freeze'))reason=name+' is Frozen.';
+    else if(h&&hasStatus(h,'Stun'))reason=name+' is Stunned.';
+    else if(!h||!isActiveHeroSlot(h))reason='The selected Hero is no longer active.';
+    else {
+      var neighbors=kind==='target'?adjacentLanes(lane):(isAnyAlliedSwapCard(card(action.card_id))?LANE_ORDER.filter(function(l){return l!==lane;}):[action.target_lane]);
+      var affected=neighbors.map(function(l){return heroes[l];}).filter(function(x){return !!x;});
+      var frozen=affected.find(function(x){return isActiveHeroSlot(x)&&hasStatus(x,'Freeze');});
+      var stunned=affected.find(function(x){return isActiveHeroSlot(x)&&hasStatus(x,'Stun');});
+      if(frozen)reason='The available Swap partner is Frozen.';
+      else if(stunned)reason='The available Swap partner is Stunned.';
+    }
+    state.swapCanceledSeq=Number(state.swapCanceledSeq||0)+1;
+    state.lastSwapCanceled={sequence:state.swapCanceledSeq,reason:reason,card_id:action.card_id,side:side};
+    recordCardSwapNotice(state,{kind:'canceled',card_id:action.card_id,side:side,reason:reason});
+    pushLog(state,'Swap canceled — '+reason+' ('+cardName(card(action.card_id))+').');
+  }
   function resolvePostAttackChoices(state, action, post, result, options){
     options=options||{};
     var legacyPending=(state&&state.pending&&state.pending.type==='legacy_defeat_choice')?state.pending:null;
@@ -7540,11 +7593,13 @@
       var sourcePrompt=promptOptionalSwap(state, action, null);
       if(sourcePrompt===true) return true;
       if(sourcePrompt==='AUTO_RESOLVED') return false;
+      notifyNoLegalCardSwap(state,action,'source');
     }
     if(targetSwapRequested){
       var targetPrompt=promptOptionalTargetSwap(state, action, null);
       if(targetPrompt===true) return true;
       if(targetPrompt==='AUTO_RESOLVED') return false;
+      notifyNoLegalCardSwap(state,action,'target');
     }
     // No legal reposition option (including same-column source/front no-op): finish deferred discard only when this card was held for continuation.
     if(post.defer_reposition_discard || post.deferred_discard_card_id) finalizeDeferredRepositionDiscard(state,post,action.source_side,action.card_id);
@@ -9062,7 +9117,7 @@
     if(p.zone==='deck'){
       cardMoves.push({from:'Main Deck',to:'Hand',count:picked.length,card_ids:picked.map(function(x){return x.card_id;}),known:true});
       var deck=deckForSide(appState,p.side);
-      picked.sort(function(a,b){ return b.deck_index-a.deck_index; }).forEach(function(cand){ var idx=cand.deck_index; if(idx>=0){ var id=deck.splice(idx,1)[0]; var chosenHand=sideHand(appState,p.side);chosenHand.push(id);recordPublicSelectedPickup(appState,p.side,id,'Main Deck',p.source_card_id,chosenHand.length-1);pushLog(appState, cardName(card(p.source_card_id))+' adds chosen '+cardName(card(id))+' from deck to hand.'); } else pushLog(appState, cardName(card(p.source_card_id))+' chosen card was not found in deck at resolution.'); });
+      picked.sort(function(a,b){ return b.deck_index-a.deck_index; }).forEach(function(cand){ var idx=cand.deck_index; if(idx>=0){ var id=deck.splice(idx,1)[0]; var chosenHand=sideHand(appState,p.side);chosenHand.push(id);recordPublicSelectedPickup(appState,p.side,id,'Main Deck',p.source_card_id,chosenHand.length-1,p.commit_token);pushLog(appState, cardName(card(p.source_card_id))+' adds chosen '+cardName(card(id))+' from deck to hand.'); } else pushLog(appState, cardName(card(p.source_card_id))+' chosen card was not found in deck at resolution.'); });
       shufflePile(deck); pushLog(appState,'Deck shuffled after '+cardName(card(p.source_card_id))+' search/open.');
     } else if(p.zone==='hand'){
       var hnd=sideHand(appState,p.side);
@@ -9080,7 +9135,7 @@
       });
     } else if(p.zone==='discard'){
       var pile=sideDiscard(appState,p.side), destinationDeck=deckForSide(appState,p.side),returnedToDeck=0;
-      picked.sort(function(a,b){ return b.discard_index-a.discard_index; }).forEach(function(cand){ var pidx=cand.discard_index; if(pidx>=0){ var pid=pile.splice(pidx,1)[0]; if(p.resolve_to==='replenish_to_deck'){ destinationDeck.push(pid);returnedToDeck++; pushLog(appState, cardName(card(p.source_card_id))+' returns chosen '+cardName(card(pid))+' from Discard Pile to deck.'); } else { var chosenHand=sideHand(appState,p.side);chosenHand.push(pid);recordPublicSelectedPickup(appState,p.side,pid,'Discard',p.source_card_id,chosenHand.length-1);pushLog(appState, cardName(card(p.source_card_id))+' returns chosen '+cardName(card(pid))+' from Discard Pile to hand.'); } } });
+      picked.sort(function(a,b){ return b.discard_index-a.discard_index; }).forEach(function(cand){ var pidx=cand.discard_index; if(pidx>=0){ var pid=pile.splice(pidx,1)[0]; if(p.resolve_to==='replenish_to_deck'){ destinationDeck.push(pid);returnedToDeck++; pushLog(appState, cardName(card(p.source_card_id))+' returns chosen '+cardName(card(pid))+' from Discard Pile to deck.'); } else { var chosenHand=sideHand(appState,p.side);chosenHand.push(pid);recordPublicSelectedPickup(appState,p.side,pid,'Discard',p.source_card_id,chosenHand.length-1,p.commit_token);pushLog(appState, cardName(card(p.source_card_id))+' returns chosen '+cardName(card(pid))+' from Discard Pile to hand.'); } } });
       if(p.resolve_to==='replenish_to_deck'){ shufflePile(destinationDeck);queueDiscardToDeckGhosts(appState,p.side,returnedToDeck); pushLog(appState,'Replenish shuffles the Main Deck after returning 2 cards.');var handBeforeDraw=sideHand(appState,p.side).length;drawOne(appState,p.side,false,{reason:'CARD_EFFECT'});cardMoves.push({from:'Main Deck',to:'Hand',count:Math.max(0,sideHand(appState,p.side).length-handBeforeDraw),known:false});pushLog(appState,'Replenish draws 1 card after the shuffle.'); }
       if(picked.length)cardMoves.unshift({from:'Discard',to:p.resolve_to==='replenish_to_deck'?'Main Deck':'Hand',card_ids:picked.map(function(x){return x.card_id;}),known:true});
     }
@@ -9821,15 +9876,20 @@
   }
 
   function promptOptionalTargetSwap(state, action, nextPending){
-    var opts=soulBlastTargetSwapOptions(state,action); if(!opts.length) return false;
-    state.pending={type:'optional_target_swap', card_id:action.card_id, source_side:action.source_side, source_lane:action.source_lane, source_card_id:action.source_card_id||null, decision_side:action.source_side, target_side:action.target_side, target_lane:action.target_lane, swap_options:opts, next_pending:nextPending?clone(nextPending):null, deferred_discard_card_id:action.deferred_discard_card_id||action.card_id, deferred_discard_side:action.deferred_discard_side||action.source_side, visual_hold_key:action.visual_hold_key||(nextPending&&nextPending.visual_hold_key)||null, commit_token:action.commit_token||(nextPending&&nextPending.commit_token)||null};
-    if(action.source_side==='AI' && !state.pvpHumanVsHuman && state===appState){
-      pushLog(state,'AI chooses mandatory Soul Blast Shot reposition with '+opts[0]+'.');
-      performOptionalTargetSwapDecision(opts[0]);
-      return 'AUTO_RESOLVED';
-    }
-    renderOptionalTargetSwapChoice();
-    pushLog(state,'Soul Blast Shot force reposition decision pending.'); return true;
+    // RC41 F19: a printed mandatory target Swap never opens a choice popup.
+    // One legal partner: use it. Two legal partners: choose fairly at random.
+    // In either case the affected side, not the attacking side, owns the notice.
+    var opts=soulBlastTargetSwapOptions(state,action); if(!opts.length)return false;
+    var from=action.target_lane,to=opts[Math.floor(Math.random()*opts.length)];
+    var heroes=sideHeroes(state,action.target_side)||{};
+    if(!skillEffectSwapPairEligible(heroes[from],heroes[to]))return false;
+    var targetId=heroIdFrom(heroes[from]),partnerId=heroIdFrom(heroes[to]);
+    swapBoardStateLanes(state,action.target_side,from,to);
+    recordMandatorySwapCompleted(state,action,action.target_side,from,to);
+    pushLog(state,cardName(card(action.card_id))+' mandatory target Swap: '+cardName(card(targetId))+' '+from+' ↔ '+cardName(card(partnerId))+' '+to+'.');
+    finalizeDeferredRepositionDiscard(state,action,action.source_side,action.card_id);
+    if(state===appState){syncCounts(state);render();}
+    return 'AUTO_RESOLVED';
   }
   function optionalSwapAvailable(state, action){
     if(!action || !isChargeSwapCard(card(action.card_id))) return false;
@@ -10384,7 +10444,7 @@ function getActivatedHeroAbilities(state, side, lane){
     }
     if(state.pvpHumanVsHuman && !isCastingCard(c)){
       var pvpLabel=pvpCardActionLabel(c);
-      recordPvpSideAction(state,side,pvpLabel,cardId,cardName(c),baseLog,{action_line:'Action: '+side+' played '+cardName(c)+'.', source_side:action.source_side||side, source_lane:action.source_lane||null, target_side:action.target_side, target_lane:action.target_lane, result_lines:[baseLog],card_played_chain_id:action.card_played_chain_id||null,card_played_chain_step:action.card_played_chain_id?0:null});
+      recordPvpSideAction(state,side,pvpLabel,cardId,cardName(c),baseLog,{action_line:'Action: '+side+' played '+cardName(c)+'.', source_side:action.source_side||side, source_lane:action.source_lane||null, target_side:action.target_side, target_lane:action.target_lane, result_lines:[baseLog],commit_token:action.commit_token||null,card_played_chain_id:action.card_played_chain_id||null,card_played_chain_step:action.card_played_chain_id?0:null});
     }
     if(isWarpScrollCard(c)){
       var wl=(action.target_lanes||[]).slice(0,2), legalNow=warpScrollLegalHeroLanes(state,side);
