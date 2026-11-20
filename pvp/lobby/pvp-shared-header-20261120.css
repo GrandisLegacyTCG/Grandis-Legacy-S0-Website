@@ -111,3 +111,23 @@ html.gl-pvp-mobile-desktop #pvpSetupOverlay .pvp-v260-app-links .gl-site-nav-btn
   padding:0 12px!important;font-size:11px!important;
   height:38px!important;min-height:38px!important;max-height:38px!important;
 }
+
+/* The header keeps the canonical Homepage logo position, while the lobby
+ * panels can use the full viewport width (not the old centered 1600px cap).
+ * Panel padding is independent from the header's 24px brand gutter. */
+@media(min-width:1161px){
+  html:not(.gl-pvp-mobile-desktop):not(.gl-adaptive-stage) #pvpSetupOverlay .pvp-v260-page{
+    box-sizing:border-box!important;width:100%!important;max-width:none!important;
+    margin:0!important;--pvp-lobby-content-gutter:clamp(16px,2vw,36px);
+    padding-left:var(--pvp-lobby-content-gutter)!important;
+    padding-right:var(--pvp-lobby-content-gutter)!important;
+  }
+  html:not(.gl-pvp-mobile-desktop):not(.gl-adaptive-stage) #pvpSetupOverlay .pvp-v260-topbar{
+    margin-left:calc(-1 * var(--pvp-lobby-content-gutter))!important;
+    margin-right:calc(-1 * var(--pvp-lobby-content-gutter))!important;
+  }
+  html:not(.gl-pvp-mobile-desktop):not(.gl-adaptive-stage) #pvpSetupOverlay .pvp-v260-layout{
+    box-sizing:border-box!important;width:100%!important;max-width:none!important;
+    margin:0!important;padding-left:6px!important;padding-right:6px!important;
+  }
+}

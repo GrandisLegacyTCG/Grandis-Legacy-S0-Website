@@ -58,9 +58,14 @@ const LOCAL_CHOICE_ACTIONS=new Map([
   ['cancelS0BardDrawChoice','s0_bard_draw_choice'],
   ['moveCrystalBallOrder','crystal_ball_reorder'],
   ['selectLegacyCardChoice','legacy_card_choice'],
-  ['selectLegacyDefeatChoice','legacy_defeat_choice']
+  ['selectLegacyDefeatChoice','legacy_defeat_choice'],
+  ['selectLegacyCostChoice','legacy_cost_selection'],
+  ['selectStatusRemovalChoice','status_removal_choice'],
+  ['selectSaintPurifyChoice','saint_purify_choice'],
+  ['selectOpponentHandChoice','opponent_hand_choice']
 ]);
 let localChoiceDraft=null;
+let cardSearchDraft=null;
 const isTuneUpDecision=p=>p?.type==='card_search_choice'&&p.source_card_id==='S0-CLE-029'&&p.decision_side==='PLAYER'&&p.zone==='deck'&&!!p.multi_select;
 // Debug sampling stays entirely inside the player's browser; no extra WebSocket packets.
 const performanceSamples=[];
@@ -102,10 +107,15 @@ function actionToast(message,{error=false,duration=3200}={}){
   el.style.borderColor=error?'#e77872':'#d0a744';
   clearTimeout(toastTimer);toastTimer=setTimeout(()=>{el.hidden=true},duration);
 }
+let lastBusyNoticeAt=0;
 function reportRejectedAction(r){
   const message=String(r?.error||'Action rejected.');
-  // Transient in-flight waits are network flow control, not player-facing errors.
-  if(r?.busy||/waiting for (?:the )?(?:server|previous server|pending server)|wait for (?:the )?(?:server|pending server)/i.test(message))return r;
+  // Never silently discard a tap while the authoritative server owns an action.
+  // Do not queue a stale-revision choice automatically: wait for its ACK.
+  if(r?.busy||/waiting for (?:the )?(?:server|previous server|pending server)|wait for (?:the )?(?:server|pending server)/i.test(message)){
+    const now=Date.now();if(now-lastBusyNoticeAt>1100){lastBusyNoticeAt=now;actionToast('Processing previous action. Please wait for the server.',{duration:1750});}
+    return r;
+  }
   pvpIntentError(message);actionToast(message,{error:true,duration:4200});
   return r;
 }
@@ -190,24 +200,71 @@ function toAtomicBlindManaChoice(name,args){
     return {error:'Blind Mana selection expired. Please choose again.'};
   return {name:'commitExactOpponentManaSelection',args:[{revision:state.revision,handles}]};
 }
-function updateLocalTuneUpDraft(args){
-  if(state.inflight||state.queue.length)return {ok:false,error:'Wait for the server action to complete.'};
-  const p=bridge.getSnapshot?.()?.appState?.pending;
-  if(!isTuneUpDecision(p))return {ok:false,error:'No active Tune Up choice.'};
-  const r=bridge.applyServerIntent('selectCardSearchChoice',clone(args));
-  if(!r?.ok)return {ok:false,error:String(r?.error||'Tune Up selection rejected.')};
+// Every Main Deck search is resolved by the SERVER against the real physical deck.
+// The viewer-safe local deck is deliberately masked ('HIDDEN'); calling the
+// donor selectCardSearchChoice() in this browser fails its deck-slot check.
+// Keep an isolated, revision-bound UI draft and replay exact positions ONLY
+// on the authoritative engine at CONFIRM. No deck identities or order sent.
+const choiceSelection=(indices,idx,cap)=>{
+  const list=indices.slice(),found=list.indexOf(idx);
+  if(found>=0)list.splice(found,1);
+  else {if(list.length>=cap)list.pop();list.push(idx);}
+  return list;
+};
+function currentCardSearch(){
+  const p=state.snapshot?.appState?.pending;
+  return p?.type==='card_search_choice'&&p.decision_side==='PLAYER'?p:null;
+}
+function cardSearchDraftMatches(p){
+  return !!(cardSearchDraft&&p&&cardSearchDraft.revision===state.revision&&
+    cardSearchDraft.token===String(p.commit_token||'')&&
+    cardSearchDraft.zone===String(p.zone||'')&&
+    cardSearchDraft.source===String(p.source_card_id||'')&&
+    cardSearchDraft.resolveTo===String(p.resolve_to||'')&&
+    cardSearchDraft.count===(p.candidates||[]).length);
+}
+function updateLocalCardSearchDraft(args){
+  if(state.inflight)return {ok:false,busy:true,error:'Waiting for the previous server action.'};
+  const p=currentCardSearch(),visible=bridge.getSnapshot?.()?.appState?.pending;
+  if(!p||visible?.type!=='card_search_choice'||visible.decision_side!=='PLAYER')
+    return {ok:false,error:'Card choice is no longer active.'};
+  const count=(p.candidates||[]).length,idx=Number(args?.[0]);
+  if(!Number.isInteger(idx)||count<1||count>50||idx<0||idx>=count)
+    return {ok:false,error:'Invalid card choice position.'};
+  const prev=cardSearchDraftMatches(p)?cardSearchDraft:null;
+  const max=Math.max(1,Math.min(count,Math.trunc(Number(p.max_count||p.required_count||1))||1));
+  const initial=p.multi_select?(p.selected_indices||[]).map(Number):
+    (Number.isInteger(p.selected_index)?[p.selected_index]:[]);
+  const selected=p.multi_select?choiceSelection(prev?.selected||initial,idx,max):[idx];
+  cardSearchDraft={revision:state.revision,token:String(p.commit_token||''),
+    zone:String(p.zone||''),source:String(p.source_card_id||''),
+    resolveTo:String(p.resolve_to||''),count,selected};
   window.GL_GAME_UI?.render?.();
   return {ok:true,local:true};
 }
-function toAtomicTuneUpChoice(name,args){
+function projectChoiceState(s){
+  const p=s?.pending;
+  if(!cardSearchDraftMatches(p))return s;
+  const next={...p};
+  if(p.multi_select)next.selected_indices=[...cardSearchDraft.selected];
+  else next.selected_index=cardSearchDraft.selected[0]??null;
+  return {...s,pending:next};
+}
+function toAtomicCardSearchChoice(name,args){
   if(name!=='handleChoiceConfirm')return {name,args};
-  const p=bridge.getSnapshot?.()?.appState?.pending;
-  if(!isTuneUpDecision(p))return {name,args};
-  const selected=p.selected_indices||[];
-  const required=Number(p.required_count||2);
-  if(!Array.isArray(selected)||selected.length!==required||new Set(selected).size!==required)
-    return {error:'Select exactly two different Note Card positions for Tune Up.'};
-  return {name:'commitExactTuneUpChoice',args:[selected.map(Number),String(p.commit_token||'')]};
+  const p=currentCardSearch();
+  if(!p)return {name,args};
+  const selected=cardSearchDraftMatches(p)?cardSearchDraft.selected:
+    (p.multi_select?(p.selected_indices||[]).map(Number):
+     (Number.isInteger(p.selected_index)?[p.selected_index]:[]));
+  const required=p.multi_select?Math.min(Number(p.required_count||p.max_count||1),(p.candidates||[]).length):1;
+  const max=p.multi_select?Number(p.max_count||p.required_count||1):1;
+  if(!Number.isInteger(required)||required<1||selected.length<required||selected.length>max||
+      new Set(selected).size!==selected.length)
+    return {error:'Select the required number of cards before confirming.'};
+  return {name:'commitExactCardSearchChoice',args:[{indices:[...selected],
+    token:String(p.commit_token||''),zone:String(p.zone||''),
+    source:String(p.source_card_id||''),resolveTo:String(p.resolve_to||'')}]};
 }
 // Local choice changes are UI-only; never modify HP/Mana/Status or advance
 // the authoritative revision before server ACK. Immutable parent snapshots
@@ -253,13 +310,18 @@ function toAtomicLocalChoice(name,args){
   if(d.revision!==state.revision||p?.type!==d.type||p?.decision_side!=='PLAYER')
     return {error:'Selection changed. Please choose again.'};
   const isConfirm=d.type==='s0_bard_draw_choice'?
-    (name==='commitS0BardDrawChoice'&&args?.[0]===false):name==='handleChoiceConfirm';
+    (name==='commitS0BardDrawChoice'&&args?.[0]===false):
+    d.type==='opponent_hand_choice'?(name==='commitOpponentHandChoice'||name==='handleChoiceConfirm'):
+    name==='handleChoiceConfirm';
   if(!isConfirm)return {name,args};
   const payload={kind:d.type};
   if(d.type==='scouting_exp_selection')payload.index=p.selected_exp_choice;
   else if(d.type==='legacy_defeat_choice'){payload.index=p.selected_index;payload.choiceId=String(p.choice_id||'');}
   else if(d.type==='crystal_ball_reorder')payload.permutation=[...(d.permutation||[])];
-  else payload.selected=[...(d.type==='hand_limit_discard'?p.selected:p.selected_indices||[])];
+  else if(d.type==='opponent_hand_choice')payload.index=p.selected_index;
+  else if(d.type==='status_removal_choice'||d.type==='saint_purify_choice')payload.index=p.selected_status_choice;
+  else payload.selected=[...(d.type==='hand_limit_discard'?p.selected:
+    d.type==='legacy_cost_selection'?p.selected_cost_indices:p.selected_indices||[])];
   return {name:'commitExactLocalChoiceDraft',args:[payload]};
 }
 function toAtomicPayment(name,args){
@@ -285,7 +347,7 @@ function armTimeout(actionId){
   clearTimeout(state.pendingTimeout);
   state.pendingTimeout=setTimeout(()=>{
     if(state.inflightActionId!==actionId)return; // stale timer must not release another action
-    clearInFlight();state.queue.length=0;localChoiceDraft=null;
+    clearInFlight();state.queue.length=0;localChoiceDraft=null;cardSearchDraft=null;
     pvpIntentError('Server action timed out.');
     send('resync');showError('Server did not respond. Trying to reconnect…');
   },9000);
@@ -297,12 +359,13 @@ function tryAction(name,args=[]){
  if(name!=='executeConfirmedSurrender'&&window.GL_GAME_UI?.openingBusy?.())return {ok:false,error:'Opening animation is still in progress.'};
  if(LOCAL_MANA_ACTIONS.has(name))return updateLocalManaDraft(name,args);
  if(name==='selectOpponentManaChoice')return updateLocalBlindManaDraft(args);
- if(name==='selectCardSearchChoice'&&isTuneUpDecision(state.snapshot?.appState?.pending))
-   return updateLocalTuneUpDraft(args);
+ if(name==='selectCardSearchChoice'&&currentCardSearch())
+   return updateLocalCardSearchDraft(args);
  if(LOCAL_CHOICE_ACTIONS.has(name))return updateLocalChoiceDraft(name,args);
  if(localChoiceDraft && name!=='executeConfirmedSurrender' &&
-    name!=='cancelAndSkipBardDrawChoice' &&
-    !(name==='handleChoiceConfirm'||(name==='commitS0BardDrawChoice'&&args?.[0]===false)))
+    name!=='cancelAndSkipBardDrawChoice' && name!=='cancelPendingAction' &&
+    !(name==='handleChoiceConfirm'||(name==='commitOpponentHandChoice'&&localChoiceDraft.type==='opponent_hand_choice')||
+      (name==='commitS0BardDrawChoice'&&args?.[0]===false)))
    return {ok:false,error:'Finish the current local choice before taking another action.'};
  if(state.inflight){
    if(name==='executeConfirmedSurrender'){
@@ -318,8 +381,8 @@ function dispatch(name,args=[]){
  name=blind.name;args=blind.args;
  const draft=toAtomicLocalChoice(name,args);if(draft.error)return {ok:false,error:draft.error};
  name=draft.name;args=draft.args;
- const tuneUp=toAtomicTuneUpChoice(name,args);if(tuneUp.error)return {ok:false,error:tuneUp.error};
- name=tuneUp.name;args=tuneUp.args;
+ const search=toAtomicCardSearchChoice(name,args);if(search.error)return {ok:false,error:search.error};
+ name=search.name;args=search.args;
  const payment=toAtomicPayment(name,args);if(payment.error)return {ok:false,error:payment.error};
  name=payment.name;args=payment.args;
  // RC39 user choice: a legal source Hero must ALWAYS be selected explicitly,
@@ -373,7 +436,7 @@ function update(snap,{force=false,receivedAt=null}={}){
  const m=snap?.match||{},me=snap?.local||{};
  state.status=m.status||'setup';state.role=me.role||'spectator';state.seat=me.seat||null;
  window.GL_PVP_IDENTITY={playerName:String(me.name||'PLAYER'),opponentName:String((snap.players||[]).find(p=>Number(p.seat)!==Number(me.seat))?.name||'OPPONENT'),playerDeck:String(me.deckName||'Player Deck'),opponentDeck:String((snap.players||[]).find(p=>Number(p.seat)!==Number(me.seat))?.deckName||'Opponent Deck')};
- if(state.status==='setup'){localChoiceDraft=null;updateOpponentResponseNotice(null);window.GL_PVP_MANA_DRAFT?.clear?.();if(!EMBEDDED)location.replace('/');return}
+ if(state.status==='setup'){localChoiceDraft=null;cardSearchDraft=null;updateOpponentResponseNotice(null);window.GL_PVP_MANA_DRAFT?.clear?.();if(!EMBEDDED)location.replace('/');return}
  const coin=window.GL_S0_RC32_PVP_COIN;
  if(m.status==='coin-flip'){localChoiceDraft=null;updateOpponentResponseNotice(null);window.GL_PVP_MANA_DRAFT?.clear?.();
    const key=String(m.chooserSeat)+'|'+String(me.seat||'spectator');
@@ -403,7 +466,7 @@ function update(snap,{force=false,receivedAt=null}={}){
       (!previousResponse||previousResponse.response_owner!=='PLAYER'||
        String(previousResponse.response_window_token||'')!==String(incomingResponse.response_window_token||''));
    state.revision=Number(m.revision||0);state.snapshot=board;
-   localChoiceDraft=null; // server ACK/revision/forced resync wins over local draft
+   localChoiceDraft=null;cardSearchDraft=null; // server ACK/revision/forced resync wins over local draft
    updateOpponentResponseNotice(board);
    window.GL_PVP_LOCAL_SEAT=state.seat;
    window.GL_PVP_LOCAL_ROLE=state.role;
@@ -504,7 +567,7 @@ function connectEmbedded(){
     if(message.type==='bridge-transport'){
       state.connected=!!message.connected;
       proxy.readyState=state.connected?WebSocket.OPEN:0;
-      if(!state.connected){localChoiceDraft=null;updateOpponentResponseNotice(null);clearInFlight();state.queue.length=0;showError('Connection interrupted. Reconnecting through lobby...')}
+      if(!state.connected){localChoiceDraft=null;cardSearchDraft=null;updateOpponentResponseNotice(null);clearInFlight();state.queue.length=0;showError('Connection interrupted. Reconnecting through lobby...')}
       return;
     }
     if(message.type==='snapshot')state.connected=true;
@@ -527,7 +590,7 @@ function connect(){
  // Do not ask for a redundant second full state on a healthy connection.
  ws.onopen=()=>{if(ws!==state.ws)return;state.connected=true;state.disconnects=0};
  ws.onmessage=ev=>{if(ws!==state.ws)return;onServerMessage(ev)};
- ws.onclose=ev=>{if(ws!==state.ws)return;pvpIntentError('Connection lost.');state.connected=false;localChoiceDraft=null;updateOpponentResponseNotice(null);clearInFlight();state.queue.length=0;
+ ws.onclose=ev=>{if(ws!==state.ws)return;pvpIntentError('Connection lost.');state.connected=false;localChoiceDraft=null;cardSearchDraft=null;updateOpponentResponseNotice(null);clearInFlight();state.queue.length=0;
    if(ev.code===4003){showError('Server/client version mismatch. Refresh the app.');return}
    if(ev.code===4004||ev.code===4006){showError('Your seat session was replaced. Return to lobby to reconnect.');return}
    showError('Connection lost. Reconnecting…');const delay=Math.min(10000,800*Math.pow(1.5,Math.min(5,++state.disconnects)));
@@ -554,7 +617,7 @@ if(!EMBEDDED)setInterval(()=>{if(state.connected){
     state.lastActivityPingAt=current;send('activity');
   }
 }},8000);
-window.GL_S0_PVP_NETWORK={state,connect,sendIntent:action,performanceSamples,manaDraft:window.GL_PVP_MANA_DRAFT,localChoiceDraft:()=>localChoiceDraft};
+window.GL_S0_PVP_NETWORK={state,connect,sendIntent:action,performanceSamples,manaDraft:window.GL_PVP_MANA_DRAFT,localChoiceDraft:()=>localChoiceDraft,cardSearchDraft:()=>cardSearchDraft,projectChoiceState};
 
 window.GL_PVP_HOST={getSnapshot:()=>state.snapshot,sendIntent:action,identity:()=>({seat:state.seat,role:state.role,localConnected:state.connected}),returnToLobby:()=>send('return-to-lobby'),abortPregame:()=>send('return-to-lobby'),chooseCoin:choice=>send('choose-coin-flip',{choice}),chooseTurnOrder:order=>send('choose-turn-order',{order}),coinPresented:()=>send('coin-presented'),confirmCoin:()=>send('confirm-coin-flip')};
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',connect);else connect();

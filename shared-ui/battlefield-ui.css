@@ -106,6 +106,10 @@
 .gl-combat-card img{width:var(--std-w)!important;height:var(--std-h)!important;object-fit:cover;border-radius:5px;display:block;border:0;transform:none!important}
 /* Exact VS AI pending-attack visual language; fixed layer is intentionally above the phase tracker. */
 .gl-vsai-attack-direction-layer{position:fixed!important;inset:0!important;width:100%!important;height:100%!important;z-index:11840!important;pointer-events:none!important;overflow:visible!important;color:rgba(244,202,82,.84)!important}
+/* RC41 P7: attack connector never overlaps an active blocking choice/review modal.
+   Keeping this CSS guard catches same-frame opens even before the next UI render. */
+body:has(.gl-vsai-choice-overlay.open,.gl-center-choice-stage.open,.gl-played-detail-overlay.open,.gl-card-review-overlay.open,.gl-exp-inspector-overlay.open,.gl-progression-overlay.open,.gl-lobby-overlay.open,.gl-coin-overlay.open,.gl-result-overlay.open) .gl-vsai-attack-direction-layer,
+body.gl-center-choice-active .gl-vsai-attack-direction-layer{visibility:hidden!important}
 .gl-vsai-attack-direction-layer .gl-pending-attack-line{stroke:currentColor!important;stroke-width:2.2!important;stroke-linecap:round!important;fill:none!important;vector-effect:non-scaling-stroke!important;filter:drop-shadow(0 0 3px rgba(0,0,0,.72))!important}
 .gl-vsai-attack-direction-layer .gl-target-arrow{fill:currentColor!important;stroke:none!important;filter:drop-shadow(0 0 2px rgba(0,0,0,.9))!important}
 .gl-vsai-attack-direction-layer .gl-pending-attack-line.is-looping{animation:glVsaiAttackLinePulse 1.05s ease-in-out infinite}
@@ -126,6 +130,8 @@
 .gl-swap-layer{position:absolute;inset:0;z-index:105;pointer-events:none}
 .gl-swap-button{position:absolute!important;transform:translate(-50%,-50%)!important;width:36px!important;height:36px!important;padding:0!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;pointer-events:auto!important;cursor:pointer!important;display:grid!important;place-items:center!important}
 .gl-swap-button img{display:block;width:100%!important;height:100%!important;object-fit:contain!important;filter:drop-shadow(0 4px 7px rgba(0,0,0,.65))}
+/* Optional card-effect Swaps are anchored to the actual selectable partner. */
+.gl-swap-button[data-swap-partner]::after{content:attr(data-swap-partner);position:absolute;top:calc(100% - 3px);left:50%;transform:translateX(-50%);padding:1px 4px;white-space:nowrap;border-radius:4px;border:1px solid rgba(244,211,94,.6);background:#07131fe8;color:#ffe17e;font-size:7px;line-height:1.2;font-weight:900;pointer-events:none}
 
 /* ---------- Mana / Shard payment ---------- */
 .mana-pool,.mana-cards{overflow:visible!important}
@@ -151,7 +157,7 @@
 .gl-magic-scope-done{position:absolute;left:50%;bottom:-1px;transform:translateX(-50%);z-index:190;height:20px;min-width:48px;padding:0 8px;border:1px solid #826d2c;border-radius:5px;background:#332b13;color:#ffe07a;font-size:6.6px;font-weight:950;cursor:pointer}
 
 /* ---------- VS AI choice popup, copied instead of redesigning ---------- */
-.gl-vsai-choice-overlay{position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:1700;display:none;align-items:center;justify-content:center;padding:18px}
+.gl-vsai-choice-overlay{position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:17000;display:none;align-items:center;justify-content:center;padding:18px}
 .gl-vsai-choice-overlay.open{display:flex}
 .gl-vsai-choice-overlay .choice-panel{width:min(760px,92vw);max-height:84vh;display:flex;flex-direction:column;border:1px solid #6a5a19;border-radius:16px;background:#101923;box-shadow:0 18px 70px rgba(0,0,0,.62);overflow:hidden;color:#edf4fb}
 .gl-vsai-choice-overlay .choice-head,.gl-vsai-choice-overlay .choice-foot{background:#0b131c;border-bottom:1px solid #263d55;display:flex;justify-content:space-between;align-items:center;padding:10px 14px}
@@ -2517,10 +2523,10 @@ html.gl-mobile-gameplay-stage:not(.gl-mobile-landscape-stage) .gl-counter-chain-
    5px bottom aligns with Surrender button baseline (sidebar bottom padding).
    Desktop, unrotated landscape and popup interiors are intentionally unchanged. */
 html.gl-mobile-gameplay-stage:not(.gl-mobile-landscape-stage) :is(
- .gl-battlefield-hover-preview.open,.gl-sidebar-hover-preview.open,.gl-modal-hover-preview.open
+ .gl-battlefield-hover-preview.open,.gl-sidebar-hover-preview.open
 ){display:block!important;align-items:unset!important;justify-content:unset!important}
 html.gl-mobile-gameplay-stage:not(.gl-mobile-landscape-stage) :is(
- .gl-battlefield-hover-preview.open,.gl-sidebar-hover-preview.open,.gl-modal-hover-preview.open
+ .gl-battlefield-hover-preview.open,.gl-sidebar-hover-preview.open
 ) img{
   position:absolute!important;width:248px!important;height:347px!important;
   right:calc(15% + 18px)!important;bottom:5px!important;left:auto!important;top:auto!important;
@@ -2543,4 +2549,174 @@ html.gl-mobile-gameplay-stage:not(.gl-mobile-landscape-stage) :is(
    be accidentally rotated with the card. Desktop/mobile landscape unchanged. */
 html.gl-mobile-gameplay-stage.gl-stage-portrait:not(.gl-mobile-landscape-stage) .gl-flying-card{
   rotate:90deg!important;transform-origin:center center!important;
+}
+
+/* RC41 artwork loading: only the local Player's visible face-up Hand cards.
+   A back replaces missing pixels until the face has been decoded. */
+.hand.bottom .hand-card.gl-hand-art-awaiting::before{
+  content:"";position:absolute;inset:0;z-index:2;pointer-events:none;
+  border-radius:5px;background:#07121f url("../assets/ui/back-main.webp") center/100% 100% no-repeat;
+}
+
+/* RC41 mobile popup/readability correction:
+   - only the actual battlefield/sidebar preview docks at Surrender;
+   - popup card previews float BESIDE the popup (desktop-like), not at battlefield;
+   - selectable cards match the Player Hand card size (not full Hero size).
+   These rules are scoped to the rotated/scaled mobile gameplay stage. */
+html.gl-mobile-gameplay-stage:not(.gl-mobile-landscape-stage) .gl-modal-hover-preview.open{
+  display:block!important;align-items:unset!important;justify-content:unset!important;
+}
+html.gl-mobile-gameplay-stage:not(.gl-mobile-landscape-stage) .gl-modal-hover-preview.open img{
+  position:absolute!important;display:block!important;
+  width:248px!important;height:347px!important;
+  max-width:none!important;max-height:none!important;
+  inset:auto!important;left:var(--gl-popup-preview-x,12px)!important;
+  top:var(--gl-popup-preview-y,12px)!important;right:auto!important;bottom:auto!important;
+  object-fit:contain!important;transform:none!important;border-radius:8px!important;
+}
+html.gl-mobile-gameplay-stage:not(.gl-mobile-landscape-stage) .gl-vsai-choice-overlay .choice-panel{
+  width:1060px!important;min-width:0!important;max-width:1060px!important;
+  height:auto!important;max-height:710px!important;
+  overflow:hidden!important;
+}
+html.gl-mobile-gameplay-stage:not(.gl-mobile-landscape-stage) .gl-vsai-choice-overlay .choice-body{
+  min-height:0!important;max-height:548px!important;
+  overflow-y:auto!important;overflow-x:hidden!important;
+  padding:12px 14px!important;
+}
+html.gl-mobile-gameplay-stage:not(.gl-mobile-landscape-stage) .gl-vsai-choice-overlay :is(
+  .choice-grid,.card-search-choice-grid,.reorder-choice-grid,.inspect-card-grid
+){
+  display:grid!important;grid-template-columns:repeat(auto-fill,82px)!important;
+  grid-auto-columns:82px!important;width:100%!important;
+  gap:9px!important;align-items:start!important;justify-content:center!important;
+}
+html.gl-mobile-gameplay-stage:not(.gl-mobile-landscape-stage) .gl-vsai-choice-overlay :is(
+  .card-search-choice,.discard-choice,.gl-inspect-card
+){
+  box-sizing:border-box!important;width:100%!important;
+  min-width:0!important;max-width:none!important;
+  padding:5px!important;
+}
+html.gl-mobile-gameplay-stage:not(.gl-mobile-landscape-stage) .gl-vsai-choice-overlay :is(
+  .discard-preview img,.gl-inspect-card img,.card-search-choice img,.choice-grid img
+){
+  display:block!important;width:100%!important;
+  height:auto!important;aspect-ratio:5/7!important;object-fit:contain!important;
+}
+/* Central card choices (Discard/Legacy/Mana/Response) must also be readable.
+   Use a scrollable row for large Hands, rather than shrinking the entire Hand. */
+html.gl-mobile-gameplay-stage:not(.gl-mobile-landscape-stage) body.gl-center-choice-active .gl-center-choice-cards{
+  box-sizing:border-box!important;width:min(1320px,96%)!important;
+  max-width:1320px!important;max-height:490px!important;
+  min-height:0!important;padding:38px 12px 24px!important;
+  gap:10px!important;overflow-x:auto!important;overflow-y:hidden!important;
+  justify-content:safe center!important;align-items:center!important;
+  scrollbar-width:thin;
+}
+html.gl-mobile-gameplay-stage:not(.gl-mobile-landscape-stage) body.gl-center-choice-active .gl-center-choice-card{
+  box-sizing:border-box!important;width:82px!important;
+  min-width:82px!important;max-width:82px!important;
+  flex:0 0 82px!important;aspect-ratio:5/7!important;
+}
+
+/* RC41: one rotated logical canvas for the complete BATTLE feedback stream.
+   Status icons / status animations were previously created on document.body
+   and remained upright; the portrait stage now contains them too. The clip
+   coordinates are mapped to the stage in mobileBattleVfxRect(). No special
+   case per status is needed; future feedback types inherit this transform. */
+html.gl-mobile-gameplay-stage.gl-stage-portrait:not(.gl-mobile-landscape-stage) .gl-battle-feedback-layer{
+  position:fixed!important;inset:auto!important;left:0!important;top:0!important;
+  width:1600px!important;height:747px!important;
+  max-width:none!important;max-height:none!important;
+  transform:var(--gl-stage-transform)!important;transform-origin:0 0!important;
+  overflow:visible!important;
+}
+html.gl-mobile-gameplay-stage.gl-stage-portrait:not(.gl-mobile-landscape-stage) .gl-battle-feedback-layer .gl-battle-vfx-clip{
+  position:absolute!important;
+}
+
+
+/* ========================================================================== */
+/* RC41 F15 -- two-row Hand-aware Deck / Discard -> Hand search popup.           */
+/* Scoped: Magic Compass, Deja vu, Sixth Sense, other actual Hand pickups.       */
+/* The non-pickup CONDITION / Replenish / Legacy / inspect dialogs stay as-is.   */
+/* ========================================================================== */
+.gl-vsai-choice-overlay.gl-choice-to-hand{
+  background:transparent!important;pointer-events:none!important;
+  overflow:hidden!important;
+}
+.gl-vsai-choice-overlay.gl-choice-to-hand .gl-choice-hand-window{
+  display:block!important;position:absolute!important;
+  left:var(--gl-choice-hand-x,38%)!important;
+  top:var(--gl-choice-hand-y,85%)!important;
+  width:var(--gl-choice-hand-w,30%)!important;
+  height:calc(100% - var(--gl-choice-hand-y,85%))!important;
+  z-index:0!important;pointer-events:none!important;
+  border-radius:7px 7px 0 0;
+  box-shadow:0 0 0 4000px rgba(0,0,0,.72)!important;
+}
+.gl-vsai-choice-overlay.gl-choice-to-hand .gl-choice-hand-shield{
+  display:block!important;position:absolute!important;z-index:1!important;
+  pointer-events:auto!important;background:transparent!important;
+}
+.gl-vsai-choice-overlay.gl-choice-to-hand .gl-choice-hand-shield-top{
+  top:0!important;left:0!important;right:0!important;
+  height:var(--gl-choice-hand-y,85%)!important;
+}
+.gl-vsai-choice-overlay.gl-choice-to-hand .gl-choice-hand-shield-left{
+  top:var(--gl-choice-hand-y,85%)!important;left:0!important;
+  width:var(--gl-choice-hand-x,38%)!important;
+  height:calc(100% - var(--gl-choice-hand-y,85%))!important;
+}
+.gl-vsai-choice-overlay.gl-choice-to-hand .gl-choice-hand-shield-right{
+  top:var(--gl-choice-hand-y,85%)!important;
+  left:var(--gl-choice-hand-right,70%)!important;
+  right:0!important;height:calc(100% - var(--gl-choice-hand-y,85%))!important;
+}
+.gl-vsai-choice-overlay.gl-choice-to-hand .choice-panel{
+  position:relative!important;z-index:2!important;pointer-events:auto!important;
+  transform:translateY(-32px)!important;
+  max-height:var(--gl-choice-panel-cap,540px)!important;
+  min-height:0!important;
+}
+.gl-vsai-choice-overlay.gl-choice-to-hand .card-search-choice-grid{
+  max-height:var(--gl-choice-grid-two-row-cap,390px)!important;
+  overflow-y:auto!important;overflow-x:hidden!important;
+  overscroll-behavior:contain!important;
+  align-content:start!important;
+  scrollbar-width:thin;scrollbar-gutter:stable;
+}
+.gl-vsai-choice-overlay.gl-choice-to-hand .choice-body{
+  min-height:0!important;
+  max-height:var(--gl-choice-two-row-cap,408px)!important;
+  overflow-y:auto!important;overflow-x:hidden!important;
+  overscroll-behavior:contain!important;
+  scrollbar-gutter:stable;
+}
+.gl-vsai-choice-overlay.gl-choice-to-hand :is(.choice-head,.choice-foot){
+  flex-shrink:0!important;
+}
+/* One source of visual dimming: the Hand window cuts through the search veil.
+   A pending Response may also have the lower-level response dimmer active. */
+body.gl-choice-to-hand-active .gl-focus-dimmer{display:none!important}
+/* The Hand is visible and hoverable for inspection, never playable while the
+   mandatory card search is unresolved. Normal Hand position/size is unchanged. */
+body.gl-choice-to-hand-active .hand.bottom :is(.card-actions,.action-flags){
+  display:none!important;pointer-events:none!important;
+}
+/* Mobile gameplay uses a rotated 1600x747 logical stage. Keep the same seven
+   real candidates per row and the same Hand cutout in that coordinate space. */
+html.gl-mobile-gameplay-stage:not(.gl-mobile-landscape-stage) .gl-vsai-choice-overlay.gl-choice-to-hand .choice-panel{
+  width:min(800px,92%)!important;max-width:92%!important;
+  max-height:var(--gl-choice-panel-cap,540px)!important;
+  transform:translateY(-32px)!important;
+}
+html.gl-mobile-gameplay-stage:not(.gl-mobile-landscape-stage) .gl-vsai-choice-overlay.gl-choice-to-hand .choice-body{
+  min-height:0!important;max-height:var(--gl-choice-two-row-cap,408px)!important;
+  overflow-y:auto!important;overflow-x:hidden!important;
+}
+html.gl-mobile-gameplay-stage:not(.gl-mobile-landscape-stage) .gl-vsai-choice-overlay.gl-choice-to-hand .card-search-choice-grid{
+  grid-template-columns:repeat(7,minmax(0,82px))!important;
+  grid-auto-columns:82px!important;justify-content:center!important;
 }

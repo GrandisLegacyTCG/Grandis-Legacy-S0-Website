@@ -114,32 +114,5 @@ html.gl-pvp-mobile-desktop #pvpS0CardPreview .gl-db158-review-frame{
   width:100%!important;max-width:none!important;height:570px!important;
 }
 
-/* VS AI RC40 M01 deck action hamburger, scoped to the existing PvP mobile lobby.
-   The same desktop deck picker and import handler remain authoritative. */
-.gl-pvp-mobile-actions{display:none}
-.gl-pvp-mobile-menu[hidden]{display:none!important}
-html.gl-pvp-mobile-desktop #pvpSetupOverlay .pvp-v260-picker{
-  grid-template-columns:142px 36px minmax(0,1fr)!important;column-gap:11px!important;
-}
-html.gl-pvp-mobile-desktop #pvpSetupOverlay .gl-pvp-mobile-actions{
-  display:block!important;position:relative!important;z-index:350!important;min-width:36px!important;
-}
-html.gl-pvp-mobile-desktop #pvpSetupOverlay .gl-pvp-mobile-menu-toggle{
-  display:grid!important;place-items:center!important;width:36px!important;height:36px!important;
-  border:1px solid #bda154!important;border-radius:8px!important;background:#122334!important;
-  color:#ffda83!important;font-size:24px!important;line-height:1!important;cursor:pointer!important;padding:0!important;
-}
-html.gl-pvp-mobile-desktop #pvpSetupOverlay .gl-pvp-mobile-menu-toggle[aria-expanded="true"]{background:#413820!important}
-html.gl-pvp-mobile-desktop #pvpSetupOverlay .gl-pvp-mobile-menu{
-  position:absolute!important;top:41px!important;right:0!important;width:166px!important;
-  padding:7px!important;display:flex!important;flex-direction:column!important;gap:5px!important;
-  border:1px solid #bda154!important;border-radius:9px!important;background:#0b1b2b!important;
-  box-shadow:0 12px 32px #000d!important;z-index:360!important;
-}
-html.gl-pvp-mobile-desktop #pvpSetupOverlay .gl-pvp-mobile-menu[hidden]{display:none!important}
-html.gl-pvp-mobile-desktop #pvpSetupOverlay .gl-pvp-mobile-menu button{
-  display:block!important;width:100%!important;padding:10px 7px!important;
-  border:1px solid #38556e!important;border-radius:6px!important;background:#152b40!important;
-  color:#f6e4ad!important;font-size:13px!important;font-weight:800!important;text-align:left!important;cursor:pointer!important;
-}
-html.gl-pvp-mobile-desktop #pvpSetupOverlay .pvp-v260-import-area{display:none!important}
+/* Mobile keeps the native desktop deck SELECT and visible IMPORT DECK button.
+ * The three-column picker above is the sole source of mobile layout; no hamburger. */

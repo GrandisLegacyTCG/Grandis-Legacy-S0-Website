@@ -92,11 +92,21 @@ function toggleShard(s,uid){
  // A Shard reserved for Surge cannot also pay the base Skill cost.
  if(active.surgeSelected&&surgeInfo(s)?.surge_mana_uid===uid)return false;
  const chosen=active.uids.slice(),at=chosen.indexOf(uid),target=byUid.get(uid),val=target.value;
- if(!manaPlan(s)?.ok)return false;
+ // If the authority starts with an empty/incomplete draft, allow normal
+ // tap-to-select until the exact cost is reached. The previous invariant
+ // rejected EVERY tap when payment began incomplete, trapping the player.
+ const current=manaPlan(s);
+ if(!current?.ok){
+   if(at>=0)active.uids=chosen.filter(x=>x!==uid);
+   else if(current.value+val<=current.cost)active.uids=chosen.concat(uid);
+   else return false;
+   surgeInfo(s);return true;
+ }
  if(at>=0){
    const rest=chosen.filter(x=>x!==uid),replacements=bestSubset(rows.filter(sh=>sh.uid!==uid&&!rest.includes(sh.uid)),val);
-   if(!replacements)return false;
-   active.uids=rest.concat(replacements);
+   // If no exact swap exists, permit deselection. The player can then
+   // build a different exact payment, and PAY remains disabled meanwhile.
+   active.uids=rest.concat(replacements||[]);
  }else{
    const replacement=bestSubset(rows.filter(sh=>chosen.includes(sh.uid)),val,target.kind==='CLASS'&&val===2);
    if(!replacement)return false;

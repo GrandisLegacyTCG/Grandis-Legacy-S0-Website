@@ -308,12 +308,39 @@
     if(/pdef|mdef/.test(String(cls||'')))return 11853;
     return 11852;
   }
+  // Battle/status VFX were rendered in a body-level, viewport-fixed layer,
+  // even when the mobile battlefield was rotated. Map each target rectangle
+  // into the same logical 1600x747 stage as the feedback layer. This also
+  // rotates Poison/Burn/Freeze/Sleep, Damage, Block, Heal and Attack VFX
+  // consistently. Gameplay and damage resolution are not changed.
+  function mobileBattleVfxRect(rect){
+    if(!rect||typeof document==='undefined'||
+       !document.documentElement.classList.contains('gl-stage-portrait')||
+       !document.documentElement.classList.contains('gl-mobile-gameplay-stage')||
+       typeof DOMMatrixReadOnly==='undefined'||typeof DOMPoint==='undefined')return rect;
+    var app=document.querySelector('.app');
+    if(!app||typeof getComputedStyle==='undefined')return rect;
+    var transform=getComputedStyle(app).transform;
+    if(!transform||transform==='none')return rect;
+    try{
+      var inverse=new DOMMatrixReadOnly(transform).inverse();
+      var coords=[[rect.left,rect.top],[rect.left+rect.width,rect.top],
+                  [rect.left,rect.top+rect.height],
+                  [rect.left+rect.width,rect.top+rect.height]];
+      var points=coords.map(function(p){return new DOMPoint(p[0],p[1]).matrixTransform(inverse);});
+      var xs=points.map(function(p){return p.x;}),ys=points.map(function(p){return p.y;});
+      var left=Math.min.apply(null,xs),top=Math.min.apply(null,ys);
+      return{left:left,top:top,width:Math.max(0,Math.max.apply(null,xs)-left),
+             height:Math.max(0,Math.max.apply(null,ys)-top)};
+    }catch(_){return rect;}
+  }
   function battleVfxClip(rect,zIndex){
     var layer=battleFeedbackLayer();if(!layer||!rect)return null;
+    var box=mobileBattleVfxRect(rect);
     var clip=document.createElement('div');
     clip.className='gl-battle-vfx-clip';
     clip.style.zIndex=String(zIndex||11852);
-    clip.style.left=rect.left+'px';clip.style.top=rect.top+'px';clip.style.width=rect.width+'px';clip.style.height=rect.height+'px';
+    clip.style.left=box.left+'px';clip.style.top=box.top+'px';clip.style.width=box.width+'px';clip.style.height=box.height+'px';
     layer.appendChild(clip);return clip;
   }
   function battleVfxNode(src,cls,rect,scale,clipToCard){
@@ -1259,7 +1286,7 @@
     // The live R3.8 print and class restriction must already be canonical.
     // Do not mask stale data in a runtime-only override: fail closed instead.
     if(c.card_id==='S0-ITM-011'){
-      var validPoisonText=/When that Hero's Skill card deals Physical damage, inflict Poison for 2 turns\./i.test(String(c.card_text||''));
+      var validPoisonText=/When that Hero's Skill card deals Physical damage, inflict Poison for 2 turns\./i.test(s0RulesParseText(c.card_text));
       var poisonAllowed=(c.requirement&&c.requirement.target_or_user_base_classes)||[];
       if(!validPoisonText||['Archer','Thief','Warrior'].some(function(k){return poisonAllowed.indexOf(k)===-1;})||poisonAllowed.length!==3)
         throw new Error('Main R3.8 Poison Vial print/class restriction mismatch');
@@ -1272,7 +1299,7 @@
     // The S0 current Item/Event export has empty `effect` arrays. Materialize only
     // explicitly stated one-target Status text and duration (not S1 effect values).
     if(c.card_id==='S0-EVT-006' || c.card_id==='S0-ITM-020'){
-      var printedStatus=String(source.card_text||'').match(/\bInflict\s+(Stun|Freeze)\s+on\s+one\s+of\s+your\s+opponent's\s+Heroes\s+for\s+(\d+)\s+turn/i);
+      var printedStatus=s0RulesParseText(source.card_text).match(/\bInflict\s+(Stun|Freeze)\s+on\s+one\s+of\s+your\s+opponent's\s+Heroes\s+for\s+(\d+)\s+turn/i);
       if(printedStatus && !c.effect.some(function(e){return e.kind==='inflict_status'&&e.status===printedStatus[1];}))
         c.effect.push({kind:'inflict_status',status:printedStatus[1],duration:Number(printedStatus[2]),source_s0_printed_row:true});
     }
@@ -1422,11 +1449,14 @@
     if(!c||c.family!=='Hero')return{racialTrait:null,classAbility:null,identity:(c&&c.identity)||{},card:c};
     return{racialTrait:c.racial_ability||null,classAbility:c.class_ability||null,identity:c.identity||{},card:c};
   }
+  // Parsing only: treat straight and typographic apostrophes identically.
+  // NEVER write this normalized text back into card/printed text or OSA data.
+  function s0RulesParseText(value){return String(value||'').replace(/[\u2018\u2019\u02bc\uff07]/g,"'");}
   // Bind current S0 Hero Class Ability text to established v6.91.9 handler
   // contracts. All numeric values below are parsed from S0's own current print.
   function s0ClassActionFromCurrentPrint(ab){
     if(!ab||!ab.name||!ab.text)return null;
-    var name=String(ab.name),raw=String(ab.text);
+    var name=s0RulesParseText(ab.name),raw=s0RulesParseText(ab.text);
     function num(re){var m=re.exec(raw);return m?Number(m[1]):null;}
     function damageModifier(n,type){return {amount:n,damage_type:type,condition_attack_label:type+' Attack',damage_type_is_output_only:true};}
     function statusMod(types,n){return {statuses:types,amount:n,targets:'opponent Heroes',all_infliction_sources_by_this_hero:true};}
@@ -7254,18 +7284,20 @@
       if(incoming.cannot_block && ['S0-WAR-012','S0-WAR-029','S0-THF-022'].indexOf(rc.card_id)>=0 &&
          !/\bREFLECT\s+\d+\b/i.test(String(branchEffectText(rc,defender)||'')))return;
       if(rc.card_id==='S0-THF-023' && !shadowSwitchCanReposition(state,responderSide,incoming)) return;
-      if((incoming.affected_lanes||[]).length>1 && !(isSacredBulwarkCard(rc) || isBlessingDivinityCard(rc) || isDefensiveFormationCard(rc) || isSpectralGrapplingHookCard(rc) || rk==='negate_return')) return;
-      if(isSpectralGrapplingHookCard(rc)||isChainMailCard(rc)){
-        // Printed 'to one of your Heroes': the user must satisfy the Item class
-        // row; the damaged ally does not have to belong to that class.
+      // Area Attacks open a separate Response Window for each affected Hero.
+      // A Protection Item affects the Hero in the CURRENT window only.
+      if((incoming.affected_lanes||[]).length>1 && !(isSacredBulwarkCard(rc) || isBlessingDivinityCard(rc) || isDefensiveFormationCard(rc) || isSpectralGrapplingHookCard(rc) || isChainMailCard(rc) || isRingProtectionCard(rc) || rk==='negate_return')) return;
+      if(isSpectralGrapplingHookCard(rc)||isChainMailCard(rc)||isRingProtectionCard(rc)){
+        // RC41 P7 owner ruling: the damaged Hero must be the legal Item user.
+        // Another eligible Hero elsewhere on the team cannot rescue a Mage's
+        // Response Window with Spectral Grappling Hook or Chain Mail.
+        if(!defender||!heroMatchesLineageGate(defender,itemLineageGate(rc)) ||
+           !sourceCompatibleForResponse(rc,defender)||!affordable(rc,defender))return;
         if(rk==='dodge'&&hasStatus(defender,'Freeze'))return;
-        LANE_ORDER.forEach(function(userLane){
-          var user=sideHeroes(state,responderSide)[userLane];
-          if(!heroMatchesLineageGate(user,itemLineageGate(rc))||!affordable(rc,user))return;
-          options.push({card_id:id,hand_index:idx,card:rc,source_lane:userLane,
-            source_card_id:heroIdFrom(user),protected_lane:incoming.target_lane,response_kind:rk,
-            label:cardName(rc)+' — '+cardName(card(user.card_id))+' protects '+cardName(card(defender&&defender.card_id))});
-        });
+        var defendLane=incoming.target_lane||affected[0];
+        options.push({card_id:id,hand_index:idx,card:rc,source_lane:defendLane,
+          source_card_id:heroIdFrom(defender),protected_lane:defendLane,response_kind:rk,
+          label:cardName(rc)+' — '+cardName(card(defender.card_id))+' ('+defendLane+')'});
         return;
       }
       // A Thief-line Hero can be any selected target (including Spell Blade).
@@ -7360,10 +7392,10 @@
     if((isThiefDodgeResponseCard(c)||isDodgeResponseCard(c))&&incoming.cannot_dodge) reasons.push('The incoming effect cannot be Dodged.');
     if((isThiefDodgeResponseCard(c)||isDodgeResponseCard(c))&&defender&&hasStatus(defender,'Freeze')) reasons.push(cardName(card(defender.card_id))+' is Frozen and cannot Dodge.');
     if(incoming.cannot_block && c.card_id!=='S0-WAR-012' && Array.isArray(c.effect) && c.effect.some(function(e){return e.kind==='block_damage'||e.kind==='protective_def_response_block';})) reasons.push('The incoming effect cannot be Blocked.');
-    if(isSpectralGrapplingHookCard(c)&&!LANE_ORDER.some(function(l){return spectralGrapplingHookResponderValid(sideHeroes(state,responderSide)[l]);})) reasons.push('Spectral Grappling Hook requires an active Archer or Thief Item user.');
+    if(isSpectralGrapplingHookCard(c)&&!spectralGrapplingHookResponderValid(defender)) reasons.push('This Response Window requires the affected Hero to have Archer or Thief lineage for Spectral Grappling Hook.');
     if(c&&c.card_id==='S0-THF-023'&&!shadowSwitchCanReposition(state,responderSide,incoming)) reasons.push('Shadow Switch requires both Heroes to be able to swap (not Frozen or Stunned).');
-    if(isChainMailCard(c)&&!LANE_ORDER.some(function(l){return chainMailResponderValid(sideHeroes(state,responderSide)[l]);})) reasons.push('Chain Mail requires an active Warrior, Archer, or Thief Item user.');
-    if((incoming.affected_lanes||[]).length>1&&!(isSacredBulwarkCard(c)||isBlessingDivinityCard(c)||isDefensiveFormationCard(c)||isSpectralGrapplingHookCard(c)||isSmokeScreenCard(c)||isTacticalAdaptationCard(c))) reasons.push('This card cannot protect the full multi-target response frame.');
+    if(isChainMailCard(c)&&!chainMailResponderValid(defender)) reasons.push('This Response Window requires the affected Hero to have Warrior, Archer, or Thief lineage for Chain Mail.');
+    if((incoming.affected_lanes||[]).length>1&&!(isSacredBulwarkCard(c)||isBlessingDivinityCard(c)||isDefensiveFormationCard(c)||isSpectralGrapplingHookCard(c)||isChainMailCard(c)||isRingProtectionCard(c)||isSmokeScreenCard(c)||isTacticalAdaptationCard(c))) reasons.push('This card cannot protect the full multi-target response frame.');
     var kind=responseKind(c,incoming);
     if(!kind&&!reasons.length) reasons.push('This card does not match the incoming '+String(incoming.damage_type||'')+' damage / '+String(incoming.attack_type||'Attack')+' response condition.');
     if(isCoverUpCard(c)){
@@ -7374,7 +7406,7 @@
       var any=false, sample=[];
       LANE_ORDER.forEach(function(lane){var h=sideHeroes(state,responderSide)[lane],rr=responseSourceLegalityReasons(state,responderSide,c,h);if(!rr.length){var pol=attachmentPolicyForCard(c,h);if(!pol||attachmentSlotIndex(h)!==-1)any=true;}else sample=sample.concat(rr);});
       if(!any) reasons.push(sample[0]||'No allied Hero meets this card’s Class, Rank, Lineage, status, Mana, or Attachment requirements.');
-    } else if(requiresSourceHero(c)){
+    } else if(requiresSourceHero(c)||isSpectralGrapplingHookCard(c)||isChainMailCard(c)||isRingProtectionCard(c)){
       var rr=responseSourceLegalityReasons(state,responderSide,c,defender); rr.forEach(function(x){reasons.push(x);});
     } else {
       var cost=responseCostForSource(c,defender,state,responderSide), available=manaAvailableValueForCard(state,responderSide,c);if(cost>available)reasons.push('Not enough Mana value: needs '+cost+', available '+available+'.');
@@ -17057,7 +17089,7 @@ function withUnshuffledSelfTest(fn){ return function(){ var old=STARTUP_SHUFFLE_
       var stack=window.GL_SOURCE_STACK||{};
       if(stack.runtime_foundation!=='v1.94.2'||stack.runtime_core!=='v0.61'||stack.runtime_data!=='v0.16.2'||stack.effect_checkpoint!=='v0.15.2'||stack.effect_recipe!=='v0.15.2') return {ok:false,reason:'v3.85 source stack mismatch',stack:stack};
       if(CARDS.length!==200 || Object.keys((window.GL_ASSET_MANIFEST||{}).cards||{}).length!==200) return {ok:false,reason:'200-card data/asset count mismatch'};
-      if(cardName(card('S0-THF-014'))!=='Viper’s Fang') return {ok:false,reason:'Viper’s Fang printed display name mismatch',name:cardName(card('S0-THF-014'))};
+      if(s0RulesParseText(cardName(card('S0-THF-014')))!=="Viper's Fang") return {ok:false,reason:'Viper’s Fang printed display name mismatch',name:cardName(card('S0-THF-014'))};
       if(Number(cardCost(card('S0-EVT-003')))!==3 || requiresAttachmentSlot(card('S0-EVT-003'))) return {ok:false,reason:'Scouting FINAL lock mismatch'};
       if(sourceShouldExhaust(card('S0-ARC-013'))) return {ok:false,reason:'Triple Shot still Exhausts'};
       var s=buildInitialMatchState(); appState=s; s.turn='PLAYER'; s.phase='Deploy'; s.mana=30; s.playerHeroes.CENTER.card_id='S0-ARC-H002'; s.playerHeroes.CENTER.exhausted=false; s.playerHeroes.CENTER.attachments=[null,null]; s.playerHand=['S0-ARC-013','S0-ARC-002'];
@@ -17536,12 +17568,12 @@ function withUnshuffledSelfTest(fn){ return function(){ var old=STARTUP_SHUFFLE_
       s=buildInitialMatchState();appState=s;s.turn='PLAYER';s.phase='Deploy';s.racial=1;fillV1400Mana(s,'PLAYER',2);s.playerHeroes.LEFT.card_id='S0-MAG-H001';resolveActivatedRacialAbility(s,'PLAYER','LEFT','ancestral_focus',null);if(s.mana!==4||s.racial!==0) return {ok:false,reason:'Ancestral Focus gain 2 Mana failed',mana:s.mana,racial:s.racial};
       var racialAudit=simulateHeroRacialEffectFixAudit();if(!racialAudit||!racialAudit.ok) return {ok:false,reason:'Response/trigger racial suite failed',audit:racialAudit};
 
-      var abilityNames={};Object.keys(CARDS||{}).forEach(function(id){var c=CARDS[id],n=c&&c.class_ability&&c.class_ability.name;if(n)abilityNames[n]=true;});
+      var abilityNames={};Object.keys(CARDS||{}).forEach(function(id){var c=CARDS[id],n=c&&c.class_ability&&c.class_ability.name;if(n)abilityNames[s0RulesParseText(n)]=true;});
       // Hybrid source data keeps Mana/Arcane Surge in locked ability text rather than class_ability.name.
       if(card('S0-THF-H008')&&/Mana Surge/i.test(String(card('S0-THF-H008').class_ability&&card('S0-THF-H008').class_ability.text||card('S0-THF-H008').card_text||''))) abilityNames['Mana Surge']=true;
       if(card('S0-THF-H009')&&/Arcane Surge/i.test(String(card('S0-THF-H009').class_ability&&card('S0-THF-H009').class_ability.text||card('S0-THF-H009').card_text||''))) abilityNames['Arcane Surge']=true;
       var required=['Sharpshooter','Dead Eye','Quick Reload','Rapid Chamber','Holy Grace','Holy Rejuvenation','Elemental Mastery','Elemental Sovereignty','Venom Mastery','Nightshade Venom','Mana Surge','Arcane Surge','Vanquisher’s Resolve','Arena Dominator','Holy Resurgence','Radiant Oblivion'];
-      var missing=required.filter(function(n){return !abilityNames[n];});if(missing.length) return {ok:false,reason:'Class ability source list incomplete',missing:missing,names:Object.keys(abilityNames)};
+      var missing=required.filter(function(n){return !abilityNames[s0RulesParseText(n)];});if(missing.length) return {ok:false,reason:'Class ability source list incomplete',missing:missing,names:Object.keys(abilityNames)};
       return {ok:true,version:'v1.43.0',opponentOrder:true,opponentMainDeckLarger:true,manaSurgeBothSeats:true,classAbilityProfiles:required.length,passiveProfilesAudited:12,activatedProfilesAudited:2,drawReplacementProfilesAudited:2,racialTraitsAudited:6,saintSingleStatusChoice:true,activatedOncePerTurn:true};
     }catch(e){return {ok:false,error:String(e&&e.stack||e)};}
     finally{appState=oldApp;matchStarted=oldMatch;SUPPRESS_RENDER=oldSuppress;window.GL_PVP_SHARED_BOARD_ACTIVE=oldShared;closeChoice();closeResponseWindowUI();}
@@ -19060,12 +19092,17 @@ function withUnshuffledSelfTest(fn){ return function(){ var old=STARTUP_SHUFFLE_
       check('Spectral Hook Mage-only Response denied',responseOptionsFor(s,'PLAYER',Object.assign(responseIncomingFromWindow(rw('CENTER')),{damage_type:'Physical'})).filter(function(o){return o.card_id==='S0-ITM-012';}).length===0);
       s.playerHand=['S0-ITM-013'];
       check('Ring of Grace Mage-only preplay denied',!validateCardPreconditions(s,'PLAYER','S0-ITM-013',null,null,{}).ok);
-      // Item user and protected target are not the same Hero: Archer protects Mage.
+      // RC41 P7: even with an Archer teammate, a Mage Response Window cannot
+      // use Spectral Grappling Hook; after changing the defender to Archer,
+      // only that defender (not the other Archer) can use it.
       s=fresh('AI');hero(s,'LEFT','Archer',1);hero(s,'CENTER','Mage',1);hero(s,'RIGHT','Cleric',1);
       s.playerHand=['S0-ITM-012','S0-THF-001','S0-THF-001'];
       var incoming=responseIncomingFromWindow(rw('CENTER')),
         opts=responseOptionsFor(s,'PLAYER',incoming).filter(function(o){return o.card_id==='S0-ITM-012';});
-      check('Hook Archer source protects Mage target',opts.length===1&&opts[0].source_lane==='LEFT'&&opts[0].protected_lane==='CENTER',opts);
+      check('Hook Archer teammate cannot protect Mage window',opts.length===0,opts);
+      hero(s,'CENTER','Archer',1);
+      opts=responseOptionsFor(s,'PLAYER',incoming).filter(function(o){return o.card_id==='S0-ITM-012';});
+      check('Hook only current Archer window user',opts.length===1&&opts[0].source_lane==='CENTER'&&opts[0].protected_lane==='CENTER',opts);
       var opt=opts[0],originalHand=s.playerHand.slice(),w=rw('CENTER');
       if(opt){s.responseWindow=w;w.options=opts;
         check('Hook enters precommit Hand discard picker',beginResponsePayment(s,w,clone(opt))&&s.pending&&s.pending.type==='response_payment_choice');
@@ -19081,12 +19118,18 @@ function withUnshuffledSelfTest(fn){ return function(){ var old=STARTUP_SHUFFLE_
             {hand:s.playerHand,discard:s.playerDiscard,pending:s.pending,response:s.responseWindow});
         }
       }
-      // Same printed user/target distinction for Chain Mail; Mage cannot use it.
+      // Chain Mail also belongs only to the Hero in the actual Response Window.
       s=fresh();hero(s,'LEFT','Warrior',1);hero(s,'CENTER','Mage',1);hero(s,'RIGHT','Cleric',1);s.playerHand=['S0-ITM-016'];
       opts=responseOptionsFor(s,'PLAYER',responseIncomingFromWindow(rw('CENTER'))).filter(function(o){return o.card_id==='S0-ITM-016';});
-      check('Chain Mail Warrior source protects Mage target',opts.length===1&&opts[0].source_lane==='LEFT',opts);
+      check('Chain Mail Warrior teammate cannot protect Mage window',opts.length===0,opts);
+      hero(s,'CENTER','Warrior',1);
+      opts=responseOptionsFor(s,'PLAYER',responseIncomingFromWindow(rw('CENTER'))).filter(function(o){return o.card_id==='S0-ITM-016';});
+      check('Chain Mail only current Warrior window user',opts.length===1&&opts[0].source_lane==='CENTER',opts);
       LANE_ORDER.forEach(function(l){hero(s,l,'Mage',1);});
       check('Chain Mail Mage-only Response denied',responseOptionsFor(s,'PLAYER',responseIncomingFromWindow(rw('CENTER'))).every(function(o){return o.card_id!=='S0-ITM-016';}));
+      s=fresh();hero(s,'LEFT','Cleric',1);hero(s,'CENTER','Mage',1);hero(s,'RIGHT','Thief',1);s.playerHand=['S0-ITM-007'];
+      opts=responseOptionsFor(s,'PLAYER',Object.assign(responseIncomingFromWindow(rw('CENTER')),{damage_type:'Magical'})).filter(function(o){return o.card_id==='S0-ITM-007';});
+      check('All Classes Ring of Protection responds for Mage window',opts.length===1&&opts[0].source_lane==='CENTER',opts);
       // Legacy activated cost: 1 or 2 matching Skills; never zero, wrong class,
       // duplicate physical index, or stale card ID. Cost must not be paid twice.
       var ability=card('S0-MAG-L001').ability;

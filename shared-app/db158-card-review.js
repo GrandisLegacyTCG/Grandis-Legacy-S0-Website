@@ -22,8 +22,103 @@
       '<script src="assets/review-db158/js/s0-review-clarity.js?v=rc40-p5-review166-mana-terms"><\/script><script src="assets/review-db158/js/review-renderer-v158.js?v=rc40-p5-review166"><\/script>'+
       '<script>(function(){const card='+serialized+';const lineage='+serializedLineage+';window.GL_S0_REVIEW_RENDER(card);if(lineage.length){const panel=document.getElementById("reviewProgression"),host=document.getElementById("reviewProgressionCards");panel.hidden=false;lineage.forEach(function(x){const b=document.createElement("button");b.type="button";b.className="review-progression-card"+(x.id===card.id?" active":"");b.dataset.reviewRankId=x.id;b.setAttribute("aria-label","Review "+x.name);const img=document.createElement("img");img.src=x.image;img.alt=x.name;img.draggable=false;b.appendChild(img);b.addEventListener("click",function(){parent.postMessage({kind:"GL_S0_REVIEW_RANK",cardId:x.id},"*")});host.appendChild(b);});}function close(){parent.postMessage({kind:"GL_S0_REVIEW_CLOSE"},"*")}document.getElementById("reviewClose").addEventListener("click",close);document.addEventListener("keydown",function(e){if(e.key==="Escape"){e.preventDefault();close();}});function reportHeight(){var card=document.querySelector("#cardReviewDialog .review-card");if(!card)return;parent.postMessage({kind:"GL_S0_REVIEW_FIT",height:Math.ceil(card.getBoundingClientRect().bottom)},"*");}requestAnimationFrame(reportHeight);setTimeout(reportHeight,80);document.fonts.ready.then(reportHeight);var img=document.getElementById("reviewArt");if(img&&!img.complete)img.addEventListener("load",reportHeight,{once:true});if(window.ResizeObserver)new ResizeObserver(reportHeight).observe(document.querySelector(".review-card"));window.addEventListener("resize",reportHeight);var readySent=false;function reportReady(){if(readySent)return;readySent=true;reportHeight();parent.postMessage({kind:"GL_S0_REVIEW_READY"},"*");}function afterArt(){Promise.resolve(document.fonts.ready).then(function(){requestAnimationFrame(function(){requestAnimationFrame(reportReady);});});}if(img&&!img.complete){img.addEventListener("load",afterArt,{once:true});img.addEventListener("error",afterArt,{once:true});}else afterArt();setTimeout(reportReady,1800);})();<\/script></body></html>';
   }
-  function mount(el,cardId,progressionIds){var c=getCard(cardId);if(!el||!c)return false;el.innerHTML='';var frame=g.document.createElement('iframe');frame.className='gl-db158-review-frame';frame.style.colorScheme='light';frame.setAttribute('title',c.name+' — Deck Builder v1.66 card review');frame.setAttribute('loading','eager');frame.setAttribute('scrolling',Array.isArray(progressionIds)&&progressionIds.length?'auto':'no');frame.setAttribute('aria-label',c.name+' card review');frame.srcdoc=documentHtml(c,progressionIds);el.appendChild(frame);return true;}
-  function warmStyles(){if(g.__GL_REVIEW_STYLES_PREWARMED)return;g.__GL_REVIEW_STYLES_PREWARMED=true;files.forEach(function(file){var link=g.document.createElement('link');link.rel='preload';link.as='style';link.href='assets/review-db158/css/'+file;g.document.head.appendChild(link);});}
-  if(g.document.readyState==='loading')g.document.addEventListener('DOMContentLoaded',function(){setTimeout(warmStyles,300);},{once:true});else setTimeout(warmStyles,300);
-  g.GL_DB158_REVIEW={mount:mount,getCard:getCard,documentHtml:documentHtml,source:'Main Deck R3.9 / Legacy Deck R3.9',view:'Deck Builder v1.67',heroFooter:'lobby-only'};
+  // Reuse the same iframe for all reviews. Re-creating srcdoc on every
+  // double-click used to re-parse 19 stylesheet links and both JS renderers.
+  // This only changes presentation; the Deck Builder review data is unchanged.
+  function lineageFor(c,ids){
+    if(c.family!=='Hero'||!Array.isArray(ids))return [];
+    return ids.map(getCard).filter(Boolean).map(function(x){return {id:x.id,name:x.name,image:x.image};});
+  }
+  function applyReviewToFrame(frame,c,lineage){
+    var w=frame.contentWindow,d=frame.contentDocument,body=frame.parentElement;
+    if(!w||!d||typeof w.GL_S0_REVIEW_RENDER!=='function')return false;
+    var request=(frame.__glReviewRequest||0)+1;
+    frame.__glReviewRequest=request;
+    body.classList.remove('gl-review-ready');
+    w.GL_S0_REVIEW_RENDER(c);
+    var panel=d.getElementById('reviewProgression'),host=d.getElementById('reviewProgressionCards');
+    if(panel&&host){
+      host.replaceChildren();panel.hidden=!lineage.length;
+      lineage.forEach(function(x){
+        var button=d.createElement('button');button.type='button';
+        button.className='review-progression-card'+(x.id===c.id?' active':'');
+        button.dataset.reviewRankId=x.id;
+        button.setAttribute('aria-label','Review '+x.name);
+        var art=d.createElement('img');art.src=x.image;art.alt=x.name;art.draggable=false;
+        button.appendChild(art);
+        // The handler belongs to the iframe realm so the existing parent
+        // message security check (e.source === frame.contentWindow) still works.
+        button.addEventListener('click',w.Function('parent.postMessage({kind:"GL_S0_REVIEW_RANK",cardId:this.dataset.reviewRankId},"*")'));
+        host.appendChild(button);
+      });
+    }
+    var img=d.getElementById('reviewArt');
+    function ready(){
+      if(!frame.isConnected||frame.__glReviewRequest!==request)return;
+      body.classList.add('gl-review-ready');
+      w.requestAnimationFrame(function(){
+        if(!frame.isConnected||frame.__glReviewRequest!==request)return;
+        var card=d.querySelector('#cardReviewDialog .review-card');
+        var height=card?Math.ceil(card.getBoundingClientRect().bottom):0;
+        if(height>100){
+          var mobile=g.document.documentElement.classList.contains('gl-mobile-gameplay-stage');
+          var fit=Math.min(height,Math.max(250,(mobile?747:g.innerHeight)-32));
+          frame.style.setProperty('height',fit+'px','important');
+        }
+      });
+    }
+    // Show the review once the artwork is decoded; don't wait for a new iframe
+    // document, stylesheet downloads or unrelated battlefield rendering.
+    var imageReady=img&&img.complete&&img.naturalWidth>0;
+    var decoded=imageReady?Promise.resolve():img&&typeof img.decode==='function'
+      ?img.decode().catch(function(){})
+      :new Promise(function(resolve){if(!img)return resolve();img.addEventListener('load',resolve,{once:true});img.addEventListener('error',resolve,{once:true});});
+    Promise.race([Promise.all([decoded,d.fonts?.ready||Promise.resolve()]),
+      new Promise(function(resolve){g.setTimeout(resolve,1600);})]).then(function(){
+      if(!frame.isConnected||frame.__glReviewRequest!==request)return;
+      w.requestAnimationFrame(function(){w.requestAnimationFrame(ready);});
+    });
+    return true;
+  }
+  function mount(el,cardId,progressionIds){
+    var c=getCard(cardId);if(!el||!c)return false;
+    var lineage=lineageFor(c,progressionIds);
+    var frame=el.querySelector('.gl-db158-review-frame');
+    if(frame){
+      frame.__glPendingReview={card:c,lineage:lineage};
+      if(frame.contentWindow?.GL_S0_REVIEW_RENDER){
+        applyReviewToFrame(frame,c,lineage);
+      }
+      return true;
+    }
+    frame=g.document.createElement('iframe');frame.className='gl-db158-review-frame';
+    frame.style.colorScheme='light';frame.setAttribute('title','Card review');
+    frame.setAttribute('loading','eager');frame.setAttribute('scrolling','auto');
+    frame.setAttribute('aria-label','Card review');
+    frame.__glPendingReview={card:c,lineage:lineage};
+    frame.addEventListener('load',function(){
+      var latest=frame.__glPendingReview;
+      if(latest)applyReviewToFrame(frame,latest.card,latest.lineage);
+    });
+    frame.srcdoc=documentHtml(c,progressionIds);
+    el.appendChild(frame);
+    return true;
+  }
+  function warmReviewShell(){
+    var body=g.document.querySelector('.gl-card-review-body');
+    if(!body||body.querySelector('.gl-db158-review-frame'))return;
+    var id=Object.keys(g.GL_DB166_REVIEW_CARDS||{})[0];
+    if(id)mount(body,id,[]);
+  }
+  // One low-priority idle mount makes the first real double-click responsive,
+  // while subsequent cards always reuse the already-initialized iframe.
+  function scheduleWarmReview(){
+    var run=function(){g.setTimeout(warmReviewShell,450);};
+    if(typeof g.requestIdleCallback==='function')g.requestIdleCallback(run,{timeout:1800});
+    else g.setTimeout(run,800);
+  }
+  if(g.document.readyState==='loading')g.document.addEventListener('DOMContentLoaded',scheduleWarmReview,{once:true});
+  else scheduleWarmReview();
+  g.GL_DB158_REVIEW={mount:mount,getCard:getCard,documentHtml:documentHtml,warm:warmReviewShell,
+    source:'Main Deck R3.9 / Legacy Deck R3.9',view:'Deck Builder v1.67',heroFooter:'lobby-only'};
 })(window);

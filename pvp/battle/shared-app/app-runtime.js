@@ -47,6 +47,10 @@ const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.id='g
 document.body.appendChild(svg);
 const feedback=document.createElement('div');feedback.className='gl-feedback';BF.appendChild(feedback);
 const choiceOverlay=document.createElement('div');choiceOverlay.className='overlay choice-overlay gl-vsai-choice-overlay';choiceOverlay.innerHTML='<section class="choice-panel"><header class="choice-head"><h2 class="gl-choice-title">Choice</h2></header><div class="choice-body gl-choice-body"></div><footer class="choice-foot"><button type="button" class="gl-choice-cancel" hidden>CANCEL</button><button type="button" class="gl-choice-confirm">CONFIRM</button></footer></section>';document.body.appendChild(choiceOverlay);
+// F15 popup: keep the actual Hand visible during a search that adds cards to
+// Hand, but prevent unrelated gameplay buttons from receiving its taps.
+const choiceHandWindow=document.createElement('div');choiceHandWindow.className='gl-choice-hand-window';choiceHandWindow.setAttribute('aria-hidden','true');choiceOverlay.prepend(choiceHandWindow);
+for(const edge of ['top','left','right']){const shield=document.createElement('div');shield.className='gl-choice-hand-shield gl-choice-hand-shield-'+edge;shield.setAttribute('aria-hidden','true');choiceOverlay.insertBefore(shield,choiceOverlay.querySelector('.choice-panel'));}
 const playedDetailOverlay=document.createElement('div');playedDetailOverlay.className='gl-played-detail-overlay';playedDetailOverlay.innerHTML='<section class="gl-played-detail-panel" role="dialog" aria-modal="true" aria-labelledby="glPlayedDetailTitle"><header class="gl-played-detail-head"><h2 id="glPlayedDetailTitle">Card Played</h2><button type="button" class="gl-played-detail-close" aria-label="Close Card Played detail">CLOSE</button></header><div class="gl-played-detail-body"></div></section>';document.body.appendChild(playedDetailOverlay);
 const cardReviewOverlay=document.createElement('div');cardReviewOverlay.className='gl-card-review-overlay';cardReviewOverlay.innerHTML='<section class="gl-card-review-panel" role="dialog" aria-modal="true" aria-label="Card Review"><div class="gl-card-review-body"></div></section>';document.body.appendChild(cardReviewOverlay);
 const expInspectorOverlay=document.createElement('div');expInspectorOverlay.className='gl-exp-inspector-overlay';expInspectorOverlay.innerHTML='<section class="gl-exp-inspector-panel" id="glExpInspectorDialog" role="dialog" aria-modal="true" aria-labelledby="glExpInspectorTitle"><header class="gl-exp-inspector-head"><div><span class="gl-exp-inspector-eyebrow">HERO EXP CARDS</span><h2 id="glExpInspectorTitle">EXP Cards</h2></div><button type="button" class="gl-exp-inspector-close">CLOSE</button></header><div class="gl-exp-inspector-summary"></div><div class="gl-exp-inspector-list"></div><p class="gl-exp-inspector-foot">Hover to enlarge (as in Legacy Deck); click for full Card Review. Ultimate EXP cannot return to Hand.</p></section>';document.body.appendChild(expInspectorOverlay);
@@ -55,6 +59,8 @@ const modalHoverPreview=document.createElement('div');modalHoverPreview.classNam
 const sidebarHoverPreview=document.createElement('div');sidebarHoverPreview.className='gl-sidebar-hover-preview';sidebarHoverPreview.setAttribute('aria-hidden','true');const sidebarHoverImg=document.createElement('img');sidebarHoverPreview.appendChild(sidebarHoverImg);document.body.appendChild(sidebarHoverPreview);
 const turnBanner=document.createElement('div');turnBanner.className='gl-turn-banner';turnBanner.setAttribute('aria-live','polite');document.body.appendChild(turnBanner);
 const counterBanner=document.createElement('div');counterBanner.className='gl-counter-banner';counterBanner.setAttribute('aria-live','polite');counterBanner.setAttribute('aria-atomic','true');document.body.appendChild(counterBanner);
+const counterChainBanner=document.createElement('div');counterChainBanner.className='gl-counter-chain-banner';counterChainBanner.setAttribute('role','status');counterChainBanner.setAttribute('aria-live','polite');document.body.appendChild(counterChainBanner);
+let counterChainHoldTimer=null;const shownCompletedCounterChains=new Set();
 const seenCounterMessages=new Set(),seenRacialMessages=new Set(),seenPlayedActionEvents=new Set(),seenDiscardNotifications=new Set(),pvpSeenHealingResultKeys=new Set(),presentationNoticeQueue=[];let counterBannerTimer=null,presentationNoticeActive=false;
 // VS AI's standard resolution feedback is 2 seconds. PvP holds it for one
 // additional second AFTER the committed result is received (never during RTT).
@@ -108,7 +114,9 @@ let glExternalDrawSequence=Promise.resolve();
 let glExternalManaDrawSequence=Promise.resolve();
 const glExternallyPresentedShardUids=new Set();
 const laneOrder=['LEFT','CENTER','RIGHT'];
-function st(){const snap=E()?.getSnapshot?.();return snap?.appState||snap?.state||snap||null;}
+function st(){const snap=E()?.getSnapshot?.(),s=snap?.appState||snap?.state||snap||null;
+  return window.GL_APP_MODE==='PVP'&&s?
+    (window.GL_S0_PVP_NETWORK?.projectChoiceState?.(s)||s):s;}
 function cv(id){return id?E().cardView(id):null;}
 function art(id){return id?'/card-art/'+encodeURIComponent(id)+'.webp':'';}
 
@@ -136,6 +144,92 @@ function glBindPlayerHandArtwork(card,img,id){
 
 function shardArt(sh){const faces={Generic:'S0-MAN-001',Warrior:'S0-MAN-002',Mage:'S0-MAN-003',Cleric:'S0-MAN-004',Thief:'S0-MAN-005',Archer:'S0-MAN-006'};const name=sh&&sh.kind==='CLASS'?String(sh.class_name||'').trim():'Generic';return '/card-art/'+(faces[name]||faces.Generic)+'.webp';}
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+// PvP-only, privacy-safe artwork warmup. Never prefetch hidden opponent cards.
+// This cache is bounded to keep mobile memory/network load predictable.
+const glPvpArtworkJobs=new Map(),glPvpArtworkQueue=[];
+// The decoded faces of our own Hand/public board only (bounded LRU).
+const glPvpArtworkDecoded=new Set();
+let glPvpArtworkActive=0;
+function glPvpArtworkPump(){
+  while(glPvpArtworkActive<3&&glPvpArtworkQueue.length){
+    const task=glPvpArtworkQueue.shift();glPvpArtworkActive++;
+    const image=new Image();image.decoding='async';
+    try{image.fetchPriority='low'}catch(_){}
+    let done=false;
+    const finish=ok=>{if(done)return;done=true;clearTimeout(timer);glPvpArtworkActive--;
+      if(ok){glPvpArtworkDecoded.delete(task.src);glPvpArtworkDecoded.add(task.src);
+        while(glPvpArtworkDecoded.size>96)glPvpArtworkDecoded.delete(glPvpArtworkDecoded.values().next().value);}
+      task.resolve(!!ok);glPvpArtworkPump()};
+    const timer=setTimeout(()=>finish(false),6500);
+    image.onload=()=>{if(typeof image.decode==='function')Promise.resolve().then(()=>image.decode()).then(()=>finish(true),()=>finish(image.naturalWidth>0));else finish(image.naturalWidth>0)};
+    image.onerror=()=>finish(false);
+    image.src=task.src;
+    if(image.complete&&image.naturalWidth>0)image.onload();
+  }
+}
+function glPvpPreloadArtwork(src){
+  src=String(src||'');if(!src)return Promise.resolve(false);
+  if(glPvpArtworkJobs.has(src))return glPvpArtworkJobs.get(src);
+  // Only explicit, currently visible public/own card IDs are supplied by callers.
+  const task={src};const promise=new Promise(resolve=>{task.resolve=resolve});
+  glPvpArtworkJobs.set(src,promise);glPvpArtworkQueue.push(task);glPvpArtworkPump();
+  if(glPvpArtworkJobs.size>96){
+    for(const key of glPvpArtworkJobs.keys()){
+      if(key!==src){glPvpArtworkJobs.delete(key);break}
+    }
+  }
+  return promise;
+}
+function glPvpGuardHandFace(card,img,id){
+  // Never substitute an unknown opponent's hidden Hand face. This helper is
+  // called only by the local-player Hand renderer, after card identity is
+  // confirmed in the viewer-safe state. Preserve its back until decoded.
+  const src=art(id);
+  if(!src||glPvpArtworkDecoded.has(src)){card.classList.remove('gl-hand-art-awaiting');return;}
+  card.classList.add('gl-hand-art-awaiting');
+  if(card._glPvpArtworkGuard===id)return;
+  card._glPvpArtworkGuard=id;
+  glPvpPreloadArtwork(src).then(ok=>{
+    if(card.dataset.glHandCardId!==id||!card.isConnected)return;
+    if(ok)card.classList.remove('gl-hand-art-awaiting','gl-hand-art-unavailable');
+    else card.classList.add('gl-hand-art-unavailable');
+  });
+}
+function glPvpWarmVisibleArtwork(state){
+  if(window.GL_APP_MODE!=='PVP'||!state)return;
+  // Public Hero lanes and their visible attachments are safe for both viewers.
+  for(const side of ['PLAYER','AI'])for(const lane of laneOrder){
+    const hero=sideHeroes(state,side)?.[lane];if(!hero)continue;
+    const id=heroImageId(hero);if(typeof id==='string'&&id.startsWith('S0-'))glPvpPreloadArtwork(art(id));
+    (hero.attachments||[]).slice(0,2).forEach(a=>{
+      const item=typeof a==='string'?a:a?.card_id;
+      if(typeof item==='string'&&item.startsWith('S0-'))glPvpPreloadArtwork(art(item));
+    });
+  }
+  // Only the local player's own Hand. The opponent's Hand remains a card back.
+  (state.playerHand||[]).slice(0,12).forEach(id=>{
+    if(typeof id==='string'&&id.startsWith('S0-'))glPvpPreloadArtwork(art(id));
+  });
+}
+// On Rank Up/Legacy transitions, keep the last *visible* Hero portrait until
+// the new public image has decoded, then swap exactly once. No stale async swap.
+function glPvpStableHeroArtwork(img,target,fallback){
+  if(!target)return;
+  const current=img.getAttribute('src')||'';
+  if(current===target){img._glPvpArtTarget=target;return}
+  if(img._glPvpArtTarget===target)return;
+  img._glPvpArtTarget=target;
+  if(!current||!img.complete||!img.naturalWidth){
+    img.src=target;return;
+  }
+  glPvpPreloadArtwork(target).then(ok=>{
+    if(img._glPvpArtTarget!==target||!img.isConnected)return;
+    if(ok)img.src=target;
+    else {img._glPvpArtFailed=target;img.src=fallback}
+  });
+}
+
 function cloneLite(v){try{return JSON.parse(JSON.stringify(v))}catch{return null}}
 function intent(name,args=[]){
   const r=E().intent(name,args);
@@ -314,6 +408,31 @@ function normalizePvpPortraitCardPreview(layer){
   for(const prop of ['width','height','left','top','right','bottom'])layer.style.removeProperty(prop);
   return true;
 }
+function pvpPlaceMobilePopupPreview(anchor){
+  if(!anchor||!normalizePvpPortraitCardPreview(modalHoverPreview))return false;
+  const panel=anchor.closest?.('.choice-panel,.gl-exp-inspector-panel,.gl-progression-card,.gl-center-choice-stage')||
+    choiceOverlay.querySelector('.choice-panel')||anchor;
+  // uiRect already maps the transformed PvP BODY (including translation,
+  // rotation and nonuniform scales) back to the logical 1600x747 stage.
+  const ar=uiRect(anchor),pr=uiRect(panel);
+  if(!ar||!pr)return false;
+  const w=248,h=347,g=10,mid=pr.left+pr.width/2;
+  const preferRight=ar.left+ar.width/2>=mid;
+  const rightX=pr.right+g,leftX=pr.left-g-w;
+  const fitsRight=rightX+w<=1600-g,fitsLeft=leftX>=g;
+  const useRight=preferRight?(fitsRight||!fitsLeft):(!fitsLeft&&fitsRight);
+  const x=Math.min(1600-w-g,Math.max(g,useRight?rightX:leftX));
+  const y=Math.min(747-h-g,Math.max(g,ar.top+(ar.height-h)/2));
+  modalHoverPreview.style.setProperty('--gl-popup-preview-x',Math.round(x)+'px');
+  modalHoverPreview.style.setProperty('--gl-popup-preview-y',Math.round(y)+'px');
+  return true;
+}
+let pvpPopupTouchTimer=null;
+function pvpTouchPreviewBriefly(anchor,show){
+  if(!document.documentElement.classList.contains('gl-pvp-mobile-gameplay'))return;
+  show();clearTimeout(pvpPopupTouchTimer);
+  pvpPopupTouchTimer=setTimeout(hideModalHoverPreview,1400);
+}
 function hideBattlefieldHoverPreview(){battlefieldHoverSource=null;battlefieldHoverPreview.classList.remove('open','is-hero');battlefieldHoverPreview.style.removeProperty('width');battlefieldHoverPreview.style.removeProperty('height');battlefieldHoverPreview.setAttribute('aria-hidden','true');battlefieldHoverImg.removeAttribute('src')}
 function placeBattlefieldHoverPreview(kind,anchor){
   if(!anchor||!battlefieldHoverPreview)return;
@@ -436,7 +555,7 @@ function bindFixedChoicePreview(img,cardId){
   img.addEventListener('mouseenter',show);img.addEventListener('focus',show);
 }
 function placeModalHoverPreview(anchor){
-  if(normalizePvpPortraitCardPreview(modalHoverPreview))return;
+  if(pvpPlaceMobilePopupPreview(anchor))return;
   const panel=choiceOverlay.querySelector('.choice-panel');
   const r=uiRect(panel||anchor);if(!r)return;
   const cs=getComputedStyle(modalHoverPreview),w=parseFloat(cs.width)||225,h=parseFloat(cs.height)||315,g=12,vp=uiViewportSize(),vw=vp.width,vh=vp.height;
@@ -457,13 +576,15 @@ function placeModalHoverPreview(anchor){
 }
 function bindModalPreview(img){
   if(!img||img.dataset.glModalPreviewBound==='1')return;img.dataset.glModalPreviewBound='1';
-  img.addEventListener('mouseenter',()=>{if(backgroundPreviewSuppressed(img))return;modalHoverPreview.classList.remove('is-context-hero');modalHoverImg.src=img.src;placeModalHoverPreview(img);modalHoverPreview.classList.add('open');modalHoverPreview.setAttribute('aria-hidden','false')});
+  const show=()=>{if(backgroundPreviewSuppressed(img))return;promoteTemporaryCardPreview(modalHoverPreview);modalHoverPreview.classList.remove('is-context-hero');modalHoverImg.src=img.src;placeModalHoverPreview(img);modalHoverPreview.classList.add('open');modalHoverPreview.setAttribute('aria-hidden','false')};
+  img.addEventListener('mouseenter',show);
+  img.addEventListener('touchstart',()=>pvpTouchPreviewBriefly(img,show),{passive:true});
   img.addEventListener('mousemove',()=>{if(!backgroundPreviewSuppressed(img))placeModalHoverPreview(img)});
   img.addEventListener('mouseleave',hideModalHoverPreview);
 }
 function placeContextualModalHoverPreview(anchor,compactHero){
   if(!anchor||!modalHoverPreview)return;
-  if(normalizePvpPortraitCardPreview(modalHoverPreview))return;
+  if(pvpPlaceMobilePopupPreview(anchor))return;
   modalHoverPreview.classList.toggle('is-context-hero',!!compactHero);
   const cs=getComputedStyle(modalHoverPreview),w=parseFloat(cs.width)||259,h=parseFloat(cs.height)||362,g=10,vp=uiViewportSize(),vw=vp.width,vh=vp.height,ar=uiRect(anchor);
   // Contextual popup previews belong to the hovered card, but should not cover the
@@ -488,7 +609,7 @@ function placeContextualModalHoverPreview(anchor,compactHero){
    interaction as the Legacy Deck hover even when the selection row fills 94vw. */
 function placeClassChoiceHoverPreview(anchor){
   if(!anchor)return;
-  if(normalizePvpPortraitCardPreview(modalHoverPreview))return;
+  if(pvpPlaceMobilePopupPreview(anchor))return;
   const vp=uiViewportSize(),margin=12,gap=12,card=anchor.closest?.('.gl-center-choice-card')||anchor;
   const bounds=[...centerChoiceStage.querySelectorAll('.gl-center-choice-card')]
     .map(uiRect).filter(r=>r&&r.width>0&&r.height>0);
@@ -570,6 +691,7 @@ function bindContextualModalPreview(img,cardId){
   const v=cv(cardId),family=String(v?.family||v?.type||'').toLowerCase(),compactHero=/hero|legacy/.test(family)||/-(H\d{3}|L\d{3}|LEG)/i.test(String(cardId||''));
   const show=()=>{if(backgroundPreviewSuppressed(img))return;promoteTemporaryCardPreview(modalHoverPreview);modalHoverImg.src=img.src;placeContextualModalHoverPreview(img,compactHero);modalHoverPreview.classList.add('open');modalHoverPreview.setAttribute('aria-hidden','false')};
   img.addEventListener('mouseenter',show);img.addEventListener('mousemove',()=>{if(!backgroundPreviewSuppressed(img))placeContextualModalHoverPreview(img,compactHero)});img.addEventListener('mouseleave',()=>{modalHoverPreview.classList.remove('is-context-hero');hideModalHoverPreview()});
+  img.addEventListener('touchstart',()=>pvpTouchPreviewBriefly(img,show),{passive:true});
 }
 function bindChoicePreview(img,cardId,mode){
   // Preview behavior follows the candidate zone, never the action/caller type.
@@ -592,35 +714,59 @@ function choicePreviewModeFromCandidateZone(p){
 }
 let lobbyReviewProgressionIds=[];
 function closeCardReview(){
-  cardReviewOverlay.classList.remove('open');lobbyReviewProgressionIds=[];
-  // Keep a single read-only frame cached. The next card reuses its styles,
-  // renderer, and image cache without a new iframe navigation/network path.
+  cardReviewOverlay.classList.remove('open');
+  lobbyReviewProgressionIds=[];
+  // Preserve the ready iframe. Reopening the same card does not recreate 19 stylesheets.
 }
 function openCardReview(cardId,options=null){
-  if(!cardId)return;const v=cv(cardId),body=cardReviewOverlay.querySelector('.gl-card-review-body');
+  if(!cardId)return;
+  warmCardArtwork(cardId);
+  const v=cv(cardId),body=cardReviewOverlay.querySelector('.gl-card-review-body');
   if(options?.lobbyLineageIds)lobbyReviewProgressionIds=options.lobbyLineageIds.slice(0,3);
   else if(!options?.keepLobbyLineage)lobbyReviewProgressionIds=[];
-  const reviewKey=String(cardId)+'|'+lobbyReviewProgressionIds.join('|');
-  const ready=body.querySelector('.gl-db158-review-frame');
-  if(ready?.dataset.glReviewKey===reviewKey&&ready.glReviewVisualReady){cardReviewOverlay.classList.add('open');return;}
-  let html='';try{html=window.GL_CARD_PREVIEW_QA?.html?.(cardId)||''}catch{}
+  const key=String(cardId)+'|'+lobbyReviewProgressionIds.join(',');
+  const previous=body.querySelector('.gl-db158-review-frame');
+  if(previous&&body.dataset.glReviewKey===key&&body.classList.contains('gl-review-ready')){
+    cardReviewOverlay.classList.add('open');return;
+  }
+  clearTimeout(openCardReview.fallbackTimer);
+  body.querySelector('.gl-review-emergency-art')?.remove();
+  body.querySelector('.gl-review-emergency-close')?.remove();
+  const oldFrame=body.querySelector('.gl-db158-review-frame');if(oldFrame)oldFrame.style.removeProperty('display');
+  body.classList.remove('gl-review-ready');
+  body.dataset.glReviewKey=key;
   if(!window.GL_DB158_REVIEW?.mount?.(body,cardId,lobbyReviewProgressionIds)){
+    let html='';try{html=window.GL_CARD_PREVIEW_QA?.html?.(cardId)||''}catch{}
     body.innerHTML='<button type="button" class="gl-card-review-close" aria-label="Close card review">×</button>'+(html||('<img class="gl-card-review-image" src="'+esc(art(cardId))+'" alt="'+esc(v?.name||'Card Review')+'">'));
-    body.classList.remove('gl-review-loading');
-  }else{
-    const frame=body.querySelector('.gl-db158-review-frame');
-    body.classList.toggle('gl-review-loading',!!frame&&!frame.glReviewVisualReady);
+    body.classList.add('gl-review-ready');
   }
   cardReviewOverlay.classList.add('open');
+  clearTimeout(openCardReview.fallbackTimer);
+  openCardReview.fallbackTimer=setTimeout(()=>{
+    if(!cardReviewOverlay.classList.contains('open')||body.dataset.glReviewKey!==key||body.classList.contains('gl-review-ready'))return;
+    const frame=body.querySelector('.gl-db158-review-frame');
+    // An unavailable stylesheet/script is a presentation failure, not a reason
+    // to trap the player. Show a readable card image and keep CLOSE usable.
+    if(frame){frame.style.display='none';}
+    let image=body.querySelector('.gl-review-emergency-art');
+    if(!image){image=document.createElement('img');image.className='gl-review-emergency-art';body.appendChild(image);}
+    let close=body.querySelector('.gl-review-emergency-close');
+    if(!close){close=document.createElement('button');close.type='button';close.className='gl-card-review-close gl-review-emergency-close';close.textContent='CLOSE';close.setAttribute('aria-label','Close unavailable Card Review');body.appendChild(close);}
+    image.src=art(cardId);image.alt=cv(cardId)?.name||cardId;
+    body.classList.add('gl-review-ready');
+    console.warn('[PvP] Card Review renderer did not become ready; using artwork fallback',cardId);
+  },3000);
 }
 cardReviewOverlay.addEventListener('click',e=>{if(e.target.closest('.gl-card-review-close'))closeCardReview()});
 window.addEventListener('message',e=>{
   const frame=cardReviewOverlay.querySelector('.gl-db158-review-frame');
   if(!frame||e.source!==frame.contentWindow)return;
+  if(e.origin!==location.origin)return;
   if(e.data?.kind==='GL_S0_REVIEW_READY'){
-    if(e.origin!==location.origin||e.data.reviewKey!==frame.dataset.glReviewKey)return;
-    frame.glReviewVisualReady=true;
-    cardReviewOverlay.querySelector('.gl-card-review-body')?.classList.remove('gl-review-loading');
+    // The donor updates the cached iframe in place. Its own decode guard marks
+    // gl-review-ready, so a stale bootstrap READY must not mark a new card.
+    if(!frame.__glReviewRequest&&e.data.reviewKey===cardReviewOverlay.querySelector('.gl-card-review-body')?.dataset.glReviewKey)
+      cardReviewOverlay.querySelector('.gl-card-review-body')?.classList.add('gl-review-ready');
     return;
   }
   if(e.data?.kind==='GL_S0_REVIEW_CLOSE'){closeCardReview();return;}
@@ -1028,7 +1174,7 @@ function s0PvpCoinResult(info={}){
 }
 function s0PvpCoinRelease(){coinOverlay.classList.remove('open','gl-pvp-coin-result');appRoot?.classList.remove('gl-lobby-hidden');}
 window.GL_S0_RC32_PVP_COIN={showChoice:s0PvpCoinChoice,showResult:s0PvpCoinResult,release:s0PvpCoinRelease};
-function resetPresentationState(){glPresentationEpoch++;for(const batch of [...glTrialReturnBatches])batch.cancel();glTrialHandFlightKeys.clear();if(expInspectorOverlay.classList.contains('open'))closeExpInspector();document.querySelectorAll('.gl-mana-loss-notice').forEach(el=>el.remove());pvpDeferredRankTransitions.length=0;pvpDeferredExpReturns.length=0;pvpPresentedExpReturnIds.clear();pvpPendingAttackVisual=null;pvpSeenCombatCommitIds.clear();seenCounterMessages.clear();seenRacialMessages.clear();seenPlayedActionEvents.clear();seenDiscardNotifications.clear();pvpSeenHealingResultKeys.clear();presentationNoticeQueue.length=0;presentationNoticeActive=false;clearTimeout(counterBannerTimer);counterBanner.classList.remove('show','is-racial','is-mana');counterBanner.style.removeProperty('--gl-notice-duration');presentationPrimed=false;previousVisualState=null;seenPresentationEvents.clear();resolvedHistory=[];historyKnown.clear();activeCardHold=null;glPendingDrawReservations.PLAYER.length=0;glPendingDrawReservations.AI.length=0;glHiddenCommittedDrawSlots.PLAYER.clear();glHiddenCommittedDrawSlots.AI.clear();glOpeningHiddenShardUids.clear();glExternalDrawSequence=Promise.resolve();glExternalManaDrawSequence=Promise.resolve();glExternallyPresentedShardUids.clear();resultShown=false;resultOverlay.classList.remove('open');syncMatchActionButton(null);closeLobbyProgression();resetMatchTimer()}
+function resetPresentationState(){glPresentationEpoch++;for(const batch of [...glTrialReturnBatches])batch.cancel();glTrialHandFlightKeys.clear();if(expInspectorOverlay.classList.contains('open'))closeExpInspector();document.querySelectorAll('.gl-mana-loss-notice').forEach(el=>el.remove());pvpDeferredRankTransitions.length=0;pvpDeferredExpReturns.length=0;pvpPresentedExpReturnIds.clear();pvpPendingAttackVisual=null;pvpSeenCombatCommitIds.clear();seenCounterMessages.clear();shownCompletedCounterChains.clear();clearTimeout(counterChainHoldTimer);counterChainBanner.replaceChildren();counterChainBanner.classList.remove('show');seenRacialMessages.clear();seenPlayedActionEvents.clear();seenDiscardNotifications.clear();pvpSeenHealingResultKeys.clear();presentationNoticeQueue.length=0;presentationNoticeActive=false;clearTimeout(counterBannerTimer);counterBanner.classList.remove('show','is-racial','is-mana');counterBanner.style.removeProperty('--gl-notice-duration');presentationPrimed=false;previousVisualState=null;seenPresentationEvents.clear();resolvedHistory=[];historyKnown.clear();activeCardHold=null;glPendingDrawReservations.PLAYER.length=0;glPendingDrawReservations.AI.length=0;glHiddenCommittedDrawSlots.PLAYER.clear();glHiddenCommittedDrawSlots.AI.clear();glOpeningHiddenShardUids.clear();glExternalDrawSequence=Promise.resolve();glExternalManaDrawSequence=Promise.resolve();glExternallyPresentedShardUids.clear();resultShown=false;resultOverlay.classList.remove('open');syncMatchActionButton(null);closeLobbyProgression();resetMatchTimer()}
 function startMatchFromLobby(){
   lobbyErrorText='';const r=E().prepareLocalMatch?.();if(!r?.ok){lobbyErrorText=r?.error||'Could not start match.';renderLobby();return}
   resetPresentationState();lobbyIsOpen=false;lobbyOverlay.classList.remove('open');appRoot?.classList.add('gl-lobby-hidden');renderCoinChoice();
@@ -1099,6 +1245,7 @@ function flyBetween(src,fromEl,toEl,duration=380,onFinish,playSound=true,ghost=f
   glPresentationActive++;glPresentationBusyUntil=Math.max(glPresentationBusyUntil,Date.now()+60);
   // Only the local player's DRAW has a front. A separate inner face allows
   // a physical 3D card flip without interrupting the outer flight transform.
+  const faceReady=frontSrc?glPvpPreloadArtwork(frontSrc):null;
   const reveal=!!(frontSrc&&!ghost),flyer=reveal?document.createElement('span'):document.createElement('img');
   flyer.className='gl-flying-card'+(ghost?' gl-return-ghost':'')+(reveal?' gl-draw-flip-flight':'');
   const im=reveal?document.createElement('img'):flyer;
@@ -1108,10 +1255,19 @@ function flyBetween(src,fromEl,toEl,duration=380,onFinish,playSound=true,ghost=f
   requestAnimationFrame(()=>requestAnimationFrame(()=>{flyer.style.transition='transform '+duration+'ms cubic-bezier(.2,.75,.2,1),opacity '+duration+'ms ease,width '+duration+'ms ease,height '+duration+'ms ease';flyer.style.transform='translate('+(tr.left-fr.left)+'px,'+(tr.top-fr.top)+'px)';flyer.style.width=tr.width+'px';flyer.style.height=tr.height+'px';flyer.style.opacity=ghost?'.42':'.88'}));
   if(reveal){
     const half=Math.max(35,Math.min(65,Math.round(duration*.17))),start=Math.max(25,Math.round(duration*.38));
-    setTimeout(()=>{if(!flyer.isConnected)return;im.style.transition='transform '+half+'ms ease-in';im.style.transform='rotateY(90deg)';
-      setTimeout(()=>{if(!flyer.isConnected)return;im.src=frontSrc;im.style.transition='none';im.style.transform='rotateY(-90deg)';void im.offsetWidth;
-        im.style.transition='transform '+half+'ms ease-out';im.style.transform='rotateY(0deg)';
-      },half);
+    const launchedAt=performance.now();
+    setTimeout(()=>{
+      // Only flip a personally drawn face after its successful decode.
+      // A slow/broken image keeps the back while the Hand loads safely.
+      faceReady.then(ok=>{
+        if(!ok||!flyer.isConnected||performance.now()-launchedAt>duration-2*half-16)return;
+        im.style.transition='transform '+half+'ms ease-in';im.style.transform='rotateY(90deg)';
+        setTimeout(()=>{
+          if(!flyer.isConnected)return;
+          im.src=frontSrc;im.style.transition='none';im.style.transform='rotateY(-90deg)';void im.offsetWidth;
+          im.style.transition='transform '+half+'ms ease-out';im.style.transform='rotateY(0deg)';
+        },half);
+      });
     },start);
   }
   setTimeout(()=>{flyer.remove();glPresentationActive=Math.max(0,glPresentationActive-1);glPresentationBusyUntil=Math.max(glPresentationBusyUntil,Date.now()+60);if(typeof onFinish==='function')onFinish(true)},duration+20);return true;
@@ -1368,12 +1524,41 @@ function queuePvpPublicPickupNotice(events){
   }
   showNextPresentationNotice();
 }
-function showCommittedCounterBanner(evt){
+// PvP public Chain Result: reproduce donor artwork/layout, but only from the
+// already-committed journal projected by the server for this recipient.
+// Raw cardPlayedCancelTraces (which may carry private cards) are NOT sent.
+function showCommittedCounterChain(evt,s){
   if(!evt||evt.type!=='CARD_NEGATED'||!evt.target_card_id)return;
-  const by=evt.counter_side==='PLAYER'?'You':(evt.counter_side==='AI'?'AI':'Opponent'),
-        targetOwner=evt.target_side==='PLAYER'?'your':"opponent's",
-        via=cv(evt.counter_card_id)?.name||'Response',target=cv(evt.target_card_id)?.name||'card';
-  queuePresentationNotice('counter','COUNTERED!',by+' used '+via+' to negate '+targetOwner+' '+target+'.',pvpNoticeMs(3500),[{name:target,side:evt.target_side},{name:via,side:evt.counter_side}]);
+  const own=[...(s?.playerPlayedEvents||[]).map(e=>({...e,side:'PLAYER'})),
+             ...(s?.opponentPlayedEvents||[]).map(e=>({...e,side:'AI'}))]
+    .filter(e=>e?.id&&e?.card_id);
+  const root=own.filter(e=>e.card_id===evt.target_card_id&&e.side===evt.target_side).at(-1);
+  const counter=own.filter(e=>e.card_id===evt.counter_card_id&&e.side===evt.counter_side).at(-1);
+  const key=String(counter?.card_played_chain_id||root?.card_played_chain_id||'');
+  let steps=key?own.filter(e=>e.card_played_chain_id===key):[];
+  if(steps.length>1){
+    steps.sort((a,b)=>Number(a.card_played_chain_step||0)-Number(b.card_played_chain_step||0)||Number(a.played_event_order||0)-Number(b.played_event_order||0));
+    // No chain element can come from a concealed source, even if an earlier
+    // response has an incomplete public journal.
+    steps=steps.filter(e=>e.id&&e.card_id&&['PLAYER','AI'].includes(e.side));
+  }
+  if(steps.length<2){
+    steps=[{card_id:evt.target_card_id,side:evt.target_side},
+           {card_id:evt.counter_card_id,side:evt.counter_side}];
+  }
+  const title=document.createElement('div');title.className='gl-counter-chain-title';title.textContent='Chain Result';
+  const row=document.createElement('div');row.className='gl-counter-chain-row';
+  steps.forEach((step,index)=>{
+    if(index){const arrow=document.createElement('span');arrow.className='gl-counter-chain-link';arrow.textContent='→';row.appendChild(arrow)}
+    const box=document.createElement('div');box.className='gl-counter-chain-card '+(step.side==='PLAYER'?'is-player':'is-ai');
+    const name=cv(step.card_id)?.name||String(step.card_id||'Card');box.title=name;box.setAttribute('aria-label',name);
+    const image=document.createElement('img');image.className='gl-public-card-art';image.src=art(step.card_id);image.alt=name;image.draggable=false;
+    box.appendChild(image);row.appendChild(box);
+  });
+  counterChainBanner.replaceChildren(title,row);
+  counterChainBanner.classList.add('show');requestAnimationFrame(()=>{row.scrollLeft=row.scrollWidth});
+  clearTimeout(counterChainHoldTimer);
+  counterChainHoldTimer=setTimeout(()=>{counterChainBanner.classList.remove('show');},evt.counter_side==='PLAYER'?1000:2000);
 }
 function showCommittedRacialBanner(evt){
   if(!evt||evt.type!=='RACIAL_TOKEN_USED'||Number(evt.token_cost||0)<=0)return;
@@ -1385,7 +1570,7 @@ function showNewCounterEvents(s){
   (s?.presentationEvents||[]).forEach(evt=>{
     if(!evt?.id)return;
     if(evt.type==='CARD_NEGATED'&&!seenCounterMessages.has(evt.id)){
-      seenCounterMessages.add(evt.id);if(presentationPrimed)showCommittedCounterBanner(evt);
+      seenCounterMessages.add(evt.id);if(presentationPrimed)showCommittedCounterChain(evt,s);
     }else if(evt.type==='RACIAL_TOKEN_USED'&&!seenRacialMessages.has(evt.id)){
       seenRacialMessages.add(evt.id);if(presentationPrimed)showCommittedRacialBanner(evt);
     }
@@ -2722,12 +2907,11 @@ function renderCenterChoiceStage(s){
       centerChoiceBusy=true;centerChoiceStage.classList.add('is-busy');
       centerChoiceStage.querySelector('.gl-center-choice-copy')?.classList.add('is-fading');
       centerChoiceStage.querySelector('.gl-center-choice-actions')?.classList.add('is-fading');
-      await Promise.all([...cardsHost.querySelectorAll('.gl-center-choice-card')].map((card,i)=>
-        animateCenterChoiceTo(card,i===selected?selectedTarget:otherTarget,i===selected?320:260)));
-      const now=st()?.pending;
-      if(now?.type==='legacy_defeat_choice'&&now.choice_id===p.choice_id&&selectedChoiceIndex(now)===selected){
-        const committed=intent('handleChoiceConfirm',[]);
-        if(committed?.ok)return;
+      const committed=intent('handleChoiceConfirm',[]);
+      if(committed?.ok){
+        void Promise.all([...cardsHost.querySelectorAll('.gl-center-choice-card')].map((card,i)=>
+          animateCenterChoiceTo(card,i===selected?selectedTarget:otherTarget,i===selected?320:260))).catch(()=>{});
+        return;
       }
       resetCenterChoiceVisualState();centerChoiceRenderSig='';renderCenterChoiceStage(st());
     });
@@ -2755,7 +2939,8 @@ function renderCenterChoiceStage(s){
     makeBtn('DISCARD & DRAW','gl-center-choice-primary',!(p.selected_indices||[]).length,async()=>{
       if(centerChoiceBusy)return;
       const keys=new Set((p.selected_indices||[]).map(String));
-      if(await animateCenterChoiceExit(keys,selectedTarget,otherTarget))intent('commitS0BardDrawChoice',[false]);
+      const committed=intent('commitS0BardDrawChoice',[false]);
+      if(committed?.ok)void animateCenterChoiceExit(keys,selectedTarget,otherTarget).catch(()=>{});
     });
   }else if(mode==='discard'){
     cardsHost.querySelectorAll('.gl-center-choice-card').forEach((c,i)=>{
@@ -2806,7 +2991,8 @@ function renderCenterChoiceStage(s){
           if(result?.ok)playPvpManaVisualFlight(keys,selectedTarget);
           return;
         }
-        if(await animateCenterChoiceExit(keys,selectedTarget,otherTarget))intent('handleChoiceConfirm',[]);
+        const committed=intent('handleChoiceConfirm',[]);
+        if(committed?.ok)void animateCenterChoiceExit(keys,selectedTarget,otherTarget).catch(()=>{});
       });
   }else if(mode==='draw-replacement'){
     // The displayed card is not a choice target. Only the two decision buttons are interactive.
@@ -2815,8 +3001,9 @@ function renderCenterChoiceStage(s){
       if(centerChoiceBusy)return;
       const current=cardsHost.querySelector('.gl-center-choice-card');
       centerChoiceBusy=true;centerChoiceStage.classList.add('is-busy');
-      if(current)await animateCenterChoiceIntoDeck(current,selectedTarget);
-      intent('commitDrawReplacementChoice',[true]);
+      const committed=intent('commitDrawReplacementChoice',[true]);
+      if(committed?.ok&&current)void animateCenterChoiceIntoDeck(current,selectedTarget).catch(()=>{});
+      if(!committed?.ok)resetCenterChoiceVisualState();
     });
   }else if(mode==='stoneblood'){
     makeBtn('DECLINE & CONTINUE DEFEAT','gl-center-choice-cancel',false,()=>{if(!centerChoiceBusy)intent('resolveStonebloodChoice',[false])});
@@ -2892,10 +3079,20 @@ function renderCenterChoiceStage(s){
   }else if(mode==='opponent-hand'){
     cardsHost.querySelectorAll('.gl-center-choice-card').forEach(c=>c.onclick=()=>{if(!centerChoiceBusy)intent('selectOpponentHandChoice',[Number(c.dataset.choiceIndex)])});
     const ready=p.selected_index!=null&&Number.isInteger(Number(p.selected_index))&&Number(p.selected_index)>=0;
-    makeBtn('CONFIRM','gl-center-choice-primary',!ready,async()=>{if(centerChoiceBusy)return;const key=String(Number(p.selected_index)),keys=new Set([key]);if(await animateCenterChoiceExit(keys,selectedTarget,otherTarget,{revealSelected:!p.reveal_cards}))intent('commitOpponentHandChoice',[])});
+    makeBtn('CONFIRM','gl-center-choice-primary',!ready,()=>{
+      if(centerChoiceBusy)return;const key=String(Number(p.selected_index)),keys=new Set([key]);
+      const committed=intent('commitOpponentHandChoice',[]);
+      if(committed?.ok)void animateCenterChoiceExit(keys,selectedTarget,otherTarget,{revealSelected:!p.reveal_cards}).catch(()=>{});
+    });
   }else{
     cardsHost.querySelectorAll('.gl-center-choice-card').forEach((c,i)=>{const id=(p.revealed_cards||[])[i];const front=c.querySelector('.gl-center-choice-front img');if(front)bindContextualModalPreview(front,id)});
-    makeBtn('CLOSE','gl-center-choice-primary',false,async()=>{if(centerChoiceBusy)return;centerChoiceBusy=true;centerChoiceStage.classList.add('is-busy');const all=[...cardsHost.querySelectorAll('.gl-center-choice-card')];await animateCenterChoiceFlip(all,false);await animateCenterChoiceShuffle(all);await Promise.all(all.map(c=>animateCenterChoiceTo(c,otherTarget)));intent('handleChoiceConfirm',[])});
+    makeBtn('CLOSE','gl-center-choice-primary',false,()=>{
+      if(centerChoiceBusy)return;const committed=intent('handleChoiceConfirm',[]);
+      if(!committed?.ok)return;centerChoiceBusy=true;centerChoiceStage.classList.add('is-busy');
+      const all=[...cardsHost.querySelectorAll('.gl-center-choice-card')];
+      void (async()=>{await animateCenterChoiceFlip(all,false);await animateCenterChoiceShuffle(all);
+        await Promise.all(all.map(c=>animateCenterChoiceTo(c,otherTarget)));})().catch(()=>{});
+    });
   }
 
   if(newSession){
@@ -3048,7 +3245,7 @@ function renderHero(side,lane,h,s){
      !hc.classList.contains('gl-presentation-hidden'))
     laneEl.classList.remove('gl-rank-transitioning');
   const id=heroImageId(h),v=cv(id);let img=hc.querySelector(':scope > img');if(!img){img=document.createElement('img');hc.prepend(img)}
-  if(id&&img.getAttribute('src')!==art(id))img.src=art(id);img.alt=v?.name||'Hero';img.classList.add('heroImg');bindBattlefieldPreview(img,'hero',hc);
+  if(id)glPvpStableHeroArtwork(img,art(id),h?.legacy_mode?'/assets/ui/back-legacy.webp':'/assets/ui/back-main.webp');img.alt=v?.name||'Hero';img.classList.add('heroImg');bindBattlefieldPreview(img,'hero',hc);
   // HP/state UI belongs to the lane overlay and never rotates with the physical Hero package.
   // Legacy is not a Hero and has no HP. Match the VS AI renderer: never show an HP bar / 0/0 in Legacy Mode.
   hc.querySelector(':scope > .hp')?.remove();
@@ -3063,7 +3260,8 @@ function renderHero(side,lane,h,s){
     const hpNow=Math.max(0,Number(h?.hp||0)),hpMax=Math.max(0,Number(h?.maxHp||h?.hp||0)),hpPct=hpMax>0?Math.max(0,Math.min(100,(hpNow/hpMax)*100)):0;
     hp.classList.toggle('is-warning',hpPct>40&&hpPct<=60);hp.classList.toggle('is-low',hpPct<=40);
     hp.style.setProperty('--hp-ratio',String(hpPct/100));
-    hp.innerHTML='<span class="gl-hp-text">'+Math.round(hpNow)+'/'+Math.round(hpMax)+'</span><span class="gl-hp-track"><span class="gl-hp-fill"></span></span>';
+    const hpLabel=Math.round(hpNow)+'/'+Math.round(hpMax);
+    if(hp.dataset.glHpLabel!==hpLabel){hp.dataset.glHpLabel=hpLabel;hp.innerHTML='<span class="gl-hp-text">'+hpLabel+'</span><span class="gl-hp-track"><span class="gl-hp-fill"></span></span>';}
   }
   // v2.13: the existing lower-left EXP label becomes a public EXP inspector
   // button. Keep the same location and hide it for 0 EXP or Legacy, as before.
@@ -3162,8 +3360,51 @@ function attachmentCounterValue(h,id,side,lane,slot,s){
   const status=(h?.statuses||[]).find(x=>x&&(x.card_id===id||x.source_card_id===id||x.source===id||(Array.isArray(x.sources)&&x.sources.includes(id))));
   v=first(status,['counters','remaining_count','remaining_turns','turns_remaining','duration','remaining'],false);return v==null?0:Math.min(6,v);
 }
-function renderAttachments(laneEl,h,side,lane,s){laneEl.querySelectorAll('.attachment-card').forEach(x=>x.remove());const at=h?.attachments||[];at.slice(0,2).forEach((entry,slot)=>{const id=typeof entry==='string'?entry:entry?.card_id;if(!id)return;const v=cv(id),d=document.createElement('div');d.className='attachment-card '+(slot===0?'left':'right');d.dataset.glCardId=id;d.dataset.glAttachmentSide=side;d.dataset.glAttachmentLane=lane;d.dataset.glAttachmentSlot=String(slot);const activeCasting=castingForAttachment(s,h,id,side,lane,slot);if(activeCasting){d.classList.add('gl-casting-active');d.dataset.glCastingHue=castingAttachmentColor(s,activeCasting);}if(activeSelfHostAttachment(s,h,side,lane)?.card_id===id)d.classList.add('gl-self-attachment-active');const im=document.createElement('img');im.src=art(id);im.alt=v?.name||'Attachment';d.appendChild(im);const counter=attachmentCounterValue(h,id,side,lane,slot,s);const timed=(s?.activeAttachments||[]).some(a=>a&&a.card_id===id&&a.side===side&&Number(a.slot)===slot&&(a.lane===lane||!a.lane)&&a.counter_mode!=='progress'&&Number(a.initial_count)>0&&a.remaining_count!=null);if(counter>0||timed||!!castingForAttachment(s,h,id,side,lane,slot)){const c=document.createElement('span');c.className='attachment-turn';c.textContent=counter;c.setAttribute('aria-label',(v?.name||'Attachment')+' counter '+counter);d.appendChild(c)}laneEl.appendChild(d);bindBattlefieldPreview(im,'attachment',d)});}
+function renderAttachments(laneEl,h,side,lane,s){
+  const at=(h?.attachments||[]).slice(0,2);
+  const needed=new Map();
+  at.forEach((entry,slot)=>{const id=typeof entry==='string'?entry:entry?.card_id;if(id)needed.set(String(slot),String(id))});
+  // Keep unchanged elements connected: no image decode/flicker or lost hover.
+  laneEl.querySelectorAll(':scope > .attachment-card').forEach(node=>{
+    if(needed.get(node.dataset.glAttachmentSlot)!==node.dataset.glCardId)node.remove();
+  });
+  at.forEach((entry,slot)=>{
+    const id=typeof entry==='string'?entry:entry?.card_id;if(!id)return;
+    const key=String(slot),v=cv(id);
+    let d=Array.from(laneEl.querySelectorAll(':scope > .attachment-card')).find(node=>node.dataset.glAttachmentSlot===key&&node.dataset.glCardId===id);
+    if(!d){
+      d=document.createElement('div');d.className='attachment-card '+(slot===0?'left':'right');
+      d.dataset.glCardId=id;d.dataset.glAttachmentSide=side;d.dataset.glAttachmentLane=lane;d.dataset.glAttachmentSlot=key;
+      const im=document.createElement('img');im.src=art(id);im.alt=v?.name||'Attachment';d.appendChild(im);
+      laneEl.appendChild(d);bindBattlefieldPreview(im,'attachment',d);
+    }
+    const casting=castingForAttachment(s,h,id,side,lane,slot);
+    d.classList.toggle('gl-casting-active',!!casting);
+    if(casting)d.dataset.glCastingHue=castingAttachmentColor(s,casting);
+    else delete d.dataset.glCastingHue;
+    d.classList.toggle('gl-self-attachment-active',activeSelfHostAttachment(s,h,side,lane)?.card_id===id);
+    const counter=attachmentCounterValue(h,id,side,lane,slot,s);
+    const timed=(s?.activeAttachments||[]).some(a=>a&&a.card_id===id&&a.side===side&&Number(a.slot)===slot&&(a.lane===lane||!a.lane)&&a.counter_mode!=='progress'&&Number(a.initial_count)>0&&a.remaining_count!=null);
+    let badge=d.querySelector(':scope > .attachment-turn');
+    if(counter>0||timed||!!casting){
+      if(!badge){badge=document.createElement('span');badge.className='attachment-turn';d.appendChild(badge)}
+      const label=(v?.name||'Attachment')+' counter '+counter;
+      if(badge.textContent!==String(counter))badge.textContent=String(counter);
+      if(badge.getAttribute('aria-label')!==label)badge.setAttribute('aria-label',label);
+    }else badge?.remove();
+  });
+}
 function renderStatuses(laneEl,h,s,side,lane,delayExhaust){
+  // Only status-targeting choices can change clickability of a status icon.
+  // Ordinary Response, Mana and network ACK snapshots must not recreate images.
+  const statusChoice=['status_removal_choice','saint_purify_choice'].includes(s?.pending?.type)
+    ?{type:s.pending.type,target_lane:s.pending.target_lane,target_side:s.pending.target_side,
+      status_choices:s.pending.status_choices||null}:null;
+  const statusSig=JSON.stringify([h?.statuses||[],h?.exhausted,h?.exhaust_reason,h?.casting,
+    heroHasDrawReplacementCounter(h),s?.cardsDrawnThisTurn?.[side],delayExhaust,statusChoice]);
+  if(laneEl.dataset.glStatusSig===statusSig && (laneEl.querySelector('.gl-status-stack') ||
+    (!(h?.statuses||[]).length&&!h?.exhausted&&!h?.casting&&!heroHasDrawReplacementCounter(h))))return;
+  laneEl.dataset.glStatusSig=statusSig;
   laneEl.querySelector('.gl-status-stack')?.remove();
   const statuses=h?.statuses||[],negative=statuses.map((x,idx)=>({x,idx,name:getStatusName(x)})).filter(o=>negativeStatusName(o.name));
   const info=[];
@@ -3655,11 +3896,26 @@ function renderHand(s){
     return [id,m.canPlay?1:0,manaOnlyBlock?1:0,m.canTribute?1:0,r,d,dc,directSelected===dc?1:0,ds,glHiddenCommittedDrawSlots.PLAYER.has(idx)?'H':''].join(':');
   }).join('|')+'#'+String(p?.type||'')+'#'+String(p?.resolve_to||'')+'#BARD:'+String(bardSelection)+'#'+String(rw?.response_window_token||rw?.card_id||'')+'#'+String(uiResponseSourceChoice?.handIndex??'')+'#'+String(uiResponseSourceChoice?.stage||'')+'#'+String(uiResponseSourceChoice?.selectedOptionIndex??'')+'#'+JSON.stringify(p?.selected_indices||p?.selected_cost_indices||p?.selected||[])+'#HD:'+hiddenDrawKey+'#PR:'+pendingDraws.map(x=>x.id).join(',');
   if(signature===handRenderKey)return;handRenderKey=signature;
-  playerHandTrack.innerHTML='';
+  // Reconcile by index + card ID: a pending/Response update changes PLAY buttons,
+  // not the actual card artwork. Keep its IMG and preview/hover bindings alive.
+  const previousHandCards=new Map();
+  playerHandTrack.querySelectorAll(':scope > .hand-card[data-gl-hand-card-id]').forEach(card=>{
+    previousHandCards.set(card.dataset.handIndex+'|'+card.dataset.glHandCardId,card);
+  });
+  const desiredHandCards=[];
   (s.playerHand||[]).forEach((id,idx)=>{
-    const v=cv(id),m=model[idx]||{},card=document.createElement('div');card.className='hand-card';card.dataset.index=idx;card.dataset.handIndex=idx;if(glHiddenCommittedDrawSlots.PLAYER.has(idx))card.classList.add('gl-presentation-hidden');
+    const v=cv(id),m=model[idx]||{},existing=previousHandCards.get(idx+'|'+String(id));
+    const card=existing||document.createElement('div');
+    const hovered=existing&&(card.classList.contains('is-hovered')||card.classList.contains('hand-hover-active'));
+    const artworkPending=!!existing?.classList.contains('gl-hand-art-awaiting');
+    card.className='hand-card';
+    if(artworkPending)card.classList.add('gl-hand-art-awaiting');
+    if(hovered)card.classList.add('is-hovered');
+    card.dataset.index=idx;card.dataset.handIndex=idx;card.dataset.glHandCardId=String(id);
+    if(glHiddenCommittedDrawSlots.PLAYER.has(idx))card.classList.add('gl-presentation-hidden');
     const discardSel=discardSelectionState(p,idx);if(discardSel.selected&&!bardSelection)card.classList.add('is-selected','gl-discard-selected');
-    const actions=document.createElement('div');actions.className='card-actions';let actionCount=0;
+    const actions=card.querySelector(':scope > .card-actions')||document.createElement('div');
+    actions.className='card-actions';actions.replaceChildren();let actionCount=0;
     if(rw?.response_owner==='PLAYER'){
       const opts=responseMap.get(idx)||[];
       if(opts.length){addAction(actions,'PLAY','play',()=>beginResponseFromHand(idx,opts));actionCount++}
@@ -3684,12 +3940,32 @@ function renderHand(s){
       if(m.canTribute){addAction(actions,'TRIBUTE','tribute',()=>intent('beginTributeFromHand',[idx]));actionCount++}
     }
     if(actionCount)card.classList.add('gl-has-action');
-    card.appendChild(actions);const im=document.createElement('img');im.className='hand-art';glBindPlayerHandArtwork(card,im,id);im.alt=v?.name||'Card';im.draggable=false;card.appendChild(im);bindBattlefieldPreview(im,'hand',card);bindBattlefieldHandHover(card);card.ondblclick=e=>{e.preventDefault();e.stopPropagation();openCardReview(id)};playerHandTrack.appendChild(card);
+    if(!existing){
+      card.appendChild(actions);const im=document.createElement('img');im.className='hand-art';
+      glBindPlayerHandArtwork(card,im,id);im.alt=v?.name||'Card';im.draggable=false;
+      card.appendChild(im);bindBattlefieldPreview(im,'hand',card);bindBattlefieldHandHover(card);
+    }
+    card.ondblclick=e=>{e.preventDefault();e.stopPropagation();openCardReview(id)};
+    glPvpGuardHandFace(card,card.querySelector(':scope > .hand-art'),String(id));
+    desiredHandCards.push(card);
   });
   pendingDraws.forEach((r,i)=>{
-    const idx=(s.playerHand||[]).length+i,slot=document.createElement('div');slot.className='hand-card gl-draw-reservation-slot gl-presentation-hidden';slot.dataset.handIndex=idx;slot.dataset.drawReservationId=String(r.id||'');
-    const im=document.createElement('img');im.className='hand-art';im.src='/assets/ui/back-main.webp';im.alt='Incoming card';slot.appendChild(im);playerHandTrack.appendChild(slot);
+    const idx=(s.playerHand||[]).length+i,drawId=String(r.id||'');
+    let slot=Array.from(playerHandTrack.querySelectorAll(':scope > .gl-draw-reservation-slot')).find(el=>el.dataset.drawReservationId===drawId);
+    if(!slot){
+      slot=document.createElement('div');slot.className='hand-card gl-draw-reservation-slot gl-presentation-hidden';
+      slot.dataset.drawReservationId=drawId;
+      const im=document.createElement('img');im.className='hand-art';im.src='/assets/ui/back-main.webp';im.alt='Incoming card';slot.appendChild(im);
+    }
+    slot.dataset.handIndex=idx;desiredHandCards.push(slot);
   });
+  // Only insert/move nodes when the real Hand order changes. No empty-frame
+  // intermediate DOM, even during ACK / Response / reconnect refreshes.
+  desiredHandCards.forEach((node,i)=>{
+    if(playerHandTrack.children[i]!==node)playerHandTrack.insertBefore(node,playerHandTrack.children[i]||null);
+  });
+  const kept=new Set(desiredHandCards);
+  Array.from(playerHandTrack.children).forEach(node=>{if(!kept.has(node))node.remove()});
   applyHandFan(playerHandTrack,'PLAYER');
   requestAnimationFrame(syncPlayerHandToHeroCenter);
 }
@@ -3723,7 +3999,33 @@ function renderOpponentHand(s){
   const pendingDraws=glPendingDrawReservations.AI||[],hiddenDrawKey=[...glHiddenCommittedDrawSlots.AI.keys()].sort((a,b)=>a-b).join(',');
   const key=JSON.stringify([s.aiHand||[],p?.type,choice?(p.candidates||[]):null,scopeReveal?(p.revealed_cards||[]):null,reveal,hiddenDrawKey,pendingDraws.map(x=>x.id)]);
   if(key===opponentHandRenderKey)return;opponentHandRenderKey=key;
-  oppHandTrack.innerHTML='';document.querySelector('.gl-magic-scope-done')?.remove();
+  document.querySelector('.gl-magic-scope-done')?.remove();
+  if(!choice&&!scopeReveal){
+    const wanted=[],previous=Array.from(oppHandTrack.children);
+    (s.aiHand||[]).forEach((_,i)=>{
+      let card=previous[i];
+      if(!card||card.dataset.glOpponentHidden!=='1'||card.classList.contains('gl-draw-reservation-slot')){
+        card=document.createElement('div');card.className='hand-card';card.dataset.glOpponentHidden='1';
+        const im=document.createElement('img');im.className='hand-art';im.src='/assets/ui/back-main.webp';card.appendChild(im);
+      }
+      card.dataset.handIndex=i;
+      card.classList.toggle('gl-presentation-hidden',glHiddenCommittedDrawSlots.AI.has(i));
+      wanted.push(card);
+    });
+    pendingDraws.forEach((r,i)=>{
+      const idx=(s.aiHand||[]).length+i,drawId=String(r.id||'');
+      let card=previous.find(el=>el.dataset.drawReservationId===drawId);
+      if(!card){card=document.createElement('div');card.className='hand-card gl-draw-reservation-slot gl-presentation-hidden';
+        card.dataset.drawReservationId=drawId;
+        const im=document.createElement('img');im.className='hand-art';im.src='/assets/ui/back-main.webp';im.alt='Incoming card';card.appendChild(im)}
+      card.dataset.handIndex=idx;wanted.push(card);
+    });
+    wanted.forEach((node,i)=>{if(oppHandTrack.children[i]!==node)oppHandTrack.insertBefore(node,oppHandTrack.children[i]||null)});
+    const kept=new Set(wanted);Array.from(oppHandTrack.children).forEach(node=>{if(!kept.has(node))node.remove()});
+    applyHandFan(oppHandTrack,'AI');requestAnimationFrame(syncOpponentHand);return;
+  }
+  // Only deliberate opponent Hand reveal and blind-choice modes rebuild here.
+  oppHandTrack.innerHTML='';
   if(choice){
     (p.candidates||[]).forEach((x,i)=>{const card=document.createElement('div');card.className='hand-card';card.dataset.handIndex=i;const im=document.createElement('img');im.className='hand-art';im.src=reveal?art(x.card_id):'/assets/ui/back-main.webp';card.appendChild(im);card.style.cursor='pointer';card.onclick=e=>{if(e.detail>1)return;intent('selectOpponentHandChoice',[i])};if(reveal)card.ondblclick=e=>{e.preventDefault();e.stopPropagation();openCardReview(x.card_id)};oppHandTrack.appendChild(card);if(reveal)bindPreview(im)});
   }else if(scopeReveal){
@@ -3783,8 +4085,8 @@ function renderSwap(s){
   if(sig!==swapRenderKey){
     swapRenderKey=sig;swapLayer.innerHTML='';
     descriptors.forEach((d,i)=>{
-      const btn=document.createElement('button');btn.type='button';btn.className='gl-swap-button';btn.setAttribute('aria-label','Swap positions');btn.dataset.swapIndex=String(i);
-      const im=document.createElement('img');im.src='/engine/assets/lobby/Swap.png';im.alt='Swap';btn.appendChild(im);
+      const btn=document.createElement('button');btn.type='button';btn.className='gl-swap-button';btn.setAttribute('aria-label','Swap '+d.a+' with '+d.b);btn.title='Swap '+d.a+' with '+d.b;btn.dataset.swapIndex=String(i);if(d.kind!=='manual')btn.dataset.swapPartner=d.b;
+      const im=document.createElement('img');im.src='engine/assets/lobby/Swap.png';im.alt='Swap';btn.appendChild(im);
       if(d.kind==='manual')btn.onclick=()=>intent('performManualReposition',[d.a+'|'+d.b]);
       else if(d.kind==='optional-source')btn.onclick=()=>intent('performOptionalSwapDecision',[d.b]);
       else btn.onclick=()=>intent('performOptionalTargetSwapDecision',[d.b]);
@@ -3795,8 +4097,22 @@ function renderSwap(s){
   const br=uiLayoutRect(BF);
   descriptors.forEach((d,i)=>{
     const btn=swapLayer.querySelector('[data-swap-index="'+i+'"]'),ae=uiLaneElement(d.side,d.a),be=uiLaneElement(d.side,d.b);if(!btn||!ae||!be)return;
-    const ar=uiLayoutRect(ae),rr=uiLayoutRect(be),x=((ar.left+ar.width/2+rr.left+rr.width/2)/2-br.left)/currentUiScale(),y=((ar.top+ar.height/2+rr.top+rr.height/2)/2-br.top)/currentUiScale();
-    btn.style.left=x+'px';btn.style.top=y+'px';
+    const ar=uiLayoutRect(ae),rr=uiLayoutRect(be);
+    let px,py;
+    if(d.kind==='manual'){
+      // Keep ordinary Reposition centered between adjacent lanes.
+      px=(ar.left+ar.width/2+rr.left+rr.width/2)/2;
+      py=(ar.top+ar.height/2+rr.top+rr.height/2)/2;
+    }else{
+      // Optional Swap (Flash Slash, etc.) can offer multiple partners.
+      // Position the icon next to EACH actual partner Hero, never in the
+      // midpoint where LEFT-to-RIGHT appeared to be a duplicate CENTER swap.
+      const target=uiLayoutRect(heroCardEl(d.side,d.b))||rr;
+      px=Math.max(br.left+20,Math.min(br.right-20,target.right+8));
+      py=Math.max(br.top+20,Math.min(br.bottom-20,target.top+target.height*.63));
+    }
+    btn.style.left=((px-br.left)/currentUiScale())+'px';
+    btn.style.top=((py-br.top)/currentUiScale())+'px';
   });
 }
 function responsePaymentReady(s,p){
@@ -3963,9 +4279,56 @@ function choiceCardTile(id,idx,selected,selectHandler,previewMode='contextual'){
   const select=document.createElement('button');select.type='button';select.className='discard-select';select.textContent=selected?'Selected':'Select';select.onclick=selectHandler;
   article.append(previewBtn,select);return article;
 }
+// RC41 F15 -- compact two-row Card Search / Return-to-Hand display.
+// Source zones and move destinations come from the committed engine decision,
+// not card names; Replenish/CONDITION (which do NOT return chosen cards to Hand)
+// keep their existing modal presentation.
+function isReturnToHandSearch(p){
+  if(!p||p.type!=='card_search_choice'||pendingOwner(p)!=='PLAYER')return false;
+  const zone=candidateSourceZone(p);
+  return (zone==='deck'||zone==='discard')&&
+    !['replenish_to_deck','s0_condition_precommit','s0_response_condition_precommit'].includes(String(p.resolve_to||''));
+}
+function resetReturnToHandSearchDisplay(){
+  choiceOverlay.classList.remove('gl-choice-to-hand');
+  document.body.classList.remove('gl-choice-to-hand-active');
+}
+function positionReturnToHandSearch(){
+  if(!choiceOverlay.classList.contains('gl-choice-to-hand'))return;
+  const mobile=adaptiveStageActive(),r=mobile?uiLayoutRect(playerHandTrack):uiRect(playerHandTrack);
+  const sceneW=mobile?1600:Math.max(1,window.innerWidth||1),sceneH=mobile?747:Math.max(1,window.innerHeight||1);
+  // Existing Hand is never moved or resized. Spotlight follows its true track.
+  const left=Math.max(0,Math.round((r?.left??sceneW*.38)-12));
+  const right=Math.min(sceneW,Math.round((r?.right??sceneW*.70)+12));
+  const top=Math.max(0,Math.min(sceneH-30,Math.round((r?.top??sceneH-120)-10)));
+  const width=Math.max(1,right-left);
+  const panelCap=Math.max(215,Math.min(sceneH-32,Math.floor(2*(top-22+32)-sceneH)));
+  const put=(key,value)=>{const v=Math.round(value)+'px';if(choiceOverlay.style.getPropertyValue(key)!==v)choiceOverlay.style.setProperty(key,v)};
+  put('--gl-choice-hand-x',left);put('--gl-choice-hand-y',top);
+  put('--gl-choice-hand-w',width);put('--gl-choice-hand-right',right);
+  put('--gl-choice-panel-cap',panelCap);
+}
+function limitReturnToHandSearchRows(){
+  if(!choiceOverlay.classList.contains('gl-choice-to-hand'))return;
+  const body=choiceOverlay.querySelector('.choice-body'),grid=body?.querySelector('.card-search-choice-grid');
+  const first=grid?.querySelector('.card-search-choice');if(!first)return;
+  const intro=body.querySelector('.choice-instruction'),introStyle=intro?getComputedStyle(intro):null;
+  const bs=getComputedStyle(body),gs=getComputedStyle(grid);
+  const px=x=>parseFloat(x)||0;
+  // Exactly the instruction and two complete rows; any further cards scroll in
+  // the body only, so the footer stays on-screen and the Hand remains visible.
+  const introH=intro?intro.offsetHeight+px(introStyle?.marginTop)+px(introStyle?.marginBottom):0;
+  const gridRows=2*first.offsetHeight+px(gs.rowGap);
+  const twoRows=gridRows+introH+px(bs.paddingTop)+px(bs.paddingBottom)+2;
+  choiceOverlay.style.setProperty('--gl-choice-grid-two-row-cap',Math.ceil(gridRows)+'px');
+  choiceOverlay.style.setProperty('--gl-choice-two-row-cap',Math.ceil(twoRows)+'px');
+}
+window.addEventListener('resize',()=>{if(choiceOverlay.classList.contains('gl-choice-to-hand')){positionReturnToHandSearch();requestAnimationFrame(limitReturnToHandSearchRows)}},{passive:true});
+window.addEventListener('orientationchange',()=>setTimeout(()=>{positionReturnToHandSearch();limitReturnToHandSearchRows()},70),{passive:true});
 function renderAllowedModal(s){
   const p=s.pending,allowed=['card_search_choice','legacy_card_choice','crystal_ball_reorder'];
   if(!p||!allowed.includes(p.type)||pendingOwner(p)!=='PLAYER'||isDirectHandCardSearch(p)||isHandDiscardPending(p)){
+    resetReturnToHandSearchDisplay();
     if(!p&&inspectState){renderInspectModal();return}
     // The generic modal is polled every 120 ms but DOES NOT own the preview
     // for any active center-choice card (including End Phase Hand Limit).
@@ -3980,6 +4343,10 @@ function renderAllowedModal(s){
   }
   const candidateZone=candidateSourceZone(p),modalSig=JSON.stringify({type:p.type,choice_id:p.choice_id||'',title:p.title||'',candidates:(p.candidates||[]).map(x=>typeof x==='string'?x:(x.card_id||x.id||x.hand_index||'')),selected_index:selectedChoiceIndex(p),selected_indices:p.selected_indices||[],selected_order:p.selected_order||[],exp_choices:(p.exp_choices||[]).map(x=>[x.card_id,x.exp_index]),selected_exp_choice:p.selected_exp_choice??null,required_count:p.required_count||p.required_choices||p.max_count||p.quota||0,multi_select:!!p.multi_select,committing:!!p.committing,confirm_text:p.confirm_text||'',candidate_zone:candidateZone,resolve_to:p.resolve_to||''});
   activeModalType=p.type;choiceOverlay.classList.add('open');
+  const handSearch=isReturnToHandSearch(p);
+  choiceOverlay.classList.toggle('gl-choice-to-hand',handSearch);
+  document.body.classList.toggle('gl-choice-to-hand-active',handSearch);
+  if(handSearch)positionReturnToHandSearch();
   // Polling renders used to destroy/recreate the modal buttons every 120 ms, which could eat
   // ordinary mouse clicks. Rebuild only when the choice state actually changes.
   if(modalRenderKey===modalSig)return;
@@ -4041,12 +4408,23 @@ function renderAllowedModal(s){
     });confirm.textContent='Confirm Order';confirm.disabled=false;
   }
   confirm.onclick=()=>intent('handleChoiceConfirm',[]);
+  if(handSearch)limitReturnToHandSearchRows();
 }
 function autoSpecialChoices(s){
   // v6.89 center-choice UX keeps even a single opponent Shard visible as an explicit
   // blind choice so the player sees the card move, reveal after confirm, and destination.
 }
-function renderRacialTokens(s){const set=(sel,n)=>{const row=document.querySelector(sel);if(!row)return;row.innerHTML='';for(let i=0;i<2;i++){const im=document.createElement('img');im.className='racial-token';im.src=i<n?'/assets/ui/Racial-Token-Head.webp':'/assets/ui/Racial-Token-Tail.webp';row.appendChild(im)}};set('.player-right-rail .racial-row',Number(s.racial||0));set('.opponent-left-rail .racial-row',Number(s.aiRacial||0))}
+function renderRacialTokens(s){const set=(sel,n)=>{
+  const row=document.querySelector(sel);if(!row)return;
+  const count=Math.max(0,Math.min(2,Number(n)||0));
+  if(row.dataset.glTokens===String(count)&&row.children.length===2)return;
+  row.dataset.glTokens=String(count);
+  for(let i=0;i<2;i++){
+    let im=row.children[i];if(!im){im=document.createElement('img');im.className='racial-token';row.appendChild(im)}
+    const src=i<count?'/assets/ui/Racial-Token-Head.webp':'/assets/ui/Racial-Token-Tail.webp';
+    if(im.getAttribute('src')!==src)im.src=src;
+  }
+};set('.player-right-rail .racial-row',Number(s.racial||0));set('.opponent-left-rail .racial-row',Number(s.aiRacial||0))}
 function renderRegenCounter(side,value){
   const zone=zoneEl(side,'Shard Deck');if(!zone)return;
   let badge=zone.querySelector(':scope > .gl-regen-counter');
@@ -4163,7 +4541,7 @@ function renderNow(){
   const presentationPlan=buildPresentationPlan(s);
   if(uiResponseSourceChoice&&s.responseWindow?.response_owner!=='PLAYER')uiResponseSourceChoice=null;
   if(responseRollbackSnapshot&&s.pending?.type!=='response_payment_choice'&&!uiResponseSourceChoice&&s.responseWindow?.response_owner!=='PLAYER')responseRollbackSnapshot=null;
-  autoSpecialChoices(s);const chain=renderCombatStacks(s);
+  autoSpecialChoices(s);glPvpWarmVisibleArtwork(s);const chain=renderCombatStacks(s);
   for(const side of ['PLAYER','AI'])for(const lane of laneOrder)renderHero(side,lane,pvpHeroVisualDuringArea(sideHeroes(s,side)?.[lane],side,lane),s);
   renderHand(s);renderOpponentHand(s);syncExpButtonLock();renderExpInspector();renderMana();renderCenterChoiceStage(s);renderPhase(s);renderPay(s);renderInteractionFocus(s);renderResponseRouteGuide(s);renderPvpIncomingDamage(s);renderDeckActions(s);renderSidebar(s,chain);renderAttackLine(s,chain);renderAllowedModal(s);renderRails(s);syncSoundButton();syncMatchActionButton(s);preparePresentationTargets(presentationPlan);showGameResult(s);renderStatusReminder(s);
   requestAnimationFrame(()=>{syncPlayerManaPoolToHeroLeft();syncPlayerHandToHeroCenter();syncOpponentHand();syncPlayerNameBox();layoutManaPoolCards(playerManaHost);layoutManaPoolCards(aiManaHost);runPresentationPlan(presentationPlan,s)});

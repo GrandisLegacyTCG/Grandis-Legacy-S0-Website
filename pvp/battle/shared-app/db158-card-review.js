@@ -1,58 +1,12 @@
-/* Card Review UI: Deck Builder v1.66 layout/typography/keyword explanations.
-   Read-only presentation. Uses read-only Deck Builder v1.66 printed card data; gameplay stays server-authoritative.
+/* Card Review UI: Deck Builder v1.66 view-model/renderer/keyword explanations.
+   Read-only presentation. Printed values are copied from the 242-card Deck Builder v1.66 source registry.
    Kept isolated in an iframe to avoid changing the v6.91.9 battlefield CSS. */
 (function(g){'use strict';
-  var files=['pvp-review-bundle-rc40-20261116.css'];
+  var files=['app.css','s0-enhancements-v1.32.2.css','s0-shared-header-review.css','s0-part7-revision-v1.36.css','s0-part7-revision-v1.38.css','s0-part7-revision-v1.39.css','s0-review-v1.41.css','s0-review-v1.42.css','s0-review-v1.43.css','s0-review-v1.44.css','s0-ui-v1.49.css','s0-hotfix-v1.49.1.css','s0-layout-v1.50.css','s0-modal-parity-v1.52.css','s0-review-v1.54.css','s0-review-v1.56.css','s0-review-v1.57.css','s0-launch-v1.58.css','s0-rulebook-v2.9-review-v1.58.css'];
   function escape(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
-  function source(id){var d=g.GL_CARD_DEFINITIONS||{};return(d.cards||[]).find(function(c){return c.card_id===id;})||null;}
-  function rankRoman(v){var m=String(v||'').match(/(?:Rank\s*)?(I{1,3}|[123])\b/i);return m?({1:'I',2:'II',3:'III'}[m[1]]||m[1].toUpperCase()):'I';}
-  // Translate OSA S0 canonical printed records to the v1.58 review view-model.
-  // No card values are copied from Deck Builder/S1 data. Differences must be
-  // recorded as OSA discrepancies, not silently patched in a read-only UI.
-  function getCard(id){
-    var rc40=g.GL_DB166_REVIEW_CARDS?.[id];if(rc40)return rc40;
-    var c=source(id);if(!c)return null;
-    var ident=c.identity||{},original=(c.printed||{}).rows||[];
-    var rows=original.map(function(r,i){return {
-      row_id:r.row_id||String(i+1),label:r.label||'Effect',
-      damage_text:String(r.damage!=null?r.damage:(r.damage_text||'')),
-      effect_text:r.effect||r.effect_text||r.text||'',
-      text:r.text||r.effect||r.effect_text||''};});
-    if((c.family==='Item'||c.family==='Event')&&rows.length&&!rows.some(function(r){return r.text||r.effect_text;})){
-      rows[0].effect_text=c.card_text||c.printed?.text||'';rows[0].text=rows[0].effect_text;
-    }
-    if(c.family==='Legacy'){
-      var ab=rows.find(function(r){return /LEGACY_ABILITY/i.test(r.label);});
-      var replace=rows.find(function(r){return /LEGACY_REPLACEMENT/i.test(r.label);});
-      rows=ab?[{label:'Legacy Ability',text:ab.text,effect_text:ab.effect_text}]:rows;
-    }
-    // Designer-approved local front (pending synchronization into a later OSA):
-    // Card Review must reflect the latest supplied print, not the older OSA
-    // consumer's cached Item effect. This does not modify gameplay legality.
-    var reviewedText=c.card_text||c.printed?.text||'';
-    var reviewedClasses=((c.requirement||{}).legal_base_classes||[]);
-    if(c.card_id==='S0-ITM-011'){
-      reviewedText="This turn, attach this card to the Hero that used it. When that Hero's Skill card deals Physical damage, inflict Poison for 2 turns.";
-      reviewedClasses=['Archer','Thief','Warrior'];
-      rows=[{row_id:'1',label:'Item Effect',damage_text:'',effect_text:reviewedText,text:reviewedText}];
-    }
-    var roman=rankRoman(ident.rank||c.class_rank||c.rank_numeric);
-    var rank=({I:1,II:2,III:3})[roman]||1;
-    var cost=c.cost_display||((c.cost||{}).mana!=null?String(c.cost.mana)+' Mana':'No Mana cost');
-    var ult=((c.requirement||{}).ultimate||{});
-    var code=c.class_group||c.card_id.split('-')[1]||'';
-    var baseClass={WAR:'Warrior',MAG:'Mage',ARC:'Archer',CLE:'Cleric',THF:'Thief'}[code]||'';
-    var reviewName=c.name;
-    return {id:c.card_id,name:reviewName,family:c.family==='Legacy'?'LegacyModeDefinition':c.family,
-      classification:c.classification||c.action_category||'',classGroup:ident.class||c.display_class||c.class_family||baseClass||'',
-      rank:rank,rankNumeric:rank,race:c.race||ident.race||'',hp:c.hp,
-      image:'/card-art/'+c.card_id+'.webp',cost:cost,text:reviewedText,rows:rows,
-      ultimate:{isUltimate:!!c.is_ultimate,owner:c.card_id==='S0-ARC-018'?'Fenrir Ironfang':c.card_id==='S0-CLE-031'
-        ?'Only Melody can use this card or tribute it with a White Mana Shard for EXP.'
-        :(ult.owner||'')},
-      requiredBaseClasses:reviewedClasses,
-      rules:c.family==='Legacy'?((replace||{}).text||''):(c.printed?.rules||''),sourceCardId:c.card_id};
-  }
+  // Deck Builder v1.66 is the authoritative Review presentation data. Gameplay
+  // continues to use VS AI's canonical engine card definitions independently.
+  function getCard(id){return g.GL_DB166_REVIEW_CARDS?.[id]||null;}
   function documentHtml(c,progressionIds){
     var base=escape(new URL('./',g.document.baseURI).href);
     var styles=files.map(function(f){return '<link rel="stylesheet" href="assets/review-db158/css/'+f+'">';}).join('');
@@ -65,52 +19,106 @@
       '<div class="review-header"><div><span id="reviewEyebrow" class="dialog-eyebrow"></span><h2 id="reviewTitle"></h2></div><button id="reviewClose" class="dialog-close review-close" type="button" aria-label="Close">×</button></div>'+
       '<div class="review-layout"><div class="review-art-column"><img id="reviewArt" class="review-art" alt="Card review"></div><div class="review-detail-column"><div id="reviewStats" class="review-stats"></div><div id="reviewRows" class="review-rows"></div></div></div>'+
       '<div id="reviewProgression" class="review-progression" hidden><span>HERO LINEAGES</span><div id="reviewProgressionCards" class="review-progression-cards"></div></div></div></div>'+
-      '<script src="assets/review-db158/js/s0-review-clarity.js"><\/script><script src="assets/review-db158/js/review-renderer-v158.js"><\/script>'+
-      '<script>(function(){const card='+serialized+';const lineage='+serializedLineage+';window.GL_S0_REVIEW_RENDER(card);if(lineage.length){const panel=document.getElementById("reviewProgression"),host=document.getElementById("reviewProgressionCards");panel.hidden=false;lineage.forEach(function(x){const b=document.createElement("button");b.type="button";b.className="review-progression-card"+(x.id===card.id?" active":"");b.dataset.reviewRankId=x.id;b.setAttribute("aria-label","Review "+x.name);const img=document.createElement("img");img.src=x.image;img.alt=x.name;img.draggable=false;b.appendChild(img);b.addEventListener("click",function(){parent.postMessage({kind:"GL_S0_REVIEW_RANK",cardId:x.id},"*")});host.appendChild(b);});}function close(){parent.postMessage({kind:"GL_S0_REVIEW_CLOSE"},"*")}document.getElementById("reviewClose").addEventListener("click",close);document.addEventListener("keydown",function(e){if(e.key==="Escape"){e.preventDefault();close();}});function reportHeight(){var row=document.querySelector("#cardReviewDialog .review-card");if(row)parent.postMessage({kind:"GL_S0_REVIEW_FIT",height:Math.ceil(row.getBoundingClientRect().bottom)},location.origin);}requestAnimationFrame(reportHeight);setTimeout(reportHeight,80);document.fonts.ready.then(reportHeight);var img=document.getElementById("reviewArt");if(img&&!img.complete)img.addEventListener("load",reportHeight,{once:true});if(window.ResizeObserver)new ResizeObserver(reportHeight).observe(document.querySelector(".review-card"));window.addEventListener("resize",reportHeight);var reviewKey=card.id+"|"+lineage.map(function(x){return x.id;}).join("|");var notified=false;function signalReady(){if(notified)return;notified=true;reportHeight();parent.postMessage({kind:"GL_S0_REVIEW_READY",reviewKey:reviewKey,cardId:card.id},location.origin);}function afterArt(){Promise.resolve(document.fonts.ready).then(function(){requestAnimationFrame(function(){requestAnimationFrame(signalReady);});});}if(img&&!img.complete){img.addEventListener("load",afterArt,{once:true});img.addEventListener("error",afterArt,{once:true});}else afterArt();setTimeout(signalReady,2100);})();<\/script>'+ 
-      '<script>(function(){window.addEventListener("message",function(ev){if(ev.source!==parent||ev.origin!==location.origin||ev.data?.kind!=="GL_S0_REVIEW_UPDATE")return;var data=ev.data,card=data.card;if(!card||!window.GL_S0_REVIEW_RENDER)return;window.GL_S0_REVIEW_RENDER(card);var footer=document.getElementById("reviewProgression"),host=document.getElementById("reviewProgressionCards"),lineage=Array.isArray(data.lineage)?data.lineage:[];footer.hidden=!lineage.length;host.replaceChildren();lineage.forEach(function(x){var b=document.createElement("button");b.type="button";b.className="review-progression-card"+(x.id===card.id?" active":"");b.dataset.reviewRankId=x.id;b.setAttribute("aria-label","Review "+x.name);var im=document.createElement("img");im.src=x.image;im.alt=x.name;im.draggable=false;b.appendChild(im);b.addEventListener("click",function(){parent.postMessage({kind:"GL_S0_REVIEW_RANK",cardId:x.id},location.origin)});host.appendChild(b)});document.documentElement.scrollTop=0;document.body.scrollTop=0;requestAnimationFrame(function(){var row=document.querySelector("#cardReviewDialog .review-card");if(row)parent.postMessage({kind:"GL_S0_REVIEW_FIT",height:Math.ceil(row.getBoundingClientRect().bottom)},location.origin)});var key=String(data.reviewKey||card.id+"|"+lineage.map(function(x){return x.id;}).join("|")),art=document.getElementById("reviewArt"),delivered=false;function loaded(){if(delivered)return;delivered=true;Promise.resolve(document.fonts.ready).then(function(){requestAnimationFrame(function(){requestAnimationFrame(function(){parent.postMessage({kind:"GL_S0_REVIEW_READY",reviewKey:key,cardId:card.id},location.origin);});});});}if(art&&!art.complete){art.addEventListener("load",loaded,{once:true});art.addEventListener("error",loaded,{once:true});}else loaded();setTimeout(loaded,2100)})})();<\/script></body></html>';
+      '<script src="assets/review-db158/js/s0-review-clarity.js?v=rc40-p5-review166-mana-terms"><\/script><script src="assets/review-db158/js/review-renderer-v158.js?v=rc40-p5-review166"><\/script>'+
+      '<script>(function(){const card='+serialized+';const lineage='+serializedLineage+';window.GL_S0_REVIEW_RENDER(card);if(lineage.length){const panel=document.getElementById("reviewProgression"),host=document.getElementById("reviewProgressionCards");panel.hidden=false;lineage.forEach(function(x){const b=document.createElement("button");b.type="button";b.className="review-progression-card"+(x.id===card.id?" active":"");b.dataset.reviewRankId=x.id;b.setAttribute("aria-label","Review "+x.name);const img=document.createElement("img");img.src=x.image;img.alt=x.name;img.draggable=false;b.appendChild(img);b.addEventListener("click",function(){parent.postMessage({kind:"GL_S0_REVIEW_RANK",cardId:x.id},"*")});host.appendChild(b);});}function close(){parent.postMessage({kind:"GL_S0_REVIEW_CLOSE"},"*")}document.getElementById("reviewClose").addEventListener("click",close);document.addEventListener("keydown",function(e){if(e.key==="Escape"){e.preventDefault();close();}});function reportHeight(){var card=document.querySelector("#cardReviewDialog .review-card");if(!card)return;parent.postMessage({kind:"GL_S0_REVIEW_FIT",height:Math.ceil(card.getBoundingClientRect().bottom)},"*");}requestAnimationFrame(reportHeight);setTimeout(reportHeight,80);document.fonts.ready.then(reportHeight);var img=document.getElementById("reviewArt");if(img&&!img.complete)img.addEventListener("load",reportHeight,{once:true});if(window.ResizeObserver)new ResizeObserver(reportHeight).observe(document.querySelector(".review-card"));window.addEventListener("resize",reportHeight);var readySent=false;function reportReady(){if(readySent)return;readySent=true;reportHeight();parent.postMessage({kind:"GL_S0_REVIEW_READY"},"*");}function afterArt(){Promise.resolve(document.fonts.ready).then(function(){requestAnimationFrame(function(){requestAnimationFrame(reportReady);});});}if(img&&!img.complete){img.addEventListener("load",afterArt,{once:true});img.addEventListener("error",afterArt,{once:true});}else afterArt();setTimeout(reportReady,1800);})();<\/script></body></html>';
+  }
+  // Reuse the same iframe for all reviews. Re-creating srcdoc on every
+  // double-click used to re-parse 19 stylesheet links and both JS renderers.
+  // This only changes presentation; the Deck Builder review data is unchanged.
+  function lineageFor(c,ids){
+    if(c.family!=='Hero'||!Array.isArray(ids))return [];
+    return ids.map(getCard).filter(Boolean).map(function(x){return {id:x.id,name:x.name,image:x.image};});
+  }
+  function applyReviewToFrame(frame,c,lineage){
+    var w=frame.contentWindow,d=frame.contentDocument,body=frame.parentElement;
+    if(!w||!d||typeof w.GL_S0_REVIEW_RENDER!=='function')return false;
+    var request=(frame.__glReviewRequest||0)+1;
+    frame.__glReviewRequest=request;
+    body.classList.remove('gl-review-ready');
+    w.GL_S0_REVIEW_RENDER(c);
+    var panel=d.getElementById('reviewProgression'),host=d.getElementById('reviewProgressionCards');
+    if(panel&&host){
+      host.replaceChildren();panel.hidden=!lineage.length;
+      lineage.forEach(function(x){
+        var button=d.createElement('button');button.type='button';
+        button.className='review-progression-card'+(x.id===c.id?' active':'');
+        button.dataset.reviewRankId=x.id;
+        button.setAttribute('aria-label','Review '+x.name);
+        var art=d.createElement('img');art.src=x.image;art.alt=x.name;art.draggable=false;
+        button.appendChild(art);
+        // The handler belongs to the iframe realm so the existing parent
+        // message security check (e.source === frame.contentWindow) still works.
+        button.addEventListener('click',w.Function('parent.postMessage({kind:"GL_S0_REVIEW_RANK",cardId:this.dataset.reviewRankId},"*")'));
+        host.appendChild(button);
+      });
+    }
+    var img=d.getElementById('reviewArt');
+    function ready(){
+      if(!frame.isConnected||frame.__glReviewRequest!==request)return;
+      body.classList.add('gl-review-ready');
+      w.requestAnimationFrame(function(){
+        if(!frame.isConnected||frame.__glReviewRequest!==request)return;
+        var card=d.querySelector('#cardReviewDialog .review-card');
+        var height=card?Math.ceil(card.getBoundingClientRect().bottom):0;
+        if(height>100){
+          var mobile=g.document.documentElement.classList.contains('gl-mobile-gameplay-stage')||g.document.documentElement.classList.contains('gl-pvp-mobile-gameplay');
+          var fit=Math.min(height,Math.max(250,(mobile?747:g.innerHeight)-32));
+          frame.style.setProperty('height',fit+'px','important');
+        }
+      });
+    }
+    // Show the review once the artwork is decoded; don't wait for a new iframe
+    // document, stylesheet downloads or unrelated battlefield rendering.
+    var imageReady=img&&img.complete&&img.naturalWidth>0;
+    var decoded=imageReady?Promise.resolve():img&&typeof img.decode==='function'
+      ?img.decode().catch(function(){})
+      :new Promise(function(resolve){if(!img)return resolve();img.addEventListener('load',resolve,{once:true});img.addEventListener('error',resolve,{once:true});});
+    Promise.race([Promise.all([decoded,d.fonts?.ready||Promise.resolve()]),
+      new Promise(function(resolve){g.setTimeout(resolve,1600);})]).then(function(){
+      if(!frame.isConnected||frame.__glReviewRequest!==request)return;
+      w.requestAnimationFrame(function(){w.requestAnimationFrame(ready);});
+    });
+    return true;
   }
   function mount(el,cardId,progressionIds){
     var c=getCard(cardId);if(!el||!c)return false;
-    var ids=Array.isArray(progressionIds)?progressionIds:[];
-    var key=cardId+'|'+ids.join('|');
-    var existing=el.querySelector('.gl-db158-review-frame');
-    if(existing){
-      existing.setAttribute('title',c.name+' — Deck Builder v1.66 card review');
-      existing.setAttribute('scrolling',ids.length?'auto':'no');
-      existing.setAttribute('aria-label',c.name+' card review');
-      if(existing.dataset.glReviewKey===key)return true;
-      existing.dataset.glReviewKey=key;existing.glReviewVisualReady=false;
-      existing.glReviewPayload={kind:'GL_S0_REVIEW_UPDATE',reviewKey:key,card:c,lineage:ids.map(getCard).filter(Boolean).map(x=>({id:x.id,name:x.name,image:x.image}))};
-      if(existing.glReviewReady)existing.contentWindow?.postMessage(existing.glReviewPayload,g.location.origin);
+    var lineage=lineageFor(c,progressionIds);
+    var frame=el.querySelector('.gl-db158-review-frame');
+    if(frame){
+      frame.__glPendingReview={card:c,lineage:lineage};
+      if(frame.contentWindow?.GL_S0_REVIEW_RENDER){
+        applyReviewToFrame(frame,c,lineage);
+      }
       return true;
     }
-    var frame=g.document.createElement('iframe');frame.className='gl-db158-review-frame';
-    frame.style.colorScheme='light';frame.dataset.glReviewKey=key;
-    frame.setAttribute('title',c.name+' — Deck Builder v1.66 card review');
-    frame.setAttribute('loading','eager');frame.setAttribute('scrolling',ids.length?'auto':'no');
-    frame.setAttribute('aria-label',c.name+' card review');
-    frame.glReviewVisualReady=false;
-    frame.glReviewPayload={kind:'GL_S0_REVIEW_UPDATE',reviewKey:key,card:c,lineage:ids.map(getCard).filter(Boolean).map(x=>({id:x.id,name:x.name,image:x.image}))};
-    frame.addEventListener('load',function(){frame.glReviewReady=true;if(frame.isConnected)frame.contentWindow?.postMessage(frame.glReviewPayload,g.location.origin)},{once:true});
-    frame.srcdoc=documentHtml(c,ids);el.appendChild(frame);return true;
-  }
-  // Idle-only CSS cache warmup: normal HTML/CSS over the existing static
-  // server; no network protocol, socket, or initial render penalty.
-  function warmStyles(){
-    if(g.__GL_REVIEW_STYLES_PREWARMED||g.navigator?.connection?.saveData)return;
-    g.__GL_REVIEW_STYLES_PREWARMED=true;
-    files.forEach(function(file){
-      var link=g.document.createElement('link');link.rel='preload';link.as='style';
-      link.href=new URL('assets/review-db158/css/'+file,g.document.baseURI).href;
-      g.document.head.appendChild(link);
+    frame=g.document.createElement('iframe');frame.className='gl-db158-review-frame';
+    frame.style.colorScheme='light';frame.setAttribute('title','Card review');
+    frame.setAttribute('loading','eager');frame.setAttribute('scrolling','auto');
+    frame.setAttribute('aria-label','Card review');
+    frame.__glPendingReview={card:c,lineage:lineage};
+    frame.addEventListener('load',function(){
+      var latest=frame.__glPendingReview;
+      if(latest)applyReviewToFrame(frame,latest.card,latest.lineage);
     });
+    frame.srcdoc=documentHtml(c,progressionIds);
+    el.appendChild(frame);
+    return true;
   }
-  function scheduleWarmup(){
-    // Match VS AI's early stylesheet warming; still idle on slow devices.
-    if(typeof g.requestIdleCallback==='function')g.requestIdleCallback(warmStyles,{timeout:1200});
-    else setTimeout(warmStyles,300);
+  function warmReviewShell(){
+    var body=g.document.querySelector('.gl-card-review-body');
+    if(!body||body.querySelector('.gl-db158-review-frame'))return;
+    var id=Object.keys(g.GL_DB166_REVIEW_CARDS||{})[0];
+    if(id)mount(body,id,[]);
   }
-  if(g.document.readyState==='loading')g.document.addEventListener('DOMContentLoaded',scheduleWarmup,{once:true});
-  else scheduleWarmup();
-  g.GL_DB158_REVIEW={mount:mount,getCard:getCard,documentHtml:documentHtml,source:'Main R3.8 / Legacy R3.7 (DB v1.66)',view:'Deck Builder v1.66',heroFooter:'lobby-only'};
+  // One low-priority idle mount makes the first real double-click responsive,
+  // while subsequent cards always reuse the already-initialized iframe.
+  function scheduleWarmReview(){
+    var run=function(){g.setTimeout(warmReviewShell,450);};
+    if(typeof g.requestIdleCallback==='function')g.requestIdleCallback(run,{timeout:1800});
+    else g.setTimeout(run,800);
+  }
+  if(g.document.readyState==='loading')g.document.addEventListener('DOMContentLoaded',scheduleWarmReview,{once:true});
+  else scheduleWarmReview();
+  g.GL_DB158_REVIEW={mount:mount,getCard:getCard,documentHtml:documentHtml,warm:warmReviewShell,
+    source:'Main Deck R3.9 / Legacy Deck R3.9',view:'Deck Builder v1.67',heroFooter:'lobby-only'};
 })(window);

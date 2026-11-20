@@ -23,14 +23,14 @@ html.gl-adaptive-stage.gl-pvp-mobile-gameplay :is(
   .gl-vsai-choice-overlay,.gl-played-detail-overlay,.gl-card-review-overlay,
   .gl-progression-overlay,.gl-result-overlay,.gl-center-choice-stage,
   .gl-center-focus-backdrop,.gl-animation-layer,.gl-battle-feedback-layer,
-  .gl-vsai-attack-direction-layer,.gl-lobby-overlay,.gl-coin-overlay){
+  .gl-vsai-attack-direction-layer,.gl-pending-attack-direction-layer,.gl-lobby-overlay,.gl-coin-overlay){
   max-width:1600px!important;max-height:747px!important;
 }
 html.gl-adaptive-stage.gl-pvp-mobile-gameplay :is(
   .gl-vsai-choice-overlay,.gl-played-detail-overlay,.gl-card-review-overlay,
   .gl-progression-overlay,.gl-result-overlay,.gl-center-choice-stage,
   .gl-center-focus-backdrop,.gl-animation-layer,.gl-battle-feedback-layer,
-  .gl-vsai-attack-direction-layer){
+  .gl-vsai-attack-direction-layer,.gl-pending-attack-direction-layer){
   width:1600px!important;height:747px!important;
   inset:0 auto auto 0!important;
 }
@@ -180,4 +180,60 @@ html.gl-adaptive-stage.gl-pvp-mobile-gameplay.gl-stage-portrait :is(
   max-width:none!important;max-height:none!important;
   border-radius:9px!important;object-fit:contain!important;
   transform:none!important;
+}
+
+/* Donor mobile readability, PvP-body-transform implementation. Scoped to live
+   portrait battle: menu and multiplayer Payment/Response remain clickable. */
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay.gl-stage-portrait .gl-modal-hover-preview.open img{
+  left:var(--gl-popup-preview-x,12px)!important;top:var(--gl-popup-preview-y,12px)!important;
+  right:auto!important;bottom:auto!important;width:248px!important;height:347px!important;
+}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay.gl-stage-portrait .gl-vsai-choice-overlay .choice-panel{
+  width:1060px!important;max-width:calc(1600px - 36px)!important;
+  max-height:710px!important;overflow:hidden!important;
+}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay.gl-stage-portrait .gl-vsai-choice-overlay .choice-body{
+  min-height:0!important;max-height:548px!important;
+  overflow-y:auto!important;overflow-x:hidden!important;padding:12px 14px!important;
+}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay.gl-stage-portrait .gl-vsai-choice-overlay :is(
+  .choice-grid,.card-search-choice-grid,.reorder-choice-grid,.inspect-card-grid){
+  display:grid!important;grid-template-columns:repeat(auto-fill,82px)!important;
+  grid-auto-columns:82px!important;width:100%!important;
+  gap:9px!important;justify-content:center!important;align-items:start!important;
+}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay.gl-stage-portrait .gl-vsai-choice-overlay :is(
+  .card-search-choice,.discard-choice,.gl-inspect-card){
+  box-sizing:border-box!important;width:100%!important;min-width:0!important;
+  max-width:none!important;padding:5px!important;
+}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay.gl-stage-portrait .gl-vsai-choice-overlay :is(
+  .discard-preview img,.gl-inspect-card img,.card-search-choice img,.choice-grid img){
+  display:block!important;width:100%!important;height:auto!important;
+  aspect-ratio:5/7!important;object-fit:contain!important;
+}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay.gl-stage-portrait body.gl-center-choice-active .gl-center-choice-cards{
+  box-sizing:border-box!important;width:min(1320px,96%)!important;
+  max-width:1320px!important;max-height:490px!important;
+  min-height:0!important;padding:38px 12px 24px!important;
+  gap:10px!important;overflow-x:auto!important;overflow-y:hidden!important;
+  justify-content:safe center!important;align-items:center!important;scrollbar-width:thin;
+}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay.gl-stage-portrait body.gl-center-choice-active .gl-center-choice-card{
+  box-sizing:border-box!important;width:82px!important;min-width:82px!important;
+  max-width:82px!important;flex:0 0 82px!important;aspect-ratio:5/7!important;
+}
+/* The native Engine feedback portal shares PvP's transformed body. Its SVG
+   must use the same logical stage as the target Hero anchors. */
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .gl-pending-attack-direction-layer{
+  position:fixed!important;inset:0 auto auto 0!important;
+  width:1600px!important;height:747px!important;
+  max-width:1600px!important;max-height:747px!important;
+}
+/* The already-loaded card back remains visible until the local hand face
+   finishes decoding; this never accesses the opponent's concealed Hand. */
+.hand.bottom .hand-card.gl-hand-art-awaiting::before,
+.hand.bottom .hand-card.gl-hand-art-unavailable::before{
+  content:"";position:absolute;inset:0;z-index:2;pointer-events:none;
+  border-radius:5px;background:#07121f url("/assets/ui/back-main.webp") center/100% 100% no-repeat;
 }

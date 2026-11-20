@@ -1,0 +1,18 @@
+/* Season 0 PvP image stability (presentation only).
+ * Runtime marks async images gl-decode-pending. Keep the visual slot painted
+ * instead of hiding an existing card during the next authoritative snapshot.
+ * Never replace a face-down opponent card with a guessed card face. */
+html body .app img.gl-decode-pending{
+  visibility:visible!important;
+  color:transparent!important;
+  background-color:#0b1520;
+}
+html body .app .hand.bottom img.hand-art.gl-decode-pending,
+html body .app .hand.top img.hand-art.gl-decode-pending{
+  background-image:url('/assets/ui/back-main.webp');
+  background-position:center;background-repeat:no-repeat;background-size:cover;
+}
+html body .app .hero-card img.gl-decode-pending,
+html body .app .attachment-card img.gl-decode-pending{
+  background-color:#142234;
+}

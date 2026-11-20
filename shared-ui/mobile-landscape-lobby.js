@@ -40,17 +40,15 @@
     const portrait = height > width;
     const stageWidth = portrait ? height : width;
     const stageHeight = portrait ? width : height;
-    const scale = Math.min(1, (stageWidth - 4) / W, (stageHeight - 4) / H);
-    const offsetX = (stageWidth - W * scale) / 2;
-    const offsetY = (stageHeight - H * scale) / 2;
+    // Lobby/Coin share an edge-to-edge landscape stage with gameplay. Keep
+    // the original logical sizes but eliminate previously hard-coded 4px gutters.
+    const scaleX=stageWidth/W, scaleY=stageHeight/H;
     root.classList.toggle('gl-mobile-landscape-lobby-portrait', portrait);
-    // Rotating 90 degrees around origin moves the landscape canvas left by H*scale.
-    // translate() compensates for that; the visible canvas remains centered.
-    const transform = portrait
-      ? `translate(${offsetY + H * scale}px, ${offsetX}px) rotate(90deg) scale(${scale})`
-      : `translate(${offsetX}px, ${offsetY}px) scale(${scale})`;
+    const transform=portrait
+      ? `translate(${width}px,0px) rotate(90deg) scale(${scaleX},${scaleY})`
+      : `translate(0px,0px) scale(${scaleX},${scaleY})`;
     root.style.setProperty('--gl-mobile-lobby-transform', transform);
-    root.style.setProperty('--gl-mobile-lobby-scale', String(scale));
+    root.style.setProperty('--gl-mobile-lobby-scale', String(Math.min(scaleX,scaleY)));
     root.dataset.glInternalRevision = 'RC35';
   }
   function requestPosition() {

@@ -5,7 +5,7 @@
 <base href="../">
 <script src="assets/js/s0-artwork-fallback.js?v=gl-web-r39-20261118"></script>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
 <title>Grandis Legacy — VS AI Season 0 RC41 · Main Deck R3.9 / Legacy Deck R3.9 · Rulebook v3.4</title>
 <link rel="icon" type="image/png" sizes="120x120" href="engine/assets/favicon.png">
 <style>
@@ -293,7 +293,7 @@ html.gl-adaptive-stage .played{column-gap:5px;row-gap:5px}
 .opponent-field .zone>.count,.opponent-field .opponent-mana-pool>.count{left:-4px;right:auto;top:auto;bottom:-4px}
 </style>
 
-<link rel="stylesheet" href="shared-ui/battlefield-ui.css?v=rc41-mobile-hotfix-20261120">
+<link rel="stylesheet" href="shared-ui/battlefield-ui.css?v=rc41-part7-f15-popup-20261121">
 <link rel="stylesheet" href="assets/css/gl-header-parity.css?v=20261119-header-clean-v2">
 <link rel="stylesheet" href="assets/css/gl-site-brand.css?v=20261120-v3">
 <link rel="stylesheet" href="assets/css/gl-site-navigation.css?v=20261120-v1">
@@ -426,20 +426,19 @@ html.gl-adaptive-stage .played{column-gap:5px;row-gap:5px}
       const portrait=cssH>cssW;
       root.classList.toggle('gl-stage-portrait',portrait);
       root.classList.toggle('gl-stage-landscape',!portrait);
-      let scale,tx,ty;
+      // Fill the *visible CSS viewport* edge-to-edge on handsets. An earlier
+      // uniform "contain" scale letterboxed screens whose ratio differed from
+      // 1600:747, leaving narrow bars at top/bottom in rotated portrait.
+      // Separate small X/Y scales (rather than cropping) preserve all buttons,
+      // Hero lanes and popup content inside the tappable viewport.
+      const scaleX=portrait?cssH/REF_W:cssW/REF_W;
+      const scaleY=portrait?cssW/REF_H:cssH/REF_H;
       if(portrait){
-        scale=Math.min(cssW/REF_H,cssH/REF_W);
-        const renderW=REF_H*scale,renderH=REF_W*scale;
-        const left=(cssW-renderW)/2,top=(cssH-renderH)/2;
-        tx=left+renderW;ty=top;
-        root.style.setProperty('--gl-stage-transform',`translate(${tx}px,${ty}px) rotate(90deg) scale(${scale})`);
+        root.style.setProperty('--gl-stage-transform',`translate(${cssW}px,0px) rotate(90deg) scale(${scaleX},${scaleY})`);
       }else{
-        scale=Math.min(cssW/REF_W,cssH/REF_H);
-        const renderW=REF_W*scale,renderH=REF_H*scale;
-        tx=(cssW-renderW)/2;ty=(cssH-renderH)/2;
-        root.style.setProperty('--gl-stage-transform',`translate(${tx}px,${ty}px) scale(${scale})`);
+        root.style.setProperty('--gl-stage-transform',`translate(0px,0px) scale(${scaleX},${scaleY})`);
       }
-      publish(scale,REF_W,REF_H);
+      publish(Math.min(scaleX,scaleY),REF_W,REF_H);
       refreshDependentGeometry();
       return;
     }
@@ -477,13 +476,13 @@ html.gl-adaptive-stage .played{column-gap:5px;row-gap:5px}
   <script src="engine/shared-app/active-starters.js?v=rc41-swap23-20261118"></script>
   <script src="runtime/season0-generated/rc41-approved-print-overrides.js?v=rc41-r39-20261118"></script>
   <script src="assets/review-db158/js/db166-view-model.js?v=rc41-r39-20261118"></script>
-  <script src="shared-app/db158-card-review.js?v=rc40-p5-review166-mana-terms"></script>
-  <script src="engine/shared-app/app.bundle.js?v=rc41-intermediate-ai-20261120"></script>
+  <script src="shared-app/db158-card-review.js?v=rc41-review-cache-20261120"></script>
+  <script src="engine/shared-app/app.bundle.js?v=rc41-part7-hotfix-20261120"></script>
   <script src="vs-ai/route-asset-compat.js?v=rc41-r39"></script>
   <script src="runtime/adapters/authority-adapter.js"></script>
   <script src="runtime/adapters/local-ai-adapter.js"></script>
-  <script src="shared-app/app-runtime.js?v=rc41-mobile-hotfix-20261120"></script>
-  <script src="shared-ui/mobile-landscape-lobby.js"></script>
+  <script src="shared-app/app-runtime.js?v=rc41-part7-f15-popup-20261121"></script>
+  <script src="shared-ui/mobile-landscape-lobby.js?v=rc41-fullbleed-20261120"></script>
   <script src="vs-ai/route-nav-compat.js?v=rc41-shared-nav-20261120"></script>
 
 </body>

@@ -308,12 +308,35 @@
     if(/pdef|mdef/.test(String(cls||'')))return 11853;
     return 11852;
   }
+  // PvP rotates the entire body, including its VFX portal. The donor VFX
+  // receives viewport rects; map them to that portal's 1600x747 local stage.
+  // Desktop, nonrotated screens, headless/server gameplay are untouched.
+  function pvpMobileFeedbackRect(rect){
+    if(!rect||typeof document==='undefined'||typeof DOMMatrixReadOnly==='undefined'||
+       typeof DOMPoint==='undefined'||typeof getComputedStyle==='undefined'||
+       !document.documentElement.classList.contains('gl-pvp-mobile-gameplay')||
+       !document.body)return rect;
+    var transform=getComputedStyle(document.body).transform;
+    if(!transform||transform==='none')return rect;
+    try{
+      var inverse=new DOMMatrixReadOnly(transform).inverse();
+      var xy=[[rect.left,rect.top],[rect.left+rect.width,rect.top],
+              [rect.left,rect.top+rect.height],
+              [rect.left+rect.width,rect.top+rect.height]];
+      var points=xy.map(function(p){return new DOMPoint(p[0],p[1]).matrixTransform(inverse);});
+      var xs=points.map(function(p){return p.x;}),ys=points.map(function(p){return p.y;});
+      var left=Math.min.apply(null,xs),top=Math.min.apply(null,ys);
+      return{left:left,top:top,width:Math.max(0,Math.max.apply(null,xs)-left),
+             height:Math.max(0,Math.max.apply(null,ys)-top)};
+    }catch(_){return rect;}
+  }
   function battleVfxClip(rect,zIndex){
     var layer=battleFeedbackLayer();if(!layer||!rect)return null;
+    var box=pvpMobileFeedbackRect(rect);
     var clip=document.createElement('div');
     clip.className='gl-battle-vfx-clip';
     clip.style.zIndex=String(zIndex||11852);
-    clip.style.left=rect.left+'px';clip.style.top=rect.top+'px';clip.style.width=rect.width+'px';clip.style.height=rect.height+'px';
+    clip.style.left=box.left+'px';clip.style.top=box.top+'px';clip.style.width=box.width+'px';clip.style.height=box.height+'px';
     layer.appendChild(clip);return clip;
   }
   function battleVfxNode(src,cls,rect,scale,clipToCard){
@@ -323,9 +346,10 @@
     var node=document.createElement('img');
     node.src=src;node.className='gl-battle-vfx '+cls;node.style.zIndex=String(tier);
     if(clipToCard===false){
-      var w=Math.max(54,rect.width*Number(scale||1.18)),h=Math.max(72,rect.height*Number(scale||1.18));
-      node.style.left=(rect.left+rect.width/2-w/2)+'px';
-      node.style.top=(rect.top+rect.height/2-h/2)+'px';
+      var box=pvpMobileFeedbackRect(rect);
+      var w=Math.max(54,box.width*Number(scale||1.18)),h=Math.max(72,box.height*Number(scale||1.18));
+      node.style.left=(box.left+box.width/2-w/2)+'px';
+      node.style.top=(box.top+box.height/2-h/2)+'px';
       node.style.width=w+'px';node.style.height=h+'px';
     }else{
       var insideScale=Math.max(.1,Number(scale||1));
@@ -566,12 +590,14 @@
       var swordGroup=document.createElementNS('http://www.w3.org/2000/svg','g');swordGroup.setAttribute('transform','rotate(-45 12 12)');
       var sword=document.createElementNS('http://www.w3.org/2000/svg','image');sword.setAttribute('href','/engine/assets/battle/Blade.png');sword.setAttributeNS('http://www.w3.org/1999/xlink','href','/engine/assets/battle/Blade.png');sword.setAttribute('x','2');sword.setAttribute('y','2');sword.setAttribute('width','20');sword.setAttribute('height','20');sword.setAttribute('preserveAspectRatio','xMidYMid meet');sword.setAttribute('class','gl-pending-attack-sword');swordGroup.appendChild(sword);marker.appendChild(swordGroup);defs.appendChild(marker);svg.appendChild(defs);document.body.appendChild(svg);
     }
-    svg.setAttribute('viewBox','0 0 '+Math.max(1,window.innerWidth||1)+' '+Math.max(1,window.innerHeight||1));
+    var mobile=typeof document!=='undefined'&&document.documentElement.classList.contains('gl-pvp-mobile-gameplay');
+    svg.setAttribute('viewBox',mobile?'0 0 1600 747':'0 0 '+Math.max(1,window.innerWidth||1)+' '+Math.max(1,window.innerHeight||1));
     return svg;
   }
   function pendingAttackDirectionPoints(rw){
     if(!rw)return null;
     var from=battleHeroRect(rw.source_side,rw.source_lane),to=battleHeroRect(rw.target_side,rw.target_lane);if(!from||!to)return null;
+    from=pvpMobileFeedbackRect(from);to=pvpMobileFeedbackRect(to);
     var x1=from.left+from.width/2,y1=from.top+from.height/2,x2=to.left+to.width/2,y2=to.top+to.height/2,dx=x2-x1,dy=y2-y1,dist=Math.sqrt(dx*dx+dy*dy)||1;
     var a=Math.min(from.width,from.height)*.28,b=Math.min(to.width,to.height)*.28;
     var sx=x1+dx/dist*a,sy=y1+dy/dist*a,ex=x2-dx/dist*b,ey=y2-dy/dist*b;
@@ -1259,7 +1285,7 @@
     // The live R3.8 print and class restriction must already be canonical.
     // Do not mask stale data in a runtime-only override: fail closed instead.
     if(c.card_id==='S0-ITM-011'){
-      var validPoisonText=/When that Hero's Skill card deals Physical damage, inflict Poison for 2 turns\./i.test(String(c.card_text||''));
+      var validPoisonText=/When that Hero's Skill card deals Physical damage, inflict Poison for 2 turns\./i.test(s0RulesParseText(c.card_text));
       var poisonAllowed=(c.requirement&&c.requirement.target_or_user_base_classes)||[];
       if(!validPoisonText||['Archer','Thief','Warrior'].some(function(k){return poisonAllowed.indexOf(k)===-1;})||poisonAllowed.length!==3)
         throw new Error('Main R3.8 Poison Vial print/class restriction mismatch');
@@ -1272,7 +1298,7 @@
     // The S0 current Item/Event export has empty `effect` arrays. Materialize only
     // explicitly stated one-target Status text and duration (not S1 effect values).
     if(c.card_id==='S0-EVT-006' || c.card_id==='S0-ITM-020'){
-      var printedStatus=String(source.card_text||'').match(/\bInflict\s+(Stun|Freeze)\s+on\s+one\s+of\s+your\s+opponent's\s+Heroes\s+for\s+(\d+)\s+turn/i);
+      var printedStatus=s0RulesParseText(source.card_text).match(/\bInflict\s+(Stun|Freeze)\s+on\s+one\s+of\s+your\s+opponent's\s+Heroes\s+for\s+(\d+)\s+turn/i);
       if(printedStatus && !c.effect.some(function(e){return e.kind==='inflict_status'&&e.status===printedStatus[1];}))
         c.effect.push({kind:'inflict_status',status:printedStatus[1],duration:Number(printedStatus[2]),source_s0_printed_row:true});
     }
@@ -1424,9 +1450,10 @@
   }
   // Bind current S0 Hero Class Ability text to established v6.91.9 handler
   // contracts. All numeric values below are parsed from S0's own current print.
+  function s0RulesParseText(value){return String(value||'').replace(/[\u2018\u2019\u02bc\uff07]/g,"'");}
   function s0ClassActionFromCurrentPrint(ab){
     if(!ab||!ab.name||!ab.text)return null;
-    var name=String(ab.name),raw=String(ab.text);
+    var name=s0RulesParseText(ab.name),raw=s0RulesParseText(ab.text);
     function num(re){var m=re.exec(raw);return m?Number(m[1]):null;}
     function damageModifier(n,type){return {amount:n,damage_type:type,condition_attack_label:type+' Attack',damage_type_is_output_only:true};}
     function statusMod(types,n){return {statuses:types,amount:n,targets:'opponent Heroes',all_infliction_sources_by_this_hero:true};}
@@ -7111,18 +7138,20 @@
       if(incoming.cannot_block && ['S0-WAR-012','S0-WAR-029','S0-THF-022'].indexOf(rc.card_id)>=0 &&
          !/\bREFLECT\s+\d+\b/i.test(String(branchEffectText(rc,defender)||'')))return;
       if(rc.card_id==='S0-THF-023' && !shadowSwitchCanReposition(state,responderSide,incoming)) return;
-      if((incoming.affected_lanes||[]).length>1 && !(isSacredBulwarkCard(rc) || isBlessingDivinityCard(rc) || isDefensiveFormationCard(rc) || isSpectralGrapplingHookCard(rc) || rk==='negate_return')) return;
-      if(isSpectralGrapplingHookCard(rc)||isChainMailCard(rc)){
-        // Printed 'to one of your Heroes': the user must satisfy the Item class
-        // row; the damaged ally does not have to belong to that class.
+      // Area Attacks open a separate Response Window for each affected Hero.
+      // A Protection Item affects the Hero in the CURRENT window only.
+      if((incoming.affected_lanes||[]).length>1 && !(isSacredBulwarkCard(rc) || isBlessingDivinityCard(rc) || isDefensiveFormationCard(rc) || isSpectralGrapplingHookCard(rc) || isChainMailCard(rc) || isRingProtectionCard(rc) || rk==='negate_return')) return;
+      if(isSpectralGrapplingHookCard(rc)||isChainMailCard(rc)||isRingProtectionCard(rc)){
+        // RC41 P7 owner ruling: the damaged Hero must be the legal Item user.
+        // Another eligible Hero elsewhere on the team cannot rescue a Mage's
+        // Response Window with Spectral Grappling Hook or Chain Mail.
+        if(!defender||!heroMatchesLineageGate(defender,itemLineageGate(rc)) ||
+           !sourceCompatibleForResponse(rc,defender)||!affordable(rc,defender))return;
         if(rk==='dodge'&&hasStatus(defender,'Freeze'))return;
-        LANE_ORDER.forEach(function(userLane){
-          var user=sideHeroes(state,responderSide)[userLane];
-          if(!heroMatchesLineageGate(user,itemLineageGate(rc))||!affordable(rc,user))return;
-          options.push({card_id:id,hand_index:idx,card:rc,source_lane:userLane,
-            source_card_id:heroIdFrom(user),protected_lane:incoming.target_lane,response_kind:rk,
-            label:cardName(rc)+' — '+cardName(card(user.card_id))+' protects '+cardName(card(defender&&defender.card_id))});
-        });
+        var defendLane=incoming.target_lane||affected[0];
+        options.push({card_id:id,hand_index:idx,card:rc,source_lane:defendLane,
+          source_card_id:heroIdFrom(defender),protected_lane:defendLane,response_kind:rk,
+          label:cardName(rc)+' — '+cardName(card(defender.card_id))+' ('+defendLane+')'});
         return;
       }
       // A Thief-line Hero can be any selected target (including Spell Blade).
@@ -16172,6 +16201,30 @@ function withUnshuffledSelfTest(fn){ return function(){ var old=STARTUP_SHUFFLE_
     },
     getSnapshot:glPvpBridgeSnapshot,
     getCommittedPublicDiscardCards:function(){return clone(committedPublicDiscardCards(appState));},
+    // PvP reader-only adapter: the server has ALREADY projected the public
+    // journal for this recipient. Never inspect the opponent's private deck,
+    // Hand or hidden chain state to build Card Played detail.
+    getPublicCardPlayedDetail:function(side,eventId,publicJournal){
+      side=side==='AI'?'AI':'PLAYER';
+      if(!Array.isArray(publicJournal)||publicJournal.length>600)return null;
+      var records=publicJournal.filter(function(e){return e&&e.id&&e.card_id&&(e.side==='AI'||e.side==='PLAYER');});
+      var evt=records.find(function(e){return e.side===side&&e.id===eventId;});
+      if(!evt)return null;
+      // The donor's canonical formatter and response-chain grouping are shared
+      // with standalone VS AI. A synthetic *public-only* state supplies the
+      // journal; this must not be a raw authority snapshot.
+      var projected={pvpHumanVsHuman:true,pvpActionEventsBySide:{
+        PLAYER:records.filter(function(e){return e.side==='PLAYER';}),
+        AI:records.filter(function(e){return e.side==='AI';})
+      }};
+      var groups=v96CombinedPlayedEvents(projected);
+      var group=groups.find(function(g){return(g.side===side&&g.event&&g.event.id===eventId)||
+        (g.chainEvents||[]).some(function(x){return x.side===side&&x.event&&x.event.id===eventId;});});
+      if(group&&group.event!==evt)group=Object.assign({},group,{side:side,event:evt,fullChainRoot:group.event,fullChainRootSide:group.side});
+      if(!group)group={side:side,event:evt,chainEvents:[]};
+      return{title:evt.card_movement_only?'Card Discarded':'Card Played — '+v204PlayedActor(side,false),
+        html:v94EventDetailHtml(group,side)};
+    },
     getCardPlayedDetail:function(side,eventId){
       side=side==='AI'?'AI':'PLAYER';
       // Use the precise clicked event, not its parent card in a Response chain.
