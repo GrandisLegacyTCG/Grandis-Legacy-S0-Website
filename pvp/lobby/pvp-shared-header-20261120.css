@@ -132,15 +132,14 @@ html.gl-pvp-mobile-desktop #pvpSetupOverlay .pvp-v260-app-links .gl-site-nav-btn
   }
 }
 
-/* Desktop header parity: preserve the site's asymmetric header gutters.
- * The logo uses the large responsive LEFT brand gutter; navigation uses the
- * compact RIGHT gutter from the VS AI / Deck Builder headers. Do not reuse the
- * left brand gutter on the right, or the PvP buttons stop roughly 120px early.
- * The breakout formula also works when the lobby content is capped at 1600px. */
+/* Desktop header parity: full-viewport header independent of the padded
+ * lobby panels. 50% is relative to the page CONTENT box (after its gutters),
+ * so subtract 50vw ONCE: do NOT subtract the gutter again.  Otherwise the
+ * entire 100vw header is shifted left and its right edge is cut off. */
 @media(min-width:901px){
   html:not(.gl-pvp-mobile-desktop):not(.gl-adaptive-stage) #pvpSetupOverlay .pvp-v260-topbar{
     position:relative!important;
-    left:calc(50% - 50vw - var(--pvp-lobby-content-gutter,var(--gl-brand-left-gutter,24px)))!important;
+    left:calc(50% - 50vw)!important;
     width:100vw!important;max-width:none!important;box-sizing:border-box!important;
     margin-left:0!important;margin-right:0!important;
     grid-template-columns:var(--gl-brand-width,174px) minmax(0,1fr) max-content!important;
@@ -153,23 +152,69 @@ html.gl-pvp-mobile-desktop #pvpSetupOverlay .pvp-v260-app-links .gl-site-nav-btn
   }
 }
 
-/* Match the VS AI lobby rank control exactly: dimensions, spacing, arrows,
- * border and label height. This is intentionally limited to the PvP lobby. */
+/* Verbatim visual contract from the VS AI lobby's .gl-lobby-rank-control
+ * in shared-ui/battlefield-ui.css.  PvP keeps its existing IDs and click
+ * handlers, but uses identical 34/84/34 tracks, 34px height and 16px SVG
+ * chevrons (never font glyphs with misaligned baselines). */
 #pvpSetupOverlay .vsai-v643-rank-control{
-  width:max-content!important;margin:18px auto 0!important;display:grid!important;
-  grid-template-columns:34px 84px 34px!important;gap:0!important;align-items:center!important;
-  border:1px solid #40424c!important;border-radius:8px!important;
-  background:#121318!important;overflow:hidden!important;
+  width:max-content!important;
+  margin:18px auto 0!important;
+  display:grid!important;
+  grid-template-columns:34px 84px 34px!important;
+  gap:0!important;
+  align-items:stretch!important;
+  border:1px solid #40424c!important;
+  border-radius:8px!important;
+  background:#121318!important;
+  overflow:hidden!important;
 }
-#pvpSetupOverlay .vsai-v643-rank-control button{
-  width:auto!important;height:34px!important;min-height:34px!important;padding:0!important;
-  border:0!important;border-radius:0!important;background:transparent!important;
-  color:#fff!important;font-size:23px!important;font-weight:400!important;
-  line-height:normal!important;box-shadow:none!important;
+#pvpSetupOverlay .vsai-v643-rank-control > button,
+#pvpSetupOverlay .vsai-v643-rank-control > strong{
+  align-self:stretch!important;
+  justify-self:stretch!important;
+  width:100%!important;
+  min-width:0!important;
+  height:34px!important;
+  margin:0!important;
+  padding:0!important;
+  border:0!important;
+  border-radius:0!important;
+  background:transparent!important;
+  color:#fff!important;
+  text-align:center!important;
 }
-#pvpSetupOverlay .vsai-v643-rank-control strong{
-  height:34px!important;display:grid!important;place-items:center!important;
-  border:0!important;border-radius:0!important;background:transparent!important;
-  color:#f0d27f!important;font-size:10px!important;font-weight:700!important;
-  line-height:normal!important;text-align:center!important;
+#pvpSetupOverlay .vsai-v643-rank-control > button{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  font-size:0!important;
+  font-weight:400!important;
+  line-height:0!important;
+  box-shadow:none!important;
+  cursor:pointer!important;
+}
+#pvpSetupOverlay .vsai-v643-rank-control > button:hover{background:#24262e!important}
+#pvpSetupOverlay .vsai-v643-rank-control > strong{
+  display:grid!important;
+  place-items:center!important;
+  color:#f0d27f!important;
+  font-size:10px!important;
+  font-weight:700!important;
+  line-height:1!important;
+}
+#pvpSetupOverlay .vsai-v643-rank-control > button::before{
+  content:"";
+  display:block;
+  flex:0 0 16px;
+  width:16px;
+  height:16px;
+  background-position:center;
+  background-repeat:no-repeat;
+  background-size:16px 16px;
+}
+#pvpSetupOverlay #pvpRankPrev::before{
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath d='m10 3-5 5 5 5' fill='none' stroke='%23fff' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+#pvpSetupOverlay #pvpRankNext::before{
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath d='m6 3 5 5-5 5' fill='none' stroke='%23fff' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 }
