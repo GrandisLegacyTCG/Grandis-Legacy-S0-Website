@@ -1060,7 +1060,9 @@ function scheduleCompletedMatchRefresh(s){
   updateCompletedMatchCountdown();
 }
 function resetPresentationState(){
-  glSwapNoticeGameRef=null;glLastCardSwapNoticeSeq=0;
+  // F20: a genuinely new local match starts the Swap-notice sequence at zero.
+  // Polling snapshots are clones, not new matches; they must NOT reset this cursor.
+  glLastCardSwapNoticeSeq=0;
   glPresentationEpoch++;
   for(const batch of [...glTrialReturnBatches])batch.cancel();
   glTrialReturnBatches.clear();animationLayer.querySelectorAll('.gl-trial-exp-flight').forEach(x=>x.remove());
@@ -3601,9 +3603,23 @@ function isReturnToHandSearch(p){
   return (zone==='deck'||zone==='discard')&&
     !['replenish_to_deck','s0_condition_precommit','s0_response_condition_precommit'].includes(String(p.resolve_to||''));
 }
-let glHandSearchPendingRef=null;
+// F24: the game bridge clones each snapshot, including `pending`. Never use
+// pending OBJECT IDENTITY to decide whether a player is still in the same
+// card-selection popup. Keep a stable per-choice key across selection changes.
+let glHandSearchSessionKey='';
+function returnToHandSearchSessionKey(s,p){
+  if(!p)return '';
+  return JSON.stringify({
+    match:glPresentationEpoch,round:s?.round||0,turn:s?.turn||'',phase:s?.phase||'',
+    zone:candidateSourceZone(p),source:p.source_card_id||'',
+    token:p.commit_token||'',resolve_to:p.resolve_to||'',
+    title:p.title||'',instruction:p.instruction||'',
+    candidates:(p.candidates||[]).map(c=>typeof c==='string'?c:
+      [c.card_id||'',c.deck_index??c.discard_index??c.hand_index??-1])
+  });
+}
 function resetReturnToHandSearchDisplay(){
-  glHandSearchPendingRef=null;
+  glHandSearchSessionKey='';
   choiceOverlay.classList.remove('gl-choice-to-hand');
   document.body.classList.remove('gl-choice-to-hand-active');
 }
@@ -3639,20 +3655,72 @@ function limitReturnToHandSearchRows(){
 }
 window.addEventListener('resize',()=>{if(choiceOverlay.classList.contains('gl-choice-to-hand')){positionReturnToHandSearch();requestAnimationFrame(limitReturnToHandSearchRows)}},{passive:true});
 window.addEventListener('orientationchange',()=>setTimeout(()=>{positionReturnToHandSearch();limitReturnToHandSearchRows()},70),{passive:true});
+// F21: the optional-Swap picker is a choice only while at least one legal
+// Hero/Legacy partner is still available. Source / partner Freeze and Stun,
+// Legacy state and 1v1 Center lock are checked without changing engine rules.
+function swapPreviewIsLegacy(h){
+  const id=heroImageId(h)||'';
+  return !!(h&&(h.legacy_mode||h.legacy||h.active_legacy_card_id||/^S0-[A-Z]{3}-L\d+/i.test(id)));
+}
+function swapPreviewIsActive(h){return !!(h&&!swapPreviewIsLegacy(h)&&Number(h.hp||0)>0);}
+function swapPreviewStatus(h){
+  const statuses=(h?.statuses||[]).filter(x=>Number(x?.duration??1)>0);
+  if(statuses.some(x=>String(getStatusName(x)).toLowerCase()==='freeze'))return 'Freeze';
+  if(statuses.some(x=>String(getStatusName(x)).toLowerCase()==='stun'))return 'Stun';
+  return '';
+}
+function liveOptionalSwapDestinations(s,p){
+  if(!s||!p||!laneOrder.includes(p.source_lane))return [];
+  const heroes=sideHeroes(s,p.source_side)||{},source=heroes[p.source_lane];
+  if(!swapPreviewIsActive(source)||swapPreviewStatus(source))return [];
+  const alive=side=>laneOrder.filter(l=>swapPreviewIsActive(sideHeroes(s,side)?.[l])).length;
+  if(alive('PLAYER')===1&&alive('AI')===1)return [];
+  const requested=Array.isArray(p.swap_options)?p.swap_options:(p.swap_lane?[p.swap_lane]:[]);
+  const neighbors=p.source_lane==='LEFT'?['CENTER']:p.source_lane==='RIGHT'?['CENTER']:['LEFT','RIGHT'];
+  // When an older pending snapshot is restored, a source-front Attack may
+  // choose only the struck facing position, never another adjacent ally.
+  const sourceFront=['S0-THF-002','S0-THF-020','S0-THF-026','S0-THF-024','S0-WAR-015','S0-WAR-025','S0-WAR-030'].includes(p.card_id);
+  return [...new Set(requested)].filter(lane=>neighbors.includes(lane)&&lane!==p.source_lane&&
+    (!sourceFront||lane===p.target_lane)&&
+    !!heroes[lane]&&(swapPreviewIsLegacy(heroes[lane])||swapPreviewIsActive(heroes[lane]))&&
+    !swapPreviewStatus(heroes[lane]));
+}
+function liveTargetSwapDestinations(s,p){
+  if(!s||!p||!laneOrder.includes(p.target_lane))return [];
+  const heroes=sideHeroes(s,p.target_side)||{},source=heroes[p.target_lane];
+  if(!swapPreviewIsActive(source)||swapPreviewStatus(source))return [];
+  const alive=side=>laneOrder.filter(l=>swapPreviewIsActive(sideHeroes(s,side)?.[l])).length;
+  if(alive('PLAYER')===1&&alive('AI')===1)return [];
+  const allowed=p.target_lane==='LEFT'?['CENTER']:p.target_lane==='RIGHT'?['CENTER']:['LEFT','RIGHT'];
+  return [...new Set(Array.isArray(p.swap_options)?p.swap_options:[])].filter(lane=>
+    allowed.includes(lane)&&lane!==p.target_lane&&!!heroes[lane]&&
+    (swapPreviewIsActive(heroes[lane])||swapPreviewIsLegacy(heroes[lane]))&&
+    !swapPreviewStatus(heroes[lane]));
+}
 function renderAllowedModal(s){
   // Defeat Legacy choices use the center stage; only source-zone searches
   // (Main Deck / Discard Pile) retain the standard card-list popup.
   const p=s.pending;
-  // A pre-F19 saved match may still contain an old forced-Swap decision.
-  // Migrate it without displaying a mandatory popup; the engine validates
-  // the selected legal lane again at commit time.
+  // F25: player-controlled Soul Blast Shot target swaps are now real choices.
+  // Never auto-select a random destination from a cloned snapshot.
   if(p?.type==='optional_target_swap'&&pendingOwner(p)==='PLAYER'){
+    // A stale cloned decision can lose its last legal lane. Close via a
+    // single optional SKIP; with even ONE legal lane the player chooses Swap or SKIP.
+    const targetDestinations=liveTargetSwapDestinations(s,p);
+    if(!targetDestinations.length){
+      choiceOverlay.classList.remove('open','gl-choice-swap');modalRenderKey='';
+      intent('performOptionalTargetSwapDecision',[null]);
+      return;
+    }
+  }
+  if(p?.type==='optional_swap'&&pendingOwner(p)==='PLAYER'&&!liveOptionalSwapDestinations(s,p).length){
+    // All destinations are blocked (Freeze/Stun/1v1/etc.). Do not show any
+    // picker: finish the optional post-Attack decision as SKIP once.
     choiceOverlay.classList.remove('open','gl-choice-swap');modalRenderKey='';
-    const choices=Array.isArray(p.swap_options)?p.swap_options:[];
-    intent('performOptionalTargetSwapDecision',[choices.length?choices[Math.floor(Math.random()*choices.length)]:null]);
+    intent('performOptionalSwapDecision',[false]);
     return;
   }
-  const allowed=['card_search_choice','legacy_card_choice','crystal_ball_reorder','optional_swap'];
+  const allowed=['card_search_choice','legacy_card_choice','crystal_ball_reorder','optional_swap','optional_target_swap'];
   if(!p||!allowed.includes(p.type)||pendingOwner(p)!=='PLAYER'||isDirectHandCardSearch(p)||isHandDiscardPending(p)){
     resetReturnToHandSearchDisplay();
     if(!p&&inspectState){renderInspectModal();return}
@@ -3669,16 +3737,19 @@ function renderAllowedModal(s){
     if(p)inspectState=null;
     choiceOverlay.classList.remove('open','gl-choice-main-deck-preview','gl-choice-swap');activeModalType='';modalRenderKey='';return;
   }
-  const candidateZone=candidateSourceZone(p),modalSig=JSON.stringify({type:p.type,choice_id:p.choice_id||'',title:p.title||'',candidates:(p.candidates||[]).map(x=>typeof x==='string'?x:(x.card_id||x.id||x.hand_index||'')),exp_choices:(p.exp_choices||[]).map(x=>[x.card_id,x.exp_index]),selected_exp_choice:p.selected_exp_choice??null,selected_index:selectedChoiceIndex(p),selected_indices:p.selected_indices||[],selected_order:p.selected_order||[],required_count:p.required_count||p.required_choices||p.max_count||p.quota||0,multi_select:!!p.multi_select,committing:!!p.committing,confirm_text:p.confirm_text||'',candidate_zone:candidateZone,resolve_to:p.resolve_to||'',swap_lane:p.source_lane||p.target_lane||'',swap_options:p.swap_options||[],swap_card:p.card_id||''});
+  const candidateZone=candidateSourceZone(p),swapHeroSig=['optional_swap','optional_target_swap'].includes(p.type)?
+    laneOrder.map(l=>{const h=sideHeroes(s,p.type==='optional_target_swap'?p.target_side:p.source_side)?.[l];return[l,heroImageId(h)||'',Number(h?.hp||0),!!swapPreviewIsLegacy(h),swapPreviewStatus(h)];}):null,
+    modalSig=JSON.stringify({type:p.type,choice_id:p.choice_id||'',title:p.title||'',candidates:(p.candidates||[]).map(x=>typeof x==='string'?x:(x.card_id||x.id||x.hand_index||'')),exp_choices:(p.exp_choices||[]).map(x=>[x.card_id,x.exp_index]),selected_exp_choice:p.selected_exp_choice??null,selected_index:selectedChoiceIndex(p),selected_indices:p.selected_indices||[],selected_order:p.selected_order||[],required_count:p.required_count||p.required_choices||p.max_count||p.quota||0,multi_select:!!p.multi_select,committing:!!p.committing,confirm_text:p.confirm_text||'',candidate_zone:candidateZone,resolve_to:p.resolve_to||'',swap_lane:p.source_lane||p.target_lane||'',swap_options:p.swap_options||[],swap_card:p.card_id||'',swap_hero_state:swapHeroSig});
   activeModalType=p.type;choiceOverlay.classList.add('open');
-  const handSearch=isReturnToHandSearch(p),swapChoice=p.type==='optional_swap';
-  // F18: selection mutates the SAME pending choice, but the grid is rebuilt
-  // when selected_index changes. Save scroll BEFORE removing the old grid;
-  // never reuse it across a different pending search (even the same card ID).
+  const handSearch=isReturnToHandSearch(p),swapChoice=['optional_swap','optional_target_swap'].includes(p.type);
+  // F24: `st()` reads a CLONED engine snapshot every render. `pending===oldPending`
+  // was always false after a Select, so the old F18 code restored scrollTop=0.
+  // The selection state is deliberately absent from this stable session key.
+  const searchSessionKey=handSearch?returnToHandSearchSessionKey(s,p):'';
   const searchGridBefore=choiceOverlay.querySelector('.gl-choice-body .card-search-choice-grid');
-  const scrollBefore=handSearch&&glHandSearchPendingRef===p&&searchGridBefore?
+  const scrollBefore=handSearch&&glHandSearchSessionKey===searchSessionKey&&searchGridBefore?
     Math.max(0,searchGridBefore.scrollTop):0;
-  glHandSearchPendingRef=handSearch?p:null;
+  glHandSearchSessionKey=searchSessionKey;
   choiceOverlay.classList.toggle('gl-choice-swap',swapChoice);
   choiceOverlay.classList.toggle('gl-choice-to-hand',handSearch);
   document.body.classList.toggle('gl-choice-to-hand-active',handSearch);
@@ -3699,39 +3770,81 @@ function renderAllowedModal(s){
     cancel.hidden=!cancellableCondition;
     cancel.onclick=cancellableCondition?()=>intent('cancelPendingAction',[]):null;
   }
-  // F19: only optional card-effect Swaps open the three-button popup. SKIP
-  // is always active. Keep targets in LEFT→CENTER→RIGHT Battlefield order.
-  // When there is only a neighboring CENTER option, display the Hero's own
-  // edge lane as disabled, as requested; never hide another *legal* destination.
+  // F21/F25: use the same 3-column Hero/Legacy preview for both the
+  // OPTIONAL allied Swap and OPTIONAL Soul Blast Shot opponent Swap.
+  // Warp Scroll still chooses its target before playing and is unchanged.
   if(swapChoice){
     choiceOverlay.classList.remove('gl-choice-main-deck-preview');
-    const from=p.source_lane;
-    const available=new Set((p.swap_options&&p.swap_options.length)?p.swap_options:(p.swap_lane?[p.swap_lane]:[]));
+    const isTargetSwap=p.type==='optional_target_swap';
+    const from=isTargetSwap?p.target_lane:p.source_lane;
+    const heroes=sideHeroes(s,isTargetSwap?p.target_side:p.source_side)||{};
+    const available=new Set(isTargetSwap?liveTargetSwapDestinations(s,p):liveOptionalSwapDestinations(s,p));
+    // Preserve the three-button Battlefield order agreed for F19. The middle
+    // column is always the acting Hero with SKIP below it. A self-lane target
+    // is DISABLED with a real Legacy Deck card back (never a blank tile).
+    // Frozen/Stunned partners remain visible but dimmed and disabled.
     let destinations=laneOrder.filter(l=>l!==from);
     if(from==='LEFT'&&available.size===1&&available.has('CENTER'))destinations=['LEFT','CENTER'];
     if(from==='RIGHT'&&available.size===1&&available.has('CENTER'))destinations=['CENTER','RIGHT'];
     if(from==='RIGHT'&&available.size===1&&available.has('LEFT'))destinations=['LEFT','RIGHT'];
     if(from==='LEFT'&&available.size===1&&available.has('RIGHT'))destinations=['LEFT','RIGHT'];
-    title.textContent='Swap — Choose Position';
+    title.textContent=isTargetSwap?'Soul Blast Shot — Choose Opponent Swap':'Swap — Choose Position';
     body.replaceChildren();body.classList.remove('gl-choice-body-main-deck');
     const desc=document.createElement('p');desc.className='choice-instruction';
     const cardLabel=cv(p.card_id)?.name||'This card';
-    desc.textContent=cardLabel+' allows a Swap of the acting Hero with one eligible allied Hero or Legacy.';
+    desc.textContent=isTargetSwap?cardLabel+': choose an adjacent opponent Hero or Legacy to Swap with the struck Hero, or SKIP.':cardLabel+': choose a legal Hero or Legacy to Swap with, or SKIP.';
     const row=document.createElement('div');row.className='gl-swap-choice-actions';
     function swapButton(lane){
       const b=document.createElement('button');b.type='button';b.className='gl-swap-choice-button';
       b.textContent='SWAP TO '+lane;b.disabled=!available.has(lane);
       b.title=b.disabled?'This position is not a legal Swap destination.':'Swap with the Hero or Legacy in '+lane;
       b.setAttribute('aria-label',b.textContent);
-      if(!b.disabled)b.onclick=()=>intent('performOptionalSwapDecision',[lane]);
+      if(!b.disabled)b.onclick=()=>intent(isTargetSwap?'performOptionalTargetSwapDecision':'performOptionalSwapDecision',[lane]);
       return b;
     }
-    row.appendChild(swapButton(destinations[0]||'LEFT'));
-    const skip=document.createElement('button');skip.type='button';skip.className='gl-swap-choice-button gl-swap-choice-skip';
-    skip.textContent='SKIP';skip.disabled=false;skip.title='Do not Swap';
-    skip.onclick=()=>intent('performOptionalSwapDecision',[false]);
-    row.appendChild(skip);
-    row.appendChild(swapButton(destinations[1]||'RIGHT'));
+    function swapColumn(lane,isSkip){
+      const box=document.createElement('div');box.className='gl-swap-choice-slot';
+      const actualLane=isSkip?from:lane,hero=heroes[actualLane];
+      const selfSlot=!isSkip&&lane===from,enabled=isSkip||available.has(lane);
+      if(!enabled)box.classList.add('is-disabled');
+      if(selfSlot)box.classList.add('is-self-position');
+      if(isSkip)box.classList.add('is-source');
+      const role=document.createElement('div');role.className='gl-swap-choice-role';
+      role.textContent=isSkip?(isTargetSwap?'HIT OPPONENT · ':'YOUR HERO · ')+from:lane;
+      const frame=document.createElement('div');frame.className='gl-swap-choice-frame';
+      const id=!selfSlot?heroImageId(hero):null;
+      if(selfSlot){
+        // F26: The current lane is not a selectable destination. Show the
+        // actual Legacy Deck back rather than an empty/placeholder tile.
+        const back=document.createElement('img');
+        back.src='assets/ui/back-legacy.webp';
+        back.alt='Legacy Deck card back — current '+lane+' position cannot be selected';
+        back.loading='eager';frame.appendChild(back);
+        frame.classList.add('is-legacy-back');
+      }else if(id){
+        const im=document.createElement('img');im.src=art(id);
+        im.alt=(cv(id)?.name||id)+(swapPreviewIsLegacy(hero)?' Legacy':' Hero')+' at '+actualLane;
+        im.loading='eager';frame.appendChild(im);
+      }else{
+        frame.classList.add('is-empty');const empty=document.createElement('span');empty.textContent='—';
+        empty.setAttribute('aria-label','No Swap target');frame.appendChild(empty);
+      }
+      const name=document.createElement('div');name.className='gl-swap-choice-name';
+      const status=!isSkip&&!enabled&&hero?swapPreviewStatus(hero):'';
+      name.textContent=selfSlot?'Current position':(status?status+' · ':'')+(id?(cv(id)?.name||id):(isSkip?'Your Hero':'Unavailable'));
+      let button;
+      if(isSkip){
+        button=document.createElement('button');button.type='button';
+        button.className='gl-swap-choice-button gl-swap-choice-skip';
+        button.textContent='SKIP';button.disabled=false;
+        button.title='Do not Swap';
+        button.onclick=()=>intent(isTargetSwap?'performOptionalTargetSwapDecision':'performOptionalSwapDecision',[isTargetSwap?null:false]);
+      }else button=swapButton(lane);
+      box.append(role,frame,name,button);return box;
+    }
+    row.appendChild(swapColumn(destinations[0]||'LEFT',false));
+    row.appendChild(swapColumn(from,true));
+    row.appendChild(swapColumn(destinations[1]||'RIGHT',false));
     body.append(desc,row);
     cancel.hidden=true;cancel.onclick=null;
     confirm.hidden=true;confirm.disabled=true;
@@ -3789,9 +3902,10 @@ function renderAllowedModal(s){
     limitReturnToHandSearchRows();
     // The candidate grid is the only scroll owner (F16). Restore its exact
     // prior position after layout, without auto-scrolling to the selected tile.
+    // Guard with the stable choice key so a new choice never inherits scroll.
     grid.scrollTop=scrollBefore;
     requestAnimationFrame(()=>{
-      if(glHandSearchPendingRef===p&&grid.isConnected&&choiceOverlay.classList.contains('gl-choice-to-hand'))
+      if(glHandSearchSessionKey===searchSessionKey&&grid.isConnected&&choiceOverlay.classList.contains('gl-choice-to-hand'))
         grid.scrollTop=scrollBefore;
     });
   }
@@ -3870,12 +3984,14 @@ function showGameResult(s){
   resultOverlay.classList.add('open');
 }
 let glStatusPhaseSeen='',glFreezeWindowSeen='';
-let glSwapNoticeGameRef=null,glLastCardSwapNoticeSeq=0;
+let glLastCardSwapNoticeSeq=0;
 function renderSwapCancellationNotice(s){
   // F19: this UI is the local PLAYER's perspective. Never show a notice to
   // the attacking player when Soul Blast Shot moves the *opponent's* Hero.
   if(!s)return;
-  if(glSwapNoticeGameRef!==s){glSwapNoticeGameRef=s;glLastCardSwapNoticeSeq=0;}
+  // F20: getSnapshot() returns a new object every 120ms. Re-rendering that
+  // cloned object must never replay a previously displayed engine event.
+  // Only resetPresentationState() (new match) resets this stable sequence cursor.
   const events=Array.isArray(s.cardSwapNotices)?s.cardSwapNotices:[];
   for(const notice of events){
     const seq=Number(notice.sequence||0);

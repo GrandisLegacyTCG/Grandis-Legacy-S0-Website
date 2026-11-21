@@ -1,3 +1,17 @@
+# GRANDIS LEGACY - SEASON 0 WEBSITE (22 NOVEMBER 2026)
+
+**Current website release:** Homepage v2.3.17 (unchanged); **Player Rulebook v3.5** (20 Nov); **VS AI RC42** (22 Nov); **Deck Builder v1.68** (22 Nov); **Main Deck R3.94**, Legacy Deck R3.9; **250 shared artworks**. VS AI Import Deck button uses the approved PvP gold gradient style (appearance only; PvP source not included).
+
+**Repository:** `GrandisLegacyTCG/Grandis-Legacy-S0-Website` (`main`). Selective merge based on the most recently available Website non-PvP snapshot and verified against GitHub state at `a702b62241388d95891e31fea90d5b2c7dcef393` (21 Nov). **No `/pvp/` folder is present in this ZIP.** The website assistant does not commit or push to GitHub; owner uploads manually.
+
+**Deployment:** For an existing Website, prefer the accompanying PATCH when the baseline matches. For a full non-PvP snapshot, extract this ZIP directly into repository root, not into a nested directory. A merge upload does **not** delete existing `/pvp/` on GitHub. PvP is owned by its separate development chat. Preserve `CNAME`, `.nojekyll`, current shared header, shared navigation, shared logo and Google Analytics.
+
+**Validation:** JS/JSON syntax, shared assets, Rulebook v3.5 HTML/search/PDF, Deck Builder v1.68 source QA, image checks and import-button CSS were checked. Synthetic Chromium renders succeeded for Homepage, Rulebook and both Deck Builder styles. Full VS AI RC42 game/browser regression and production GitHub Pages are **not** verified here; test after deployment. The RC42 source includes its own release QA evidence, but this report does not claim those tests were rerun as deployed E2E.
+
+---
+
+## Previous integration notes (historical)
+
 # GRANDIS LEGACY - SEASON 0 WEBSITE (NO PVP FOLDER)
 
 **Website integration:** 19 November 2026.  **Scope:** Homepage, Rulebook, VS AI RC41, Deck Builder v1.67, Main/Legacy Deck R3.9, and shared website assets. This artifact deliberately contains **no `pvp/` directory**.

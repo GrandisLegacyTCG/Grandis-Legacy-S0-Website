@@ -37,11 +37,11 @@
 }
 #pvpSetupOverlay .vsai-v643-rank-control {
   width:max-content;margin:17px auto 0;
-  display:grid;grid-template-columns:31px 74px 31px;align-items:center;
-  border:1px solid #40424c;border-radius:7px;background:#121318;overflow:hidden;
+  display:grid;grid-template-columns:34px 84px 34px;align-items:center;
+  border:1px solid #40424c;border-radius:8px;background:#121318;overflow:hidden;
 }
 #pvpSetupOverlay .vsai-v643-rank-control button {
-  height:31px;padding:0;border:0;border-radius:0;background:transparent;
+  height:34px;padding:0;border:0;border-radius:0;background:transparent;
   color:#fff;font-size:22px;font-weight:400;line-height:normal;cursor:pointer;box-shadow:none;
 }
 #pvpSetupOverlay .vsai-v643-rank-control button:hover {background:#24262e;}

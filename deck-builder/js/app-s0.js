@@ -26,6 +26,11 @@ Object.defineProperty(state,'filters',{
 const $=id=>document.getElementById(id);
 const esc=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 const clone=value=>JSON.parse(JSON.stringify(value));
+// Render each card's actual miniature before the browser gets a full-size URL.
+// Full-res artwork is loaded asynchronously by the shared image manager only
+// when a card is near the viewport. Never create an empty/text-only art tile.
+function cardPreviewSrc(card){return window.GL_S0_CARD_THUMBNAILS?.[card?.id]||card?.image||''}
+
 function emptySlot(){return {progressionId:'',legacyId:''}}
 function countDeck(deck=state.deck){return Object.values(deck).reduce((sum,qty)=>sum+Number(qty||0),0)}
 function copyLimit(card){return card?.ultimate?.isUltimate||card?.maxCopies===1?1:Number(card?.maxCopies||3)}
@@ -310,7 +315,7 @@ function renderHeroLibrary(){
     const classIssue=!selected&&blankIndex>=0?baseClassLimitIssue(nextSlots):'';
     const baseBlocked=Boolean(classIssue);
     return `<article class="hero-package ${selected?'selected':baseBlocked?'base-class-blocked':''}" data-hero-package-id="${progression.id}">
-      <div class="hero-rank-cards" draggable="true" data-hero-library-drag="${progression.id}" aria-label="Drag ${esc(progression.name)} to a formation slot">${cards.map(card=>`<span class="hero-rank-card"><img src="${card.image}" alt="${esc(card.name)}"></span>`).join('')}</div>
+      <div class="hero-rank-cards" draggable="true" data-hero-library-drag="${progression.id}" aria-label="Drag ${esc(progression.name)} to a formation slot">${cards.map(card=>`<span class="hero-rank-card"><img loading="lazy" decoding="async" src="${cardPreviewSrc(card)}" data-gl-original-src="${card.image}" alt="${esc(card.name)}"></span>`).join('')}</div>
       <div class="hero-package-info"><span class="info-label">HERO NAME</span><h3>${esc(progression.name)}</h3><dl><div><dt>RACIAL</dt><dd>${esc(progression.race)}</dd></div><div><dt>LINEAGES</dt><dd>${progressionLineageRows(progression).map(esc).join('<br>')}</dd></div></dl>
       <button class="hero-select ${selected?'remove':''}" type="button" data-hero-action="${progression.id}" ${!selected&&(full||baseBlocked)?'disabled':''}>${selected?'REMOVE HERO':'SELECT HERO'}</button>${baseBlocked?`<small class="hero-base-class-limit">${esc(classIssue)} Replace an existing Hero to choose this progression.</small>`:''}</div>
     </article>`;
@@ -327,7 +332,7 @@ function renderLegacyLibrary(){
   $('cardLibrary').innerHTML=cards.map(card=>{
     const draggable=legacyDraggable(card),used=state.slots.some(slot=>slot.legacyId===card.id),unavailable=!draggable&&!used;
     return `<article class="library-card ${draggable?'available':''} ${unavailable?'unavailable':''}" data-legacy-library-id="${card.id}" aria-label="${esc(card.name)}${draggable?' — drag to a matching slot or double-click when only one matching Base Class is selected':''}" ${draggable?`draggable="true" data-drag-type="legacy" data-card-id="${card.id}"`:''}>
-      <span class="card-frame"><img src="${card.image}" alt="${esc(card.name)}">${used?'<span class="owned-badge">×1</span>':''}${unavailable?'<span class="lock-dot">●</span>':''}<button class="library-review-button" type="button" draggable="false" data-open-review-id="${card.id}" aria-label="Review ${esc(card.name)}"><img src="assets/ui/expand.png" alt=""></button></span><span class="library-card-name">${esc(card.name)}</span>
+      <span class="card-frame"><img loading="lazy" decoding="async" src="${cardPreviewSrc(card)}" data-gl-original-src="${card.image}" alt="${esc(card.name)}">${used?'<span class="owned-badge">×1</span>':''}${unavailable?'<span class="lock-dot">●</span>':''}<button class="library-review-button" type="button" draggable="false" data-open-review-id="${card.id}" aria-label="Review ${esc(card.name)}"><img src="assets/ui/expand.png" alt=""></button></span><span class="library-card-name">${esc(card.name)}</span>
     </article>`;
   }).join('');
   bindLibraryDragSources($('cardLibrary'));bindLibraryReviewButtons($('cardLibrary'));
@@ -346,7 +351,7 @@ function renderMainLibrary(){
   $('cardLibrary').innerHTML=cards.map(card=>{
     const compatible=cardCompatible(card),available=hasHeroes&&compatible,qty=state.deck[card.id]||0;
     return `<article class="library-card ${available?'available':'unavailable'}" data-main-library-id="${card.id}" ${available?`draggable="true" data-drag-type="main-add" data-card-id="${card.id}"`:''} aria-label="${esc(card.name)}${available?' — left click or drag to add, right click to remove':' — unavailable'}">
-      <span class="card-frame"><img src="${card.image}" alt="${esc(card.name)}">${qty?`<span class="owned-badge">×${qty}</span>`:''}${!available?'<span class="lock-dot">●</span>':''}<button class="library-review-button" type="button" draggable="false" data-open-review-id="${card.id}" aria-label="Review ${esc(card.name)}"><img src="assets/ui/expand.png" alt=""></button></span><span class="library-card-name">${esc(card.name)}</span>
+      <span class="card-frame"><img loading="lazy" decoding="async" src="${cardPreviewSrc(card)}" data-gl-original-src="${card.image}" alt="${esc(card.name)}">${qty?`<span class="owned-badge">×${qty}</span>`:''}${!available?'<span class="lock-dot">●</span>':''}<button class="library-review-button" type="button" draggable="false" data-open-review-id="${card.id}" aria-label="Review ${esc(card.name)}"><img src="assets/ui/expand.png" alt=""></button></span><span class="library-card-name">${esc(card.name)}</span>
     </article>`;
   }).join('');
   bindMainLibraryClicks();bindLibraryReviewButtons($('cardLibrary'));
@@ -466,7 +471,7 @@ function renderLegacyDeck(){
   state.slots.forEach((slot,index)=>{
     const progression=state.progressionById.get(slot.progressionId),card=progression?cardById(progression.cardIds[state.rankView-1]):null;
     if(index>0)chunks.push(`<button class="position-swap" type="button" data-swap-left="${index-1}" data-swap-right="${index}" ${state.slots[index-1].progressionId&&slot.progressionId?'':'disabled'} title="Swap Position" aria-label="Swap ${POSITIONS[index-1]} and ${POSITIONS[index]}">${positionSwapIcon()}</button>`);
-    chunks.push(card?`<article class="formation-slot" data-hero-drop-slot="${index}"><div class="deck-card-visual"><button class="formation-card-button" type="button" draggable="true" data-hero-slot-drag="${progression.id}" data-hero-slot-index="${index}"><img src="${card.image}" alt="${esc(card.name)}"></button><button class="deck-review-button" type="button" data-review-id="${card.id}" aria-label="Review ${esc(card.name)}"><img src="assets/ui/expand.png" alt=""></button></div><div class="formation-position">${POSITIONS[index]}</div></article>`:`<article class="formation-slot empty" data-hero-drop-slot="${index}"><div class="formation-card-placeholder">Drag or select Hero</div><div class="formation-position">${POSITIONS[index]}</div></article>`);
+    chunks.push(card?`<article class="formation-slot" data-hero-drop-slot="${index}"><div class="deck-card-visual"><button class="formation-card-button" type="button" draggable="true" data-hero-slot-drag="${progression.id}" data-hero-slot-index="${index}"><img loading="lazy" decoding="async" src="${cardPreviewSrc(card)}" data-gl-original-src="${card.image}" alt="${esc(card.name)}"></button><button class="deck-review-button" type="button" data-review-id="${card.id}" aria-label="Review ${esc(card.name)}"><img src="assets/ui/expand.png" alt=""></button></div><div class="formation-position">${POSITIONS[index]}</div></article>`:`<article class="formation-slot empty" data-hero-drop-slot="${index}"><div class="formation-card-placeholder">Drag or select Hero</div><div class="formation-position">${POSITIONS[index]}</div></article>`);
   });
   $('formationGrid').innerHTML=chunks.join('');
   document.querySelectorAll('[data-swap-left]').forEach(button=>button.addEventListener('click',()=>swapSlots(Number(button.dataset.swapLeft),Number(button.dataset.swapRight))));
@@ -476,14 +481,14 @@ function renderLegacyDeck(){
     if(!progression)return `<article class="legacy-slot empty" data-legacy-drop-slot="${index}"><div class="legacy-empty-card">Select a Hero first</div><div class="legacy-position-label">${POSITIONS[index]}</div></article>`;
     const choices=state.legacyCards.filter(candidate=>candidate.family==='LegacyModeDefinition'&&candidate.classGroup===progression.baseClass).sort(idSort);
     const options=[`<option value="" disabled ${card?'':'selected'}>Choose Legacy</option>`,...choices.map(candidate=>{const usedElsewhere=state.slots.some((other,otherIndex)=>otherIndex!==index&&other.legacyId===candidate.id);return `<option value="${candidate.id}" ${candidate.id===slot.legacyId?'selected':''} ${usedElsewhere?'disabled':''}>${esc(candidate.name)}</option>`})].join('');
-    const visual=card?`<div class="deck-card-visual"><div class="legacy-card-button"><img src="${card.image}" alt="${esc(card.name)}"></div><button class="deck-review-button" type="button" data-review-id="${card.id}" aria-label="Review ${esc(card.name)}"><img src="assets/ui/expand.png" alt=""></button></div>`:`<div class="legacy-card-placeholder">Click to choose or drag a ${esc(progression.baseClass)} Legacy</div>`;
+    const visual=card?`<div class="deck-card-visual"><div class="legacy-card-button"><img loading="lazy" decoding="async" src="${cardPreviewSrc(card)}" data-gl-original-src="${card.image}" alt="${esc(card.name)}"></div><button class="deck-review-button" type="button" data-review-id="${card.id}" aria-label="Review ${esc(card.name)}"><img src="assets/ui/expand.png" alt=""></button></div>`:`<div class="legacy-card-placeholder">Click to choose or drag a ${esc(progression.baseClass)} Legacy</div>`;
     return `<article class="legacy-slot ${card?'':'empty-choice'}" data-legacy-drop-slot="${index}">${visual}<label class="legacy-select-wrap"><select class="legacy-slot-select" data-legacy-select-slot="${index}" aria-label="Choose ${esc(progression.baseClass)} Legacy">${options}</select></label><div class="legacy-position-label">${POSITIONS[index]}</div></article>`;
   }).join('');
   document.querySelectorAll('[data-legacy-select-slot]').forEach(select=>select.addEventListener('change',()=>{const id=select.value;if(id)assignLegacyToSlot(id,Number(select.dataset.legacySelectSlot))}));
   bindCardReviewAndHover($('legacySlotsGrid'));bindLegacyDropZones();
 }
 
-function mainDeckViewCardHtml(card,quantity){return `<article class="legacy-reference-card-tile" title="${esc(card.name)}"><img src="${card.image}" alt="${esc(card.name)}"><span class="quantity-badge main-deck-view-quantity">×${quantity}</span><button class="review-button" type="button" data-review-id="${esc(card.id)}" aria-label="Preview ${esc(card.name)}"><img src="assets/ui/expand.png" alt=""></button></article>`}
+function mainDeckViewCardHtml(card,quantity){return `<article class="legacy-reference-card-tile" title="${esc(card.name)}"><img loading="lazy" decoding="async" src="${cardPreviewSrc(card)}" data-gl-original-src="${card.image}" alt="${esc(card.name)}"><span class="quantity-badge main-deck-view-quantity">×${quantity}</span><button class="review-button" type="button" data-review-id="${esc(card.id)}" aria-label="Preview ${esc(card.name)}"><img src="assets/ui/expand.png" alt=""></button></article>`}
 function renderMainDeckView(){
   const grid=$('mainDeckViewGrid');if(!grid)return;
   const entries=Object.entries(state.deck).filter(([,qty])=>Number(qty)>0).map(([id,quantity])=>({card:state.byId.get(id),quantity:Number(quantity)})).filter(x=>x.card).sort(mainDeckSort);
@@ -508,7 +513,7 @@ function renderMainDeck(){
   window.GL_S0_VALIDATION_TIP?.setBadge(status,report);
   if(report.ok)status.title='Season 0 - Mana Deck: '+s0Draft().shard_deck.map(x=>x.quantity+' x '+(x.kind==='MANA'?'Regular Mana Shard':(({Archer:'Green',Cleric:'White',Mage:'Blue',Thief:'Yellow',Warrior:'Red'})[x.class_name]||x.class_name)+' Mana Shard')).join(', ');
   const rowHtml=({card,quantity})=>{const ultimate=Boolean(card.ultimate?.isUltimate),meta=ultimate?`<span class="main-ultimate-label">Ultimate Skill Card</span>${compactManaCost(card)?` • ${esc(compactManaCost(card))}`:''}`:`${esc(card.classification)}${card.cost&&card.cost!=='No Mana cost'?` • ${esc(card.cost)}`:''}`;return `<article class="main-deck-row ${ultimate?'ultimate-card-row':''}" draggable="true" data-main-deck-id="${card.id}" data-drag-type="deck-remove" data-review-id="${card.id}" data-hover-card-id="${card.id}">
-    <img src="${card.image}" alt="${esc(card.name)}">
+    <img loading="lazy" decoding="async" src="${cardPreviewSrc(card)}" data-gl-original-src="${card.image}" alt="${esc(card.name)}">
     <div class="main-card-info"><strong>${esc(card.name)}</strong><small>${meta}</small></div>
     <button class="qty-control" type="button" data-remove-main="${card.id}" aria-label="Remove one ${esc(card.name)}">−</button><span class="main-qty">${quantity}</span><button class="qty-control" type="button" data-add-main="${card.id}" ${quantity>=copyLimit(card)||countDeck()>=60?'disabled':''} aria-label="Add one ${esc(card.name)}">+</button>
   </article>`};
@@ -526,15 +531,27 @@ function renderMainDeck(){
 }
 function renderAll(){renderDeckPanels();renderLibrary()}
 
+function refreshMainLibraryBadge(id){
+  const root=$('cardLibrary');
+  if(!root||!TAB_FAMILY[state.libraryTab])return;
+  const tile=Array.from(root.querySelectorAll('[data-main-library-id]')).find(node=>node.dataset.mainLibraryId===id);
+  if(!tile)return;
+  const frame=tile.querySelector('.card-frame');if(!frame)return;
+  const quantity=Number(state.deck[id]||0);
+  let badge=frame.querySelector('.owned-badge');
+  if(!quantity){badge?.remove();return}
+  if(!badge){badge=document.createElement('span');badge.className='owned-badge';frame.insertBefore(badge,frame.querySelector('.library-review-button'))}
+  badge.textContent='×'+quantity;
+}
 function addMainCard(id){
   const card=state.byId.get(id);if(!card||!hasSelectedHeroes()||!cardCompatible(card))return;
   const quantity=state.deck[id]||0;if(quantity>=copyLimit(card)||countDeck()>=60)return;
-  state.deck[id]=quantity+1;renderMainDeck();renderLibrary();updateExportButton();
+  state.deck[id]=quantity+1;renderMainDeck();refreshMainLibraryBadge(id);updateExportButton();
 }
 function removeMainCard(id){
   const quantity=state.deck[id]||0;if(!quantity)return;
   if(quantity===1)delete state.deck[id];else state.deck[id]=quantity-1;
-  renderMainDeck();renderLibrary();updateExportButton();
+  renderMainDeck();refreshMainLibraryBadge(id);updateExportButton();
 }
 
 function bindLibraryDragSources(root){
@@ -806,7 +823,7 @@ function openCardReview(cardId){
   if(card.family==='Hero'){heroReviewHtml(card);window.GL_S0_REVIEW_CLARITY?.enhanceHero(card,$('reviewRows'));}else {standardReviewHtml(card);window.GL_S0_REVIEW_CLARITY?.enhance(card,$('reviewRows'));}
   const progression=state.progressionByHeroId.get(card.id),progressionBox=$('reviewProgression');
   if(progression){
-    progressionBox.hidden=false;$('reviewProgressionCards').innerHTML=progression.cardIds.map(id=>{const hero=cardById(id);return `<button class="review-progression-card ${id===card.id?'active':''}" type="button" data-review-rank-id="${id}"><img src="${hero.image}" alt="${esc(hero.name)}"></button>`}).join('');
+    progressionBox.hidden=false;$('reviewProgressionCards').innerHTML=progression.cardIds.map(id=>{const hero=cardById(id);return `<button class="review-progression-card ${id===card.id?'active':''}" type="button" data-review-rank-id="${id}"><img loading="lazy" decoding="async" src="${cardPreviewSrc(hero)}" data-gl-original-src="${hero.image}" alt="${esc(hero.name)}"></button>`}).join('');
     document.querySelectorAll('[data-review-rank-id]').forEach(button=>button.addEventListener('click',()=>openCardReview(button.dataset.reviewRankId)));
   }else{progressionBox.hidden=true;$('reviewProgressionCards').innerHTML=''}
   if(!dialog.open)dialog.showModal();
@@ -992,7 +1009,7 @@ function s0Validation(){
 function s0Export(style){
  const deck=s0Draft(),validation=s0Validation(),name=$('deckName').value.trim()||'New Deck';
  return {schema:'GL-SEASON0-DECK-DRAFT-1',schema_version:'GL-SEASON0-DECK-DRAFT-1',
-  source_authority:'R3.9-MainDeck_R3.9-LegacyDeck-PlayerRulebook-v3.4',rulebook:'v3.4',season:'S0',builder_version:'1.67',style,
+  source_authority:'R3.94-MainDeck_R3.9-LegacyDeck-PlayerRulebook-v3.4',rulebook:'v3.4',season:'S0',builder_version:'1.68',style,
   exported_at:new Date().toISOString(),name,deck_name:name,
   deck,validation,is_valid:validation.ok,validation_issues:validation.errors,validation_warnings:validation.warnings,
   main_deck:deck.main_deck,shard_deck:deck.shard_deck,

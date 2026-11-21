@@ -230,10 +230,8 @@ html.gl-adaptive-stage.gl-pvp-mobile-gameplay .gl-pending-attack-direction-layer
   width:1600px!important;height:747px!important;
   max-width:1600px!important;max-height:747px!important;
 }
-/* The already-loaded card back remains visible until the local hand face
-   finishes decoding; this never accesses the opponent's concealed Hand. */
+/* Revealed own-Hand faces must never be covered by the old preload mask.
+ * Hidden opponent cards and unrevealed Draw slots are unaffected. */
 .hand.bottom .hand-card.gl-hand-art-awaiting::before,
-.hand.bottom .hand-card.gl-hand-art-unavailable::before{
-  content:"";position:absolute;inset:0;z-index:2;pointer-events:none;
-  border-radius:5px;background:#07121f url("/assets/ui/back-main.webp") center/100% 100% no-repeat;
-}
+.hand.bottom .hand-card.gl-hand-art-unavailable::before{content:none!important;}
+

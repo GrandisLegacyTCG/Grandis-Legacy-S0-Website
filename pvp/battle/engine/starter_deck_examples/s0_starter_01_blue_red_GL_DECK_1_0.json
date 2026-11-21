@@ -2,202 +2,171 @@
   "schema_version": "GL-DECK-1.0",
   "season": "S0",
   "deck_name": "Blue-Red Deck",
-  "format": "Grandis Legacy Season 0 / Rulebook v3.4 / exactly 50-card Main Deck",
+  "format": "Grandis Legacy Season 0 / Rulebook v3.5 / exactly 50-card Main Deck",
   "main_deck_count": 50,
   "main_deck": [
     {
       "card_id": "S0-EVT-002",
-      "card_name": "Market Bargain",
-      "quantity": 2
-    },
-    {
-      "card_id": "S0-EVT-003",
-      "card_name": "Scouting",
       "quantity": 1
     },
     {
       "card_id": "S0-EVT-004",
-      "card_name": "Relentless Leveling",
       "quantity": 1
     },
     {
       "card_id": "S0-EVT-009",
-      "card_name": "Tactical Adaptation",
       "quantity": 1
     },
     {
       "card_id": "S0-ITM-008",
-      "card_name": "Phoenix Feather",
       "quantity": 1
     },
     {
       "card_id": "S0-ITM-018",
-      "card_name": "Magic Compass",
       "quantity": 1
     },
     {
       "card_id": "S0-ITM-017",
-      "card_name": "Flashpowder Bomb",
       "quantity": 1
     },
     {
       "card_id": "S0-ITM-002",
-      "card_name": "Greater Health Potion",
       "quantity": 1
     },
     {
       "card_id": "S0-ITM-020",
-      "card_name": "Freeze Bomb",
       "quantity": 1
     },
     {
       "card_id": "S0-MAG-005",
-      "card_name": "Mirror Image",
       "quantity": 2
     },
     {
       "card_id": "S0-MAG-006",
-      "card_name": "Meditation",
       "quantity": 1
     },
     {
       "card_id": "S0-MAG-008",
-      "card_name": "Tornado",
       "quantity": 1
     },
     {
       "card_id": "S0-MAG-007",
-      "card_name": "Frostbite",
       "quantity": 2
     },
     {
       "card_id": "S0-MAG-015",
-      "card_name": "Permafrost",
       "quantity": 1
     },
     {
       "card_id": "S0-MAG-016",
-      "card_name": "Nova Strike",
       "quantity": 2
     },
     {
       "card_id": "S0-MAG-017",
-      "card_name": "Frostfire Nova",
       "quantity": 2
     },
     {
       "card_id": "S0-MAG-018",
-      "card_name": "Double Casting",
       "quantity": 1
     },
     {
       "card_id": "S0-MAG-026",
-      "card_name": "Arcane Disruption",
-      "quantity": 1
-    },
-    {
-      "card_id": "S0-MAG-027",
-      "card_name": "Runeforged Burst",
       "quantity": 2
     },
     {
-      "card_id": "S0-MAG-028",
-      "card_name": "Provoke",
+      "card_id": "S0-MAG-027",
       "quantity": 1
     },
     {
-      "card_id": "S0-MAG-030",
-      "card_name": "Invincible Stance",
+      "card_id": "S0-MAG-028",
       "quantity": 1
     },
     {
       "card_id": "S0-MAG-031",
-      "card_name": "Absolute Defense",
-      "quantity": 1
-    },
-    {
-      "card_id": "S0-WAR-005",
-      "card_name": "Taunt",
       "quantity": 1
     },
     {
       "card_id": "S0-WAR-009",
-      "card_name": "Rage Swing",
       "quantity": 2
     },
     {
       "card_id": "S0-WAR-010",
-      "card_name": "Rage Blast",
       "quantity": 1
     },
     {
       "card_id": "S0-WAR-012",
-      "card_name": "Deflect",
       "quantity": 2
     },
     {
       "card_id": "S0-WAR-014",
-      "card_name": "Final Grit",
       "quantity": 1
     },
     {
       "card_id": "S0-WAR-015",
-      "card_name": "Charge Attack",
       "quantity": 1
     },
     {
       "card_id": "S0-WAR-017",
-      "card_name": "Fiery Thrust",
       "quantity": 1
     },
     {
       "card_id": "S0-WAR-018",
-      "card_name": "Execute",
       "quantity": 1
     },
     {
       "card_id": "S0-WAR-026",
-      "card_name": "Skull Crush",
       "quantity": 2
     },
     {
       "card_id": "S0-WAR-031",
-      "card_name": "Shield Blast",
-      "quantity": 2
+      "quantity": 1
     },
     {
       "card_id": "S0-WAR-029",
-      "card_name": "Runic Guard",
       "quantity": 2
     },
     {
       "card_id": "S0-WAR-030",
-      "card_name": "Shield Charge",
-      "quantity": 1
-    },
-    {
-      "card_id": "S0-MAG-002",
-      "card_name": "Ice Lance",
-      "quantity": 1
-    },
-    {
-      "card_id": "S0-MAG-004",
-      "card_name": "Mana Shield",
       "quantity": 1
     },
     {
       "card_id": "S0-WAR-016",
-      "card_name": "Whirlwind",
-      "quantity": 1
-    },
-    {
-      "card_id": "S0-WAR-006",
-      "card_name": "Savage Blow",
       "quantity": 1
     },
     {
       "card_id": "S0-WAR-027",
-      "card_name": "Colossal Bash",
+      "quantity": 1
+    },
+    {
+      "card_id": "S0-MAG-002",
+      "quantity": 1
+    },
+    {
+      "card_id": "S0-MAG-010",
+      "quantity": 1
+    },
+    {
+      "card_id": "S0-MAG-030",
+      "quantity": 1
+    },
+    {
+      "card_id": "S0-MAG-029",
+      "quantity": 1
+    },
+    {
+      "card_id": "S0-EVT-012",
+      "quantity": 1
+    },
+    {
+      "card_id": "S0-WAR-007",
+      "quantity": 1
+    },
+    {
+      "card_id": "S0-WAR-004",
+      "quantity": 1
+    },
+    {
+      "card_id": "S0-EVT-001",
       "quantity": 1
     }
   ],
@@ -329,14 +298,17 @@
   "is_valid": true,
   "validation_issues": [],
   "validation_warnings": [],
-  "source_database_version": "R3.9",
+  "source_database_version": "R3.94",
   "source_file": "engine/starter_deck_examples/s0_starter_01_blue_red_GL_DECK_1_0.json",
-  "source_authority": "Designer export 2026-11-18T11:06:08.640Z; print authority Main/Legacy R3.9; Player Rulebook v3.4",
-  "source_export_sha256": "17f2315926f715384172f084f6f29cbb80f05c0bed2eee5e7867ce8bca3b1131",
-  "source_approval_basis": "Owner supplied updated starter decks on 2026-11-18",
+  "source_authority": "Owner-supplied Starter Deck.rar; byte-identical to Deck Builder v1.68 (2026-11-22). Composition only; game rules: Rulebook v3.5; card print: Main Deck R3.94.",
+  "source_export_sha256": "21640bd249ed65020066cc9de6aa351d0245b43aeedc8644627b007297951fbd",
+  "source_approval_basis": "Owner-supplied approved five Starter Decks, cross-verified byte-identical",
   "active_starter_id": "s0_starter_01_blue_red",
   "active_starter_slot": 1,
   "generated_only": true,
-  "source_deck_builder": "1.66",
-  "source_exported_at": "2026-11-18T11:06:08.640Z"
+  "source_deck_builder": "v1.68",
+  "source_exported_at": "2026-11-21T11:10:48.457Z",
+  "runtime_compatible_main_deck": "R3.94",
+  "active_starter_authority": "Owner-supplied approved Starter Deck.rar",
+  "active_builder_reference": "Grandis Legacy Deck Builder v1.68 (2026-11-22)"
 }

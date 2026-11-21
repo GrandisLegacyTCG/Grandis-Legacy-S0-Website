@@ -2740,24 +2740,24 @@
     "cards_missing_local_art": 0
   },
   "ui": {
-    "main_deck_card_back": "assets/ui/back-main.webp",
-    "legacy_deck_card_back": "assets/ui/back-legacy.webp",
-    "mana_shard": "assets/ui/back-shard.webp"
+    "main_deck_card_back": "/assets/ui/back-main.webp",
+    "legacy_deck_card_back": "/assets/ui/back-legacy.webp",
+    "mana_shard": "/assets/ui/back-shard.webp"
   },
   "artwork_source": "MainDeck R3.8 / LegacyDeck R3.7",
   "backs": {
     "legacy": {
-      "file": "assets/ui/back-legacy.webp",
+      "file": "/assets/ui/back-legacy.webp",
       "sha256": "1e1d7bda105c566426a75b8cd6d8e5c33025ff88486ca33ca7289ec47010ab86",
       "osa_source_path": "Authority/Game/Season0-Visual/CardBacks/Current/back-legacy.webp"
     },
     "main": {
-      "file": "assets/ui/back-main.webp",
+      "file": "/assets/ui/back-main.webp",
       "sha256": "09b116c862d7e4214ceee0e9df478bca825be673cc38a8f763d0217c36f97d9f",
       "osa_source_path": "Authority/Game/Season0-Visual/CardBacks/Current/back-main.webp"
     },
     "mana": {
-      "file": "assets/ui/back-shard.webp",
+      "file": "/assets/ui/back-shard.webp",
       "sha256": "817b05bd2642020bebd0b7365fa44e46fffc05ad2e0616dc3cec53f1bc8efbe3",
       "osa_source_path": "Authority/Game/Season0-Visual/CardBacks/Current/back-mana.webp"
     }

@@ -2,177 +2,143 @@
   "schema_version": "GL-DECK-1.0",
   "season": "S0",
   "deck_name": "White-Green Deck",
-  "format": "Grandis Legacy Season 0 / Rulebook v3.2 / exactly 50-card Main Deck",
+  "format": "Grandis Legacy Season 0 / Rulebook v3.5 / exactly 50-card Main Deck",
   "main_deck_count": 50,
   "main_deck": [
     {
       "card_id": "S0-ARC-026",
-      "card_name": "Zol",
-      "quantity": 2
+      "quantity": 3
     },
     {
       "card_id": "S0-CLE-026",
-      "card_name": "Lun",
-      "quantity": 3
+      "quantity": 2
     },
     {
       "card_id": "S0-CLE-027",
-      "card_name": "Vae",
-      "quantity": 3
+      "quantity": 2
     },
     {
       "card_id": "S0-CLE-031",
-      "card_name": "Grand Finale",
-      "quantity": 1
-    },
-    {
-      "card_id": "S0-CLE-030",
-      "card_name": "Blooming Harmony",
       "quantity": 1
     },
     {
       "card_id": "S0-ARC-030",
-      "card_name": "Crimson Crescendo",
       "quantity": 2
     },
     {
-      "card_id": "S0-ARC-029",
-      "card_name": "Swift Movement",
-      "quantity": 1
-    },
-    {
       "card_id": "S0-ARC-031",
-      "card_name": "Resonance Burst",
       "quantity": 2
     },
     {
       "card_id": "S0-ARC-003",
-      "card_name": "Escape Arrow",
       "quantity": 2
     },
     {
       "card_id": "S0-ARC-005",
-      "card_name": "Reload",
       "quantity": 2
     },
     {
       "card_id": "S0-ARC-010",
-      "card_name": "Arrow Barrage",
       "quantity": 2
     },
     {
       "card_id": "S0-ARC-012",
-      "card_name": "Deflect Arrow",
       "quantity": 2
     },
     {
       "card_id": "S0-ARC-014",
-      "card_name": "Replenish",
       "quantity": 2
     },
     {
       "card_id": "S0-ARC-018",
-      "card_name": "Soul Charged Shot",
       "quantity": 1
     },
     {
       "card_id": "S0-CLE-002",
-      "card_name": "Brilliant Radiance",
       "quantity": 2
     },
     {
       "card_id": "S0-CLE-007",
-      "card_name": "Holy Ring",
       "quantity": 2
     },
     {
       "card_id": "S0-CLE-010",
-      "card_name": "Holy Barrier",
       "quantity": 1
     },
     {
       "card_id": "S0-CLE-011",
-      "card_name": "Flash Heal",
-      "quantity": 1
+      "quantity": 2
     },
     {
       "card_id": "S0-CLE-018",
-      "card_name": "Wings of Valor",
       "quantity": 1
     },
     {
       "card_id": "S0-EVT-002",
-      "card_name": "Market Bargain",
-      "quantity": 1
-    },
-    {
-      "card_id": "S0-EVT-003",
-      "card_name": "Scouting",
       "quantity": 1
     },
     {
       "card_id": "S0-EVT-007",
-      "card_name": "Intercept",
       "quantity": 1
     },
     {
       "card_id": "S0-EVT-009",
-      "card_name": "Tactical Adaptation",
       "quantity": 1
     },
     {
       "card_id": "S0-ITM-008",
-      "card_name": "Phoenix Feather",
       "quantity": 1
     },
     {
       "card_id": "S0-ITM-018",
-      "card_name": "Magic Compass",
       "quantity": 1
     },
     {
       "card_id": "S0-ITM-017",
-      "card_name": "Flashpowder Bomb",
       "quantity": 1
     },
     {
       "card_id": "S0-ITM-002",
-      "card_name": "Greater Health Potion",
       "quantity": 2
     },
     {
       "card_id": "S0-EVT-008",
-      "card_name": "Forged Alliance",
       "quantity": 1
     },
     {
       "card_id": "S0-CLE-029",
-      "card_name": "Tune Up",
-      "quantity": 1
-    },
-    {
-      "card_id": "S0-ARC-027",
-      "card_name": "Sleeping Dart",
       "quantity": 2
     },
     {
+      "card_id": "S0-ARC-027",
+      "quantity": 1
+    },
+    {
       "card_id": "S0-CLE-008",
-      "card_name": "Holy Fire",
       "quantity": 1
     },
     {
       "card_id": "S0-ARC-008",
-      "card_name": "Aim Shot",
       "quantity": 1
     },
     {
-      "card_id": "S0-CLE-006",
-      "card_name": "Sacred Bolt",
+      "card_id": "S0-CLE-013",
       "quantity": 1
     },
     {
-      "card_id": "S0-ARC-028",
-      "card_name": "Midnight Lullaby",
+      "card_id": "S0-EVT-004",
+      "quantity": 1
+    },
+    {
+      "card_id": "S0-ARC-029",
+      "quantity": 1
+    },
+    {
+      "card_id": "S0-ARC-015",
+      "quantity": 1
+    },
+    {
+      "card_id": "S0-CLE-015",
       "quantity": 1
     }
   ],
@@ -198,25 +164,16 @@
   "legacy_deck_label": "Legacy Deck",
   "legacy_deck_package_slots": [
     {
-      "slot": "LEFT",
       "progression": "S0-CLE-H001",
-      "legacy": "S0-CLE-L001",
-      "package_id": "S0-STARTER-05-PACKAGE-1",
-      "package_name": "Elara Heavens + Sun God Church"
+      "legacy": "S0-CLE-L001"
     },
     {
-      "slot": "CENTER",
       "progression": "S0-CLE-H007",
-      "legacy": "S0-CLE-L002",
-      "package_id": "S0-STARTER-05-PACKAGE-2",
-      "package_name": "Melody Silverstring + Wand of First Light"
+      "legacy": "S0-CLE-L002"
     },
     {
-      "slot": "RIGHT",
       "progression": "S0-ARC-H001",
-      "legacy": "S0-ARC-L001",
-      "package_id": "S0-STARTER-05-PACKAGE-3",
-      "package_name": "Fenrir Ironfang + Golden Arrows"
+      "legacy": "S0-ARC-L001"
     }
   ],
   "legacy_deck_expanded": [
@@ -313,14 +270,17 @@
   "is_valid": true,
   "validation_issues": [],
   "validation_warnings": [],
-  "source_database_version": "R3.6",
+  "source_database_version": "R3.94",
   "source_file": "engine/starter_deck_examples/s0_starter_05_white_green_GL_DECK_1_0.json",
-  "source_authority": "Designer Deck Builder v1.64 export (2026-11-11); artwork R3.6; game rules Player Rulebook v3.2",
-  "source_export_sha256": "41ff98f860c7882036becba17048f31911d1d49760e1e57b882f918848be728c",
-  "source_approval_basis": "Designer supplied 2026-11-11",
+  "source_authority": "Owner-supplied Starter Deck.rar; byte-identical to Deck Builder v1.68 (2026-11-22). Composition only; game rules: Rulebook v3.5; card print: Main Deck R3.94.",
+  "source_export_sha256": "aceafac2710143e63acf0312a6d646c3b5a25fce5343e88c26bd719fea5ed9c8",
+  "source_approval_basis": "Owner-supplied approved five Starter Decks, cross-verified byte-identical",
   "active_starter_id": "s0_starter_05_white_green",
   "active_starter_slot": 5,
   "generated_only": true,
-  "source_deck_builder": "v1.64",
-  "source_exported_at": "2026-11-11T10:41:10.667Z"
+  "source_deck_builder": "v1.68",
+  "source_exported_at": "2026-11-21T18:34:54.265Z",
+  "runtime_compatible_main_deck": "R3.94",
+  "active_starter_authority": "Owner-supplied approved Starter Deck.rar",
+  "active_builder_reference": "Grandis Legacy Deck Builder v1.68 (2026-11-22)"
 }

@@ -25,6 +25,11 @@ const state={
 const $=id=>document.getElementById(id);
 const esc=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 const clone=value=>JSON.parse(JSON.stringify(value));
+// Render each card's actual miniature before the browser gets a full-size URL.
+// Full-res artwork is loaded asynchronously by the shared image manager only
+// when a card is near the viewport. Never create an empty/text-only art tile.
+function cardPreviewSrc(card){return window.GL_S0_CARD_THUMBNAILS?.[card?.id]||card?.image||''}
+
 function emptySlot(){return {progressionId:'',legacyId:''}}
 function idSort(a,b){return String(a?.id||'').localeCompare(String(b?.id||''),undefined,{numeric:true})}
 const MAIN_DECK_FAMILY_ORDER={Skill:0,Event:1,Item:2};
@@ -133,7 +138,9 @@ function setTab(tab){
   state.tab=tab;
   document.querySelectorAll('.tab-button').forEach(button=>button.classList.toggle('active',button.dataset.tab===tab));
   $('legacyView').hidden=tab!=='legacy';$('mainView').hidden=tab!=='main';
-  if(tab==='legacy')renderLegacy();else renderMain();
+  // The Main Deck is already rendered by blankDeck/applyDeck and all deck mutations.
+  // Rebuilding ~189 cards on *every* tab click created a visible navigation freeze.
+  if(tab==='legacy')renderLegacy();else if(!state.mainRendered)renderMain();
 }
 function cycleRank(delta){state.rankView=Math.max(1,Math.min(3,state.rankView+delta));renderLegacy()}
 function swapSlots(a,b){[state.slots[a],state.slots[b]]=[state.slots[b],state.slots[a]];renderLegacy();renderMain();toast(`${POSITIONS[a]} and ${POSITIONS[b]} swapped`)}
@@ -144,7 +151,7 @@ function reviewButton(cardId){return `<button class="review-button" type="button
 function heroStageHtml(slot,index){
   const progression=state.progressionById.get(slot.progressionId),card=progression?state.legacyById.get(progression.cardIds[state.rankView-1]):null;
   if(!card)return `<button class="card-stage empty" type="button" data-choose-hero="${index}"><span>CLICK TO SELECT<br><b>${POSITIONS[index]} HERO</b></span></button>`;
-  return `<div class="card-stage"><img src="${card.image}" alt="${esc(card.name)}"><div class="card-actions"><button class="icon-action" type="button" data-choose-hero="${index}" title="Change Hero Progression" aria-label="Change Hero Progression">${swapIcon()}</button>${reviewButton(card.id)}</div></div>`;
+  return `<div class="card-stage"><img loading="lazy" decoding="async" src="${cardPreviewSrc(card)}" data-gl-original-src="${card.image}" alt="${esc(card.name)}"><div class="card-actions"><button class="icon-action" type="button" data-choose-hero="${index}" title="Change Hero Progression" aria-label="Change Hero Progression">${swapIcon()}</button>${reviewButton(card.id)}</div></div>`;
 }
 function renderLegacy(){
   const grid=[];
@@ -156,7 +163,7 @@ function renderLegacy(){
   $('legacySlotsGrid').innerHTML=state.slots.map((slot,index)=>{
     const card=state.legacyById.get(slot.legacyId),options=compatibleLegacies(slot.progressionId,index).concat(card&&!compatibleLegacies(slot.progressionId,index).some(item=>item.id===card.id)?[card]:[]).sort(idSort);
     const selectOptions=slot.progressionId?options.map(item=>`<option value="${item.id}" ${item.id===slot.legacyId?'selected':''}>${esc(item.name)}</option>`).join(''):'<option value="">Choose a Hero first</option>';
-    return `<article class="legacy-slot"><div class="legacy-card-stage">${card?`<img src="${card.image}" alt="${esc(card.name)}">${reviewButton(card.id)}`:`<div class="legacy-placeholder">Legacy appears automatically after choosing a Hero.</div>`}</div><select class="legacy-select" data-legacy-slot="${index}" ${slot.progressionId?'':'disabled'}>${selectOptions}</select></article>`;
+    return `<article class="legacy-slot"><div class="legacy-card-stage">${card?`<img loading="lazy" decoding="async" src="${cardPreviewSrc(card)}" data-gl-original-src="${card.image}" alt="${esc(card.name)}">${reviewButton(card.id)}`:`<div class="legacy-placeholder">Legacy appears automatically after choosing a Hero.</div>`}</div><select class="legacy-select" data-legacy-slot="${index}" ${slot.progressionId?'':'disabled'}>${selectOptions}</select></article>`;
   }).join('');
   document.querySelectorAll('[data-choose-hero]').forEach(button=>button.addEventListener('click',()=>openHeroPicker(Number(button.dataset.chooseHero))));
   document.querySelectorAll('[data-swap-left]').forEach(button=>button.addEventListener('click',()=>swapSlots(Number(button.dataset.swapLeft),Number(button.dataset.swapLeft)+1)));
@@ -181,7 +188,7 @@ function renderHeroPicker(){
     const cards=progression.cardIds.map(id=>state.legacyById.get(id)).filter(Boolean);
     const classes=(progression.classLineage||[]).join(' → ')||progression.lineage||progression.baseClass||'';
     const explanation=classBlocked?classIssue:alreadyUsed?'Hero is already in another slot':'';
-    return `<button class="hero-choice ${alreadyUsed?'used':classBlocked?'base-class-blocked':''}" type="button" data-progression-choice="${progression.id}" aria-label="${esc(progression.name)}${classBlocked?' - '+explanation:''}" title="${explanation}" ${disabled?'disabled':''}><div class="hero-choice-cards">${cards.map(card=>`<img src="${card.image}" alt="${esc(card.name)}">`).join('')}</div><div class="hero-choice-info"><strong>${esc(progression.name)}</strong><span>${esc(classes)}</span>${classBlocked?`<em class="hero-choice-limit">${esc(classIssue)}</em>`:''}</div></button>`;
+    return `<button class="hero-choice ${alreadyUsed?'used':classBlocked?'base-class-blocked':''}" type="button" data-progression-choice="${progression.id}" aria-label="${esc(progression.name)}${classBlocked?' - '+explanation:''}" title="${explanation}" ${disabled?'disabled':''}><div class="hero-choice-cards">${cards.map(card=>`<img loading="lazy" decoding="async" src="${cardPreviewSrc(card)}" data-gl-original-src="${card.image}" alt="${esc(card.name)}">`).join('')}</div><div class="hero-choice-info"><strong>${esc(progression.name)}</strong><span>${esc(classes)}</span>${classBlocked?`<em class="hero-choice-limit">${esc(classIssue)}</em>`:''}</div></button>`;
   }).join('');
   const notice=$('heroPickerLimitNotice');
   notice.textContent=blockedReasons.size?`${[...blockedReasons].join(' ')} Replace one of the selected Heroes to choose a blocked progression.`:'';
@@ -266,7 +273,7 @@ function filteredCards(){
 function mobileMainCardTileHtml(card,quantity,zone){
   const compatible=cardCompatible(card),limit=copyLimit(card),id=esc(card.id),name=esc(card.name);
   const selected=zone==='deck',canAdd=compatible&&quantity<limit&&countDeck()<MAIN_DECK_WORKSPACE_LIMIT;
-  return `<article class="s2-mobile-card-tile${compatible?'':' s2-mobile-incompatible'}" ${selected?'data-deck-card':'data-library-card'}="${id}" tabindex="0" role="button" aria-label="Review ${name}" title="${name}"><img src="${card.image}" alt="${name}"><div class="s2-mobile-quantity-bar"><button type="button" class="s2-mobile-qty-step" data-mobile-remove="${id}" ${quantity>0?'':'disabled'} aria-label="Remove one ${name}">−</button><span class="s2-mobile-qty-value" aria-label="${quantity} copies">×${quantity}</span><button type="button" class="s2-mobile-qty-step" data-mobile-add="${id}" ${canAdd?'':'disabled'} aria-label="Add one ${name}">+</button></div></article>`;
+  return `<article class="s2-mobile-card-tile${compatible?'':' s2-mobile-incompatible'}" ${selected?'data-deck-card':'data-library-card'}="${id}" tabindex="0" role="button" aria-label="Review ${name}" title="${name}"><img loading="lazy" decoding="async" src="${cardPreviewSrc(card)}" data-gl-original-src="${card.image}" alt="${name}"><div class="s2-mobile-quantity-bar"><button type="button" class="s2-mobile-qty-step" data-mobile-remove="${id}" ${quantity>0?'':'disabled'} aria-label="Remove one ${name}">−</button><span class="s2-mobile-qty-value" aria-label="${quantity} copies">×${quantity}</span><button type="button" class="s2-mobile-qty-step" data-mobile-add="${id}" ${canAdd?'':'disabled'} aria-label="Add one ${name}">+</button></div></article>`;
 }
 function bindMobileCardTiles(root){
   root.querySelectorAll('.s2-mobile-card-tile').forEach(tile=>{
@@ -278,7 +285,7 @@ function bindMobileCardTiles(root){
   root.querySelectorAll('[data-mobile-remove]').forEach(button=>button.addEventListener('click',event=>{event.stopPropagation();removeMainCard(button.dataset.mobileRemove)}));
   root.querySelectorAll('[data-mobile-add]').forEach(button=>button.addEventListener('click',event=>{event.stopPropagation();addMainCard(button.dataset.mobileAdd)}));
 }
-function libraryCardHtml(card){const compatible=cardCompatible(card),quantity=Number(state.deck[card.id]||0),canDrag=compatible&&!isMobileMainDeck()&&quantity<copyLimit(card)&&countDeck()<MAIN_DECK_WORKSPACE_LIMIT;return `<article class="library-card ${compatible?'':'incompatible'}" data-library-card="${card.id}" data-hover-card-id="${card.id}" data-hover-side="right" draggable="${canDrag?'true':'false'}" title="${esc(card.name)}${compatible?'':' — Not compatible'}"><img src="${card.image}" alt="${esc(card.name)}">${quantity>0?`<span class="quantity-badge library-quantity-badge">×${quantity}</span>`:''}${reviewButton(card.id)}</article>`}
+function libraryCardHtml(card){const compatible=cardCompatible(card),quantity=Number(state.deck[card.id]||0),canDrag=compatible&&!isMobileMainDeck()&&quantity<copyLimit(card)&&countDeck()<MAIN_DECK_WORKSPACE_LIMIT;return `<article class="library-card ${compatible?'':'incompatible'}" data-library-card="${card.id}" data-hover-card-id="${card.id}" data-hover-side="right" draggable="${canDrag?'true':'false'}" title="${esc(card.name)}${compatible?'':' — Not compatible'}"><img loading="lazy" decoding="async" src="${cardPreviewSrc(card)}" data-gl-original-src="${card.image}" alt="${esc(card.name)}">${quantity>0?`<span class="quantity-badge library-quantity-badge">×${quantity}</span>`:''}${reviewButton(card.id)}</article>`}
 function renderLibrary(){
   const root=$('cardLibrary'),scrollTop=root.scrollTop,cards=filteredCards(),mobile=isMobileMainDeck();$('resultCount').textContent=cards.length;
   root.classList.toggle('s2-mobile-card-grid',mobile);
@@ -293,12 +300,36 @@ function renderLibrary(){
   });
   bindReviewButtons(root);bindHoverPreviews(root);
 }
+// Incremental quantity refresh: keep the already decoded full gallery DOM alive.
+function refreshLibraryAfterQuantityEdit(changedId,wasAtLimit){
+  const root=$('cardLibrary');
+  if(!root||state.tab!=='main')return;
+  const atLimit=countDeck()>=MAIN_DECK_WORKSPACE_LIMIT;
+  const tiles=wasAtLimit!==atLimit?root.querySelectorAll('[data-library-card]'):
+    Array.from(root.querySelectorAll('[data-library-card]')).filter(node=>node.dataset.libraryCard===changedId);
+  const mobile=isMobileMainDeck();
+  for(const tile of tiles){
+    const card=state.byId.get(tile.dataset.libraryCard);if(!card)continue;
+    const quantity=Number(state.deck[card.id]||0),compatible=cardCompatible(card),limit=copyLimit(card);
+    if(mobile){
+      const value=tile.querySelector('.s2-mobile-qty-value'),plus=tile.querySelector('[data-mobile-add]'),minus=tile.querySelector('[data-mobile-remove]');
+      if(value){value.textContent='×'+quantity;value.setAttribute('aria-label',quantity+' copies')}
+      if(plus)plus.disabled=!compatible||quantity>=limit||atLimit;
+      if(minus)minus.disabled=quantity===0;
+    }else{
+      let badge=tile.querySelector('.library-quantity-badge');
+      if(quantity){if(!badge){badge=document.createElement('span');badge.className='quantity-badge library-quantity-badge';tile.insertBefore(badge,tile.querySelector('.review-button'))}badge.textContent='×'+quantity}
+      else badge?.remove();
+      tile.draggable=compatible&&!atLimit&&quantity<limit;
+    }
+  }
+}
 function addMainCard(id){
   const card=state.byId.get(id);if(!card)return;if(!cardCompatible(card)){toast('This card is not compatible with the selected Heroes');return}
   const current=Number(state.deck[id]||0),limit=copyLimit(card);if(countDeck()>=MAIN_DECK_WORKSPACE_LIMIT){toast(`Main Deck workspace already contains ${MAIN_DECK_WORKSPACE_LIMIT} cards`);return}if(current>=limit){toast(`Maximum ${limit} cop${limit===1?'y':'ies'} reached`);return}
-  state.deck[id]=current+1;renderLibrary();renderMainDeck();updateTabs();
+  const wasAtLimit=countDeck()>=MAIN_DECK_WORKSPACE_LIMIT;state.deck[id]=current+1;refreshLibraryAfterQuantityEdit(id,wasAtLimit);renderMainDeck();updateTabs();
 }
-function removeMainCard(id){const current=Number(state.deck[id]||0);if(current<=0)return;if(current===1)delete state.deck[id];else state.deck[id]=current-1;renderLibrary();renderMainDeck();updateTabs()}
+function removeMainCard(id){const current=Number(state.deck[id]||0);if(current<=0)return;const wasAtLimit=countDeck()>=MAIN_DECK_WORKSPACE_LIMIT;if(current===1)delete state.deck[id];else state.deck[id]=current-1;refreshLibraryAfterQuantityEdit(id,wasAtLimit);renderMainDeck();updateTabs()}
 function locateCardInLibrary(id){
   const root=$('cardLibrary');
   const findTile=()=>Array.from(root.querySelectorAll('[data-library-card]')).find(tile=>tile.dataset.libraryCard===id);
@@ -342,7 +373,7 @@ function renderMainDeck(){hideHover();
     root.innerHTML=entries.map(({card,quantity})=>mobileMainCardTileHtml(card,quantity,'deck')).join('');
     bindMobileCardTiles(root);
   }else{
-    root.innerHTML=entries.map(({card,quantity})=>`<article class="deck-card" data-deck-card="${card.id}" data-hover-card-id="${card.id}" data-hover-side="left" draggable="true" title="${esc(card.name)}"><img src="${card.image}" alt="${esc(card.name)}"><div class="deck-qty-bar"><button type="button" class="deck-qty-step" data-deck-remove="${card.id}" aria-label="Remove one ${esc(card.name)}">−</button><span class="deck-qty-value" aria-label="${quantity} copies">×${quantity}</span><button type="button" class="deck-qty-step" data-deck-add="${card.id}" ${quantity>=copyLimit(card)||countDeck()>=MAIN_DECK_WORKSPACE_LIMIT?'disabled':''} aria-label="Add one ${esc(card.name)}">+</button></div></article>`).join('');
+    root.innerHTML=entries.map(({card,quantity})=>`<article class="deck-card" data-deck-card="${card.id}" data-hover-card-id="${card.id}" data-hover-side="left" draggable="true" title="${esc(card.name)}"><img loading="lazy" decoding="async" src="${cardPreviewSrc(card)}" data-gl-original-src="${card.image}" alt="${esc(card.name)}"><div class="deck-qty-bar"><button type="button" class="deck-qty-step" data-deck-remove="${card.id}" aria-label="Remove one ${esc(card.name)}">−</button><span class="deck-qty-value" aria-label="${quantity} copies">×${quantity}</span><button type="button" class="deck-qty-step" data-deck-add="${card.id}" ${quantity>=copyLimit(card)||countDeck()>=MAIN_DECK_WORKSPACE_LIMIT?'disabled':''} aria-label="Add one ${esc(card.name)}">+</button></div></article>`).join('');
     root.querySelectorAll('[data-deck-card]').forEach(tile=>{const id=tile.dataset.deckCard;tile.addEventListener('click',event=>{if(event.target.closest('.deck-qty-step'))return;openCardReview(id)});tile.addEventListener('contextmenu',event=>event.preventDefault());tile.addEventListener('dragstart',event=>{if(event.target.closest('.deck-qty-step')){event.preventDefault();return}hideHover();event.dataTransfer.setData('text/grandis-remove-card-id',id);event.dataTransfer.effectAllowed='move';tile.classList.add('dragging')});tile.addEventListener('dragend',()=>{tile.classList.remove('dragging');document.querySelector('.library-panel')?.classList.remove('drag-remove-ready')})});
   }
   root.querySelectorAll('[data-deck-add]').forEach(button=>button.addEventListener('click',event=>{event.stopPropagation();addMainCard(button.dataset.deckAdd)}));
@@ -359,7 +390,7 @@ function renderMainDeck(){hideHover();
   $('emptyDeck').hidden=entries.length>0;
   s0Persist();
 }
-function renderMain(){updateFilterStates();renderLibrary();renderMainDeck();updateTabs()}
+function renderMain(){updateFilterStates();renderLibrary();renderMainDeck();updateTabs();state.mainRendered=true}
 
 function reviewEyebrow(card){if(card.family==='Hero')return 'HERO NAME';if(card.family==='Skill')return 'SKILL NAME';if(card.family==='Event')return 'EVENT NAME';if(card.family==='Item')return 'ITEM NAME';if(card.family==='LegacyModeDefinition')return 'LEGACY NAME';return 'CARD NAME'}
 function reviewType(card){return card.family==='LegacyModeDefinition'?'Legacy Card':card.family==='Skill'?card.classification:card.family}
@@ -488,7 +519,7 @@ function standardReviewHtml(card){
 const rows=card.rows?.length?card.rows:[{label:'Effect',text:card.text}];if(card.family==='Skill'){const isUltimate=Boolean(card.ultimate?.isUltimate),effectRows=rows.map((row,index)=>{const parsed=rowClassRank(row.label),metric=effectMetric(card,row),rankText=isUltimate&&/Rank\s+III/i.test(parsed.rank)&&index===rows.length-1?`Ultimate ${parsed.rank}`:parsed.rank,effectText=skillEffectText(row,metric,card),rankClass=isUltimate&&/^Ultimate\s+Rank\s+III$/i.test(rankText)?' class="ultimate-rank"':'';if(metric)return `<div class="review-effect-row has-metric"><div class="review-effect-class"><span>CLASS</span><strong>${esc(parsed.className||card.classGroup||'—')}</strong></div><div class="review-effect-rank"><span>RANK</span><strong${rankClass}>${esc(rankText)}</strong></div><div class="review-effect-metric"><span>${esc(metric.label)}</span><strong>${esc(metric.value)}</strong>${metric.damageType?`<small class="review-metric-type">${esc(metric.damageType)}</small>`:''}</div>${effectText?`<div class="review-effect-info"><span>SKILL EFFECT</span><p>${esc(effectText)}</p></div>`:''}</div>`;return `<div class="review-effect-row no-metric"><div class="review-effect-class"><span>CLASS</span><strong>${esc(parsed.className||card.classGroup||'—')}</strong></div><div class="review-effect-rank"><span>RANK</span><strong${rankClass}>${esc(rankText)}</strong></div><div class="review-effect-info full-span"><span>SKILL EFFECT</span><p>${esc(effectText)}</p></div></div>`}).join(''),rules=isUltimate&&card.ultimate?.owner?`<div class="review-ultimate-rules"><span>ULTIMATE RULES</span><p>${esc(/\bcan use this card\b/i.test(String(card.ultimate.owner))?card.ultimate.owner:`Only ${card.ultimate.owner} can use this card or Tribute it for EXP.`)}</p></div>`:'';$('reviewRows').innerHTML=effectRows+rules}else if(card.family==='Item'){const effect=rows.map(row=>row.effect_text||row.text||row.damage_text||'').filter(Boolean).join(' ');$('reviewRows').innerHTML=`<div class="review-effect-row item-effect-row no-metric"><div><span>CLASS</span><strong>${esc(itemClassText(card))}</strong></div><div><span>RANK</span><strong>All Ranks</strong></div><div class="review-effect-info full-span"><span>ITEM EFFECT</span><p>${esc(effect||'—')}</p></div></div>`}else if(card.family==='Event'){const effect=rows.map(row=>row.effect_text||row.text||row.damage_text||'').filter(Boolean).join(' ');$('reviewRows').innerHTML=`<div class="review-generic-row review-large-effect"><span>EVENT EFFECT</span><p>${esc(effect||'—')}</p></div>`}else if(card.family==='LegacyModeDefinition'){const effect=rows.map(row=>row.effect_text||row.text||row.damage_text||'').filter(Boolean).join(' ');$('reviewRows').innerHTML=`<div class="review-generic-row"><span>LEGACY ABILITY</span><p>${esc(effect||'—')}</p></div>${card.rules?`<div class="review-generic-row legacy-rules-row"><span>RULES</span><p>${esc(card.rules)}</p></div>`:''}`}else{$('reviewRows').innerHTML=rows.map(row=>`<div class="review-generic-row"><span>${esc(String(row.label||'CARD EFFECT').toUpperCase())}</span><p>${esc(row.text||row.effect_text||row.damage_text||'—')}</p></div>`).join('')}}
 function openCardReview(cardId){
   const card=cardById(cardId);if(!card)return;const dialog=$('cardReviewDialog');dialog.dataset.reviewKind=card.family==='Hero'?'hero':card.family==='Skill'?'skill':card.family==='Item'?'item':card.family==='Event'?'event':card.family==='LegacyModeDefinition'?'legacy':'standard';$('reviewTitle').textContent=card.name;$('reviewEyebrow').textContent=reviewEyebrow(card);$('reviewArt').src=card.image;$('reviewArt').alt=card.name;if(card.family==='Hero'){heroReviewHtml(card);window.GL_S0_REVIEW_CLARITY?.enhanceHero(card,$('reviewRows'));}else {standardReviewHtml(card);window.GL_S0_REVIEW_CLARITY?.enhance(card,$('reviewRows'));}
-  const progression=state.progressionByHeroId.get(card.id),box=$('reviewProgression');if(progression){box.hidden=false;$('reviewProgressionCards').innerHTML=progression.cardIds.map(id=>{const hero=cardById(id);return `<button class="review-progression-card ${id===card.id?'active':''}" type="button" data-review-rank-id="${id}"><img src="${hero.image}" alt="${esc(hero.name)}"></button>`}).join('');document.querySelectorAll('[data-review-rank-id]').forEach(button=>button.addEventListener('click',()=>openCardReview(button.dataset.reviewRankId)))}else{box.hidden=true;$('reviewProgressionCards').innerHTML=''}
+  const progression=state.progressionByHeroId.get(card.id),box=$('reviewProgression');if(progression){box.hidden=false;$('reviewProgressionCards').innerHTML=progression.cardIds.map(id=>{const hero=cardById(id);return `<button class="review-progression-card ${id===card.id?'active':''}" type="button" data-review-rank-id="${id}"><img loading="lazy" decoding="async" src="${cardPreviewSrc(hero)}" data-gl-original-src="${hero.image}" alt="${esc(hero.name)}"></button>`}).join('');document.querySelectorAll('[data-review-rank-id]').forEach(button=>button.addEventListener('click',()=>openCardReview(button.dataset.reviewRankId)))}else{box.hidden=true;$('reviewProgressionCards').innerHTML=''}
   if(!dialog.open)dialog.showModal();
   dialog.querySelector('.review-card')?.scrollTo(0,0);
 }
@@ -499,14 +530,14 @@ function legacyReferenceSort(a,b){
   const familyDiff=familyOrder(a)-familyOrder(b);if(familyDiff)return familyDiff;
   return idSort(a,b);
 }
-function legacyReferenceCardHtml(card){return `<article class="legacy-reference-card-tile" title="${esc(card.name)}"><img src="${card.image}" alt="${esc(card.name)}">${reviewButton(card.id)}</article>`}
+function legacyReferenceCardHtml(card){return `<article class="legacy-reference-card-tile" title="${esc(card.name)}"><img loading="lazy" decoding="async" src="${cardPreviewSrc(card)}" data-gl-original-src="${card.image}" alt="${esc(card.name)}">${reviewButton(card.id)}</article>`}
 function renderLegacyReferenceLibrary(){
   const cards=state.legacyCards.slice().sort(legacyReferenceSort),root=$('legacyReferenceGrid');if(!root)return;
   $('legacyReferenceCount').textContent=cards.length;root.innerHTML=cards.map(legacyReferenceCardHtml).join('');bindReviewButtons(root);
 }
 function openLegacyReferenceLibrary(){const dialog=$('legacyReferenceDialog');renderLegacyReferenceLibrary();if(dialog&&!dialog.open)dialog.showModal()}
 
-function mainDeckViewCardHtml(card,quantity){const mobile=isMobileMainDeck();return `<article class="legacy-reference-card-tile${mobile?' s2-mobile-view-card':''}" title="${esc(card.name)}" ${mobile?`data-view-card="${esc(card.id)}" tabindex="0" role="button" aria-label="Review ${esc(card.name)}"`:''}><img src="${card.image}" alt="${esc(card.name)}"><span class="quantity-badge main-deck-view-quantity">×${quantity}</span>${mobile?'':reviewButton(card.id)}</article>`}
+function mainDeckViewCardHtml(card,quantity){const mobile=isMobileMainDeck();return `<article class="legacy-reference-card-tile${mobile?' s2-mobile-view-card':''}" title="${esc(card.name)}" ${mobile?`data-view-card="${esc(card.id)}" tabindex="0" role="button" aria-label="Review ${esc(card.name)}"`:''}><img loading="lazy" decoding="async" src="${cardPreviewSrc(card)}" data-gl-original-src="${card.image}" alt="${esc(card.name)}"><span class="quantity-badge main-deck-view-quantity">×${quantity}</span>${mobile?'':reviewButton(card.id)}</article>`}
 function renderMainDeckView(){
   const root=$('mainDeckViewGrid');if(!root)return;
   const entries=Object.entries(state.deck).filter(([,qty])=>Number(qty)>0).map(([id,quantity])=>({card:state.byId.get(id),quantity:Number(quantity)})).filter(item=>item.card).sort(mainDeckSort);
@@ -667,7 +698,7 @@ function s0Validation(){
 function s0Export(style){
  const deck=s0Draft(),validation=s0Validation(),name=$('deckName').value.trim()||'New Deck';
  return {schema:'GL-SEASON0-DECK-DRAFT-1',schema_version:'GL-SEASON0-DECK-DRAFT-1',
-  source_authority:'R3.9-MainDeck_R3.9-LegacyDeck-PlayerRulebook-v3.4',rulebook:'v3.4',season:'S0',builder_version:'1.67',style,
+  source_authority:'R3.94-MainDeck_R3.9-LegacyDeck-PlayerRulebook-v3.4',rulebook:'v3.4',season:'S0',builder_version:'1.68',style,
   exported_at:new Date().toISOString(),name,deck_name:name,
   deck,validation,is_valid:validation.ok,validation_issues:validation.errors,validation_warnings:validation.warnings,
   main_deck:deck.main_deck,shard_deck:deck.shard_deck,

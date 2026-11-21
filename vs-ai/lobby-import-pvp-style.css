@@ -1,0 +1,29 @@
+/* Grandis Legacy VS AI Lobby: mirror the approved PvP IMPORT DECK gold button.
+   Scoped to the lobby import buttons; doesn't affect dropdowns, battle, nav or PvP. */
+.gl-lobby-panel .gl-lobby-picker button[data-lobby-import],
+.gl-lobby-panel .gl-lobby-picker .gl-lobby-desktop-import {
+  color:#11151c!important;
+  border:1px solid #f4d87e!important;
+  border-radius:12px!important;
+  background:linear-gradient(180deg,#f5dc91 0%,#c49b43 100%)!important;
+  box-shadow:inset 0 1px rgba(255,255,255,.42)!important;
+  text-transform:uppercase!important;
+  letter-spacing:.015em!important;
+  font-weight:900!important;
+  cursor:pointer!important;
+  transition:filter .15s ease,transform .15s ease,opacity .15s ease!important;
+}
+.gl-lobby-panel .gl-lobby-picker button[data-lobby-import]:hover:not(:disabled),
+.gl-lobby-panel .gl-lobby-picker .gl-lobby-desktop-import:hover:not(:disabled) {
+  filter:brightness(1.08)!important;transform:translateY(-1px);
+}
+.gl-lobby-panel .gl-lobby-picker button[data-lobby-import]:disabled,
+.gl-lobby-panel .gl-lobby-picker .gl-lobby-desktop-import:disabled {
+  color:#27221a!important;border-color:#6e6249!important;
+  background:linear-gradient(180deg,rgba(146,128,82,.60),rgba(87,73,44,.58))!important;
+  box-shadow:none!important;opacity:.68;cursor:not-allowed!important;
+}
+.gl-lobby-panel .gl-lobby-picker button[data-lobby-import]:focus-visible,
+.gl-lobby-panel .gl-lobby-picker .gl-lobby-desktop-import:focus-visible {
+  outline:3px solid rgba(241,212,129,.42)!important;outline-offset:3px;
+}

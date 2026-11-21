@@ -163,7 +163,7 @@ function updateLocalManaDraft(name,args){
   window.GL_GAME_UI?.renderManaDraft?.();
   return {ok:true,local:true};
 }
-// Tune Up's two Note selections are a local draft. Only the final validated
+// Tune Up's server-declared Note selection count is a local draft. Only the final validated
 // choice goes to the authority, saving two full WebSocket RTTs and avoiding
 // rebuilding the whole battlefield after each Note tap.
 function updateLocalBlindManaDraft(args){

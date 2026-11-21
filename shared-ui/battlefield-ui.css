@@ -2738,16 +2738,16 @@ html.gl-mobile-gameplay-stage:not(.gl-mobile-landscape-stage) .gl-vsai-choice-ov
 }
 /* RC41 Part 7 F17: three choices in a modal, not floating Swap icons. */
 .gl-vsai-choice-overlay.gl-choice-swap .choice-panel{
-  width:min(530px,calc(100vw - 24px))!important;min-width:0!important;max-width:min(530px,96vw)!important;max-height:min(84vh,400px)!important;
+  width:min(600px,calc(100vw - 24px))!important;min-width:0!important;max-width:min(600px,96vw)!important;max-height:min(88vh,590px)!important;
   transform:none!important;
 }
 .gl-vsai-choice-overlay.gl-choice-swap .choice-body{
-  overflow:visible!important;max-height:none!important;padding:18px 16px 20px!important;
+  overflow-y:auto!important;overflow-x:hidden!important;min-height:0!important;max-height:none!important;padding:14px 16px 18px!important;
 }
 .gl-vsai-choice-overlay.gl-choice-swap .choice-foot{display:none!important;}
 .gl-vsai-choice-overlay.gl-choice-swap .gl-swap-choice-actions{
-  display:grid!important;grid-template-columns:1fr 0.7fr 1fr!important;align-items:stretch!important;
-  gap:9px!important;margin-top:16px!important;
+  display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;align-items:stretch!important;
+  gap:11px!important;margin-top:12px!important;
 }
 .gl-vsai-choice-overlay.gl-choice-swap .gl-swap-choice-button{
   min-width:0!important;min-height:42px!important;padding:8px 7px!important;
@@ -2764,13 +2764,72 @@ html.gl-mobile-gameplay-stage:not(.gl-mobile-landscape-stage) .gl-vsai-choice-ov
   outline:2px solid #f4d35e!important;outline-offset:3px!important;
 }
 html.gl-mobile-gameplay-stage:not(.gl-mobile-landscape-stage) .gl-vsai-choice-overlay.gl-choice-swap .choice-panel{
-  width:min(550px,92%)!important;max-width:92%!important;transform:none!important;
+  width:min(600px,92%)!important;max-width:92%!important;transform:none!important;
 }
 
 html.gl-mobile-gameplay-stage:not(.gl-mobile-landscape-stage) .gl-vsai-choice-overlay.gl-choice-swap .choice-panel{
-  max-height:min(80%,400px)!important;
+  max-height:min(84%,590px)!important;
 }
 html.gl-mobile-gameplay-stage:not(.gl-mobile-landscape-stage) .gl-vsai-choice-overlay.gl-choice-swap .choice-body{
   display:block!important;max-height:none!important;
-  overflow:visible!important;padding:18px 16px 20px!important;
+  overflow-y:auto!important;overflow-x:hidden!important;padding:14px 16px 18px!important;
+}
+
+/* RC41 Part 7 F21 — optional-Swap Hero / Legacy picture above each choice. */
+.gl-vsai-choice-overlay.gl-choice-swap .gl-swap-choice-slot{
+  display:flex!important;flex-direction:column!important;align-items:center!important;
+  gap:7px!important;min-width:0!important;text-align:center!important;
+}
+.gl-vsai-choice-overlay.gl-choice-swap .gl-swap-choice-role{
+  width:100%!important;color:#e1bd58!important;font-size:10px!important;font-weight:850!important;
+  letter-spacing:.04em!important;white-space:normal!important;min-height:13px!important;
+}
+.gl-vsai-choice-overlay.gl-choice-swap .gl-swap-choice-frame{
+  width:clamp(58px,9vw,105px)!important;max-width:96%!important;aspect-ratio:5/7!important;
+  border:1px solid #536f87!important;border-radius:8px!important;
+  background:linear-gradient(150deg,#132b3c,#07121c)!important;
+  display:flex!important;align-items:center!important;justify-content:center!important;
+  box-shadow:0 5px 12px rgba(0,0,0,.34)!important;overflow:hidden!important;
+}
+.gl-vsai-choice-overlay.gl-choice-swap .gl-swap-choice-frame img{
+  display:block!important;width:100%!important;height:100%!important;
+  object-fit:contain!important;object-position:center!important;
+}
+.gl-vsai-choice-overlay.gl-choice-swap .gl-swap-choice-frame.is-empty{
+  border-style:dashed!important;border-color:#3b5062!important;background:#0b1520!important;
+}
+.gl-vsai-choice-overlay.gl-choice-swap .gl-swap-choice-frame.is-empty span{
+  color:#506579!important;font-size:26px!important;font-weight:600!important;
+}
+.gl-vsai-choice-overlay.gl-choice-swap .gl-swap-choice-name{
+  width:100%!important;min-height:29px!important;font-size:9px!important;line-height:1.35!important;
+  font-weight:750!important;color:#d9e7f2!important;overflow-wrap:anywhere!important;
+  display:-webkit-box!important;-webkit-line-clamp:2!important;-webkit-box-orient:vertical!important;
+  overflow:hidden!important;
+}
+.gl-vsai-choice-overlay.gl-choice-swap .gl-swap-choice-slot.is-disabled .gl-swap-choice-frame{
+  opacity:.48!important;filter:grayscale(.8)!important;
+}
+.gl-vsai-choice-overlay.gl-choice-swap .gl-swap-choice-slot.is-disabled .gl-swap-choice-name{
+  color:#81909c!important;
+}
+.gl-vsai-choice-overlay.gl-choice-swap .gl-swap-choice-slot .gl-swap-choice-button{
+  width:100%!important;min-height:44px!important;margin-top:auto!important;
+}
+@media(max-width:600px){
+  .gl-vsai-choice-overlay.gl-choice-swap .choice-body{padding:12px 9px 15px!important}
+  .gl-vsai-choice-overlay.gl-choice-swap .gl-swap-choice-actions{gap:6px!important}
+  .gl-vsai-choice-overlay.gl-choice-swap .gl-swap-choice-frame{width:clamp(57px,18vw,90px)!important}
+  .gl-vsai-choice-overlay.gl-choice-swap .gl-swap-choice-button{font-size:10px!important}
+  .gl-vsai-choice-overlay.gl-choice-swap .gl-swap-choice-role{font-size:8.5px!important}
+}
+
+/* RC41 Part 7 F26: unavailable self-position uses actual Legacy Deck back.
+   Keep the back readable while its destination button remains disabled. */
+.gl-vsai-choice-overlay.gl-choice-swap .gl-swap-choice-slot.is-self-position .gl-swap-choice-frame.is-legacy-back{
+  opacity:.82!important;filter:none!important;border-style:solid!important;
+  border-color:#6c6045!important;background:#10141a!important;
+}
+.gl-vsai-choice-overlay.gl-choice-swap .gl-swap-choice-slot.is-self-position .gl-swap-choice-frame.is-legacy-back img{
+  opacity:1!important;filter:none!important;
 }

@@ -131,3 +131,20 @@ html.gl-pvp-mobile-desktop #pvpSetupOverlay .pvp-v260-app-links .gl-site-nav-btn
     margin:0!important;padding-left:6px!important;padding-right:6px!important;
   }
 }
+
+/* Stage 2: the PvP navigation must end at the same right-side gutter as the
+ * website's VS AI and Deck Builder navigation. These selectors cannot affect
+ * other site routes. Keep the logical-mobile/rotated header rules above. */
+@media(min-width:1161px){
+  html:not(.gl-pvp-mobile-desktop):not(.gl-adaptive-stage) #pvpSetupOverlay .pvp-v260-topbar{
+    position:relative!important;left:calc(-1 * var(--pvp-lobby-content-gutter,clamp(16px,2vw,36px)))!important;
+    width:100vw!important;max-width:none!important;box-sizing:border-box!important;
+    margin-left:0!important;margin-right:0!important;
+    grid-template-columns:var(--gl-brand-width,174px) minmax(0,1fr) max-content!important;
+    padding-right:var(--gl-brand-left-gutter,24px)!important;
+  }
+  html:not(.gl-pvp-mobile-desktop):not(.gl-adaptive-stage) #pvpSetupOverlay .pvp-v260-app-links.gl-site-app-nav{
+    justify-self:end!important;justify-content:flex-end!important;
+    margin-left:auto!important;margin-right:0!important;
+  }
+}

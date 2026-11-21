@@ -2,197 +2,155 @@
   "schema_version": "GL-DECK-1.0",
   "season": "S0",
   "deck_name": "Yellow-Blue Deck",
-  "format": "Grandis Legacy Season 0 / Rulebook v3.4 / exactly 50-card Main Deck",
+  "format": "Grandis Legacy Season 0 / Rulebook v3.5 / exactly 50-card Main Deck",
   "main_deck_count": 50,
   "main_deck": [
     {
       "card_id": "S0-EVT-002",
-      "card_name": "Market Bargain",
       "quantity": 2
     },
     {
-      "card_id": "S0-EVT-003",
-      "card_name": "Scouting",
-      "quantity": 1
-    },
-    {
       "card_id": "S0-ITM-002",
-      "card_name": "Greater Health Potion",
       "quantity": 1
     },
     {
       "card_id": "S0-ITM-008",
-      "card_name": "Phoenix Feather",
       "quantity": 1
     },
     {
       "card_id": "S0-ITM-012",
-      "card_name": "Spectral Grappling Hook",
       "quantity": 1
     },
     {
       "card_id": "S0-ITM-017",
-      "card_name": "Flashpowder Bomb",
       "quantity": 1
     },
     {
       "card_id": "S0-ITM-018",
-      "card_name": "Magic Compass",
       "quantity": 1
     },
     {
       "card_id": "S0-MAG-005",
-      "card_name": "Mirror Image",
       "quantity": 2
     },
     {
       "card_id": "S0-MAG-008",
-      "card_name": "Tornado",
       "quantity": 1
     },
     {
       "card_id": "S0-MAG-009",
-      "card_name": "Fire Blast",
       "quantity": 2
     },
     {
       "card_id": "S0-MAG-016",
-      "card_name": "Nova Strike",
       "quantity": 2
     },
     {
       "card_id": "S0-MAG-017",
-      "card_name": "Frostfire Nova",
       "quantity": 2
     },
     {
       "card_id": "S0-MAG-019",
-      "card_name": "Flame Dragon's Wrath",
       "quantity": 1
     },
     {
       "card_id": "S0-MAG-020",
-      "card_name": "Aether Ball",
       "quantity": 1
     },
     {
       "card_id": "S0-MAG-021",
-      "card_name": "Mana Absorption",
       "quantity": 2
     },
     {
-      "card_id": "S0-MAG-022",
-      "card_name": "Aether Infusion",
-      "quantity": 1
-    },
-    {
       "card_id": "S0-MAG-023",
-      "card_name": "Aether Slash",
       "quantity": 2
     },
     {
       "card_id": "S0-MAG-025",
-      "card_name": "Mana Void",
       "quantity": 1
     },
     {
       "card_id": "S0-THF-003",
-      "card_name": "Evasion",
-      "quantity": 1
+      "quantity": 2
     },
     {
       "card_id": "S0-THF-016",
-      "card_name": "Finishing Strike",
       "quantity": 2
     },
     {
       "card_id": "S0-THF-021",
-      "card_name": "Sword Slash",
       "quantity": 1
     },
     {
       "card_id": "S0-THF-024",
-      "card_name": "Flash Slash",
-      "quantity": 2
-    },
-    {
-      "card_id": "S0-THF-025",
-      "card_name": "Sword Combo",
-      "quantity": 2
-    },
-    {
-      "card_id": "S0-MAG-013",
-      "card_name": "Wildfire",
       "quantity": 1
     },
     {
+      "card_id": "S0-THF-025",
+      "quantity": 2
+    },
+    {
       "card_id": "S0-THF-010",
-      "card_name": "Back Slash",
       "quantity": 2
     },
     {
       "card_id": "S0-THF-023",
-      "card_name": "Shadow Switch",
       "quantity": 1
     },
     {
       "card_id": "S0-THF-012",
-      "card_name": "Elusive Escape",
       "quantity": 1
     },
     {
       "card_id": "S0-THF-019",
-      "card_name": "Lethal Venom",
       "quantity": 1
     },
     {
       "card_id": "S0-EVT-004",
-      "card_name": "Relentless Leveling",
-      "quantity": 1
-    },
-    {
-      "card_id": "S0-THF-022",
-      "card_name": "Deflection",
-      "quantity": 1
-    },
-    {
-      "card_id": "S0-THF-020",
-      "card_name": "Dash Slash",
       "quantity": 1
     },
     {
       "card_id": "S0-EVT-010",
-      "card_name": "Déjà vu",
-      "quantity": 1
-    },
-    {
-      "card_id": "S0-MAG-003",
-      "card_name": "Fireball",
-      "quantity": 2
-    },
-    {
-      "card_id": "S0-THF-005",
-      "card_name": "Steal",
       "quantity": 1
     },
     {
       "card_id": "S0-THF-004",
-      "card_name": "Smoke Screen",
       "quantity": 1
     },
     {
       "card_id": "S0-THF-013",
-      "card_name": "Venom Strike",
       "quantity": 1
     },
     {
       "card_id": "S0-THF-015",
-      "card_name": "Venom Sovereign",
       "quantity": 1
     },
     {
       "card_id": "S0-THF-014",
-      "card_name": "Viper's Fang",
+      "quantity": 1
+    },
+    {
+      "card_id": "S0-MAG-006",
+      "quantity": 1
+    },
+    {
+      "card_id": "S0-MAG-003",
+      "quantity": 2
+    },
+    {
+      "card_id": "S0-MAG-010",
+      "quantity": 1
+    },
+    {
+      "card_id": "S0-MAG-024",
+      "quantity": 1
+    },
+    {
+      "card_id": "S0-THF-011",
+      "quantity": 2
+    },
+    {
+      "card_id": "S0-EVT-009",
       "quantity": 1
     }
   ],
@@ -324,14 +282,17 @@
   "is_valid": true,
   "validation_issues": [],
   "validation_warnings": [],
-  "source_database_version": "R3.9",
+  "source_database_version": "R3.94",
   "source_file": "engine/starter_deck_examples/s0_starter_02_yellow_blue_GL_DECK_1_0.json",
-  "source_authority": "Designer export 2026-11-18T11:06:47.372Z; print authority Main/Legacy R3.9; Player Rulebook v3.4",
-  "source_export_sha256": "d28e8a700f679d99ce7fccdcf90813be7b1eb30e0f120df389c9bce2385364e7",
-  "source_approval_basis": "Owner supplied updated starter decks on 2026-11-18",
+  "source_authority": "Owner-supplied Starter Deck.rar; byte-identical to Deck Builder v1.68 (2026-11-22). Composition only; game rules: Rulebook v3.5; card print: Main Deck R3.94.",
+  "source_export_sha256": "6ab843d687d0312f5cb57faac4b077c12eeb543b13affc889448e5ffc94dd6ef",
+  "source_approval_basis": "Owner-supplied approved five Starter Decks, cross-verified byte-identical",
   "active_starter_id": "s0_starter_02_yellow_blue",
   "active_starter_slot": 2,
   "generated_only": true,
-  "source_deck_builder": "1.66",
-  "source_exported_at": "2026-11-18T11:06:47.372Z"
+  "source_deck_builder": "v1.68",
+  "source_exported_at": "2026-11-20T19:44:53.863Z",
+  "runtime_compatible_main_deck": "R3.94",
+  "active_starter_authority": "Owner-supplied approved Starter Deck.rar",
+  "active_builder_reference": "Grandis Legacy Deck Builder v1.68 (2026-11-22)"
 }

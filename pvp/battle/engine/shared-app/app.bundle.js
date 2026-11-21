@@ -6,7 +6,7 @@
   var GL_APP_MODE=String((typeof window!=='undefined'&&window.GL_APP_MODE)||'LOCAL_AI').toUpperCase();
   var IS_PVP_APP=GL_APP_MODE==='PVP';
   var IS_TUTORIAL_APP=GL_APP_MODE==='TUTORIAL';
-  var GL_VERSION=IS_PVP_APP?'Grandis Legacy PvP v3.41 · VS AI v6.42 Battlefield · One Source v1.9.5 · Runtime Data v0.16.2 · Foundation v1.94.2 · Core v0.61':(IS_TUTORIAL_APP?'Grandis Legacy Tutorial v0.71 GitHub Pages · VS AI v6.48 Base · One Source v1.9.5 · Runtime Data v0.16.2 · Foundation v1.94.2 · Core v0.61':'Grandis Legacy VS AI Season 0 RC41 · Main Deck R3.9 · Legacy Deck R3.9 · Rulebook v3.4');
+  var GL_VERSION=IS_PVP_APP?'Grandis Legacy PvP v3.41 · VS AI v6.42 Battlefield · One Source v1.9.5 · Runtime Data v0.16.2 · Foundation v1.94.2 · Core v0.61':(IS_TUTORIAL_APP?'Grandis Legacy Tutorial v0.71 GitHub Pages · VS AI v6.48 Base · One Source v1.9.5 · Runtime Data v0.16.2 · Foundation v1.94.2 · Core v0.61':'Grandis Legacy VS AI Season 0 RC42 · Main Deck R3.94 · Legacy Deck R3.9 · Rulebook v3.5');
   var PHASES=['Draw','Deploy','Battle','Reform','End'];
   var LANE_ORDER=['LEFT','CENTER','RIGHT'];
   var EXP_MAX_TOTAL=700;
@@ -17,7 +17,7 @@
   var GL_LAB_MANA_ASSET={Generic:'/card-art/S0-MAN-001.webp',Warrior:'/card-art/S0-MAN-002.webp',Mage:'/card-art/S0-MAN-003.webp',Cleric:'/card-art/S0-MAN-004.webp',Thief:'/card-art/S0-MAN-005.webp',Archer:'/card-art/S0-MAN-006.webp'};
   var GL_SHARED_CARD_BASE='https://grandislegacytcg.github.io/shared/season1/v1/cards/';
   var GL_REMOTE_CARD_BASE='https://grandislegacytcg.github.io/shared/season1/v1/cards/';
-  var GL_ASSET_REV=IS_TUTORIAL_APP?'gl-tutorial-s0-stage4':'gl-vs-ai-s0-rc40-r38-r37-20261114';
+  var GL_ASSET_REV=IS_TUTORIAL_APP?'gl-tutorial-s0-stage4':'gl-vs-ai-s0-rc42-r394-20261122';
   var GL_CARD_ZOOM_ID=null;
   var GL_LAST_PLAYER_TURN_BANNER_KEY='', GL_PLAYER_TURN_BANNER_TIMER=null;
   var GL_MODAL_HOVER_GUARD_BOUND=false;
@@ -308,22 +308,26 @@
     if(/pdef|mdef/.test(String(cls||'')))return 11853;
     return 11852;
   }
-  // PvP rotates the entire body, including its VFX portal. The donor VFX
-  // receives viewport rects; map them to that portal's 1600x747 local stage.
-  // Desktop, nonrotated screens, headless/server gameplay are untouched.
-  function pvpMobileFeedbackRect(rect){
-    if(!rect||typeof document==='undefined'||typeof DOMMatrixReadOnly==='undefined'||
-       typeof DOMPoint==='undefined'||typeof getComputedStyle==='undefined'||
-       !document.documentElement.classList.contains('gl-pvp-mobile-gameplay')||
-       !document.body)return rect;
-    var transform=getComputedStyle(document.body).transform;
+  // Battle/status VFX were rendered in a body-level, viewport-fixed layer,
+  // even when the mobile battlefield was rotated. Map each target rectangle
+  // into the same logical 1600x747 stage as the feedback layer. This also
+  // rotates Poison/Burn/Freeze/Sleep, Damage, Block, Heal and Attack VFX
+  // consistently. Gameplay and damage resolution are not changed.
+  function mobileBattleVfxRect(rect){
+    if(!rect||typeof document==='undefined'||
+       !document.documentElement.classList.contains('gl-stage-portrait')||
+       !document.documentElement.classList.contains('gl-mobile-gameplay-stage')||
+       typeof DOMMatrixReadOnly==='undefined'||typeof DOMPoint==='undefined')return rect;
+    var app=document.querySelector('.app');
+    if(!app||typeof getComputedStyle==='undefined')return rect;
+    var transform=getComputedStyle(app).transform;
     if(!transform||transform==='none')return rect;
     try{
       var inverse=new DOMMatrixReadOnly(transform).inverse();
-      var xy=[[rect.left,rect.top],[rect.left+rect.width,rect.top],
-              [rect.left,rect.top+rect.height],
-              [rect.left+rect.width,rect.top+rect.height]];
-      var points=xy.map(function(p){return new DOMPoint(p[0],p[1]).matrixTransform(inverse);});
+      var coords=[[rect.left,rect.top],[rect.left+rect.width,rect.top],
+                  [rect.left,rect.top+rect.height],
+                  [rect.left+rect.width,rect.top+rect.height]];
+      var points=coords.map(function(p){return new DOMPoint(p[0],p[1]).matrixTransform(inverse);});
       var xs=points.map(function(p){return p.x;}),ys=points.map(function(p){return p.y;});
       var left=Math.min.apply(null,xs),top=Math.min.apply(null,ys);
       return{left:left,top:top,width:Math.max(0,Math.max.apply(null,xs)-left),
@@ -332,7 +336,7 @@
   }
   function battleVfxClip(rect,zIndex){
     var layer=battleFeedbackLayer();if(!layer||!rect)return null;
-    var box=pvpMobileFeedbackRect(rect);
+    var box=mobileBattleVfxRect(rect);
     var clip=document.createElement('div');
     clip.className='gl-battle-vfx-clip';
     clip.style.zIndex=String(zIndex||11852);
@@ -346,10 +350,9 @@
     var node=document.createElement('img');
     node.src=src;node.className='gl-battle-vfx '+cls;node.style.zIndex=String(tier);
     if(clipToCard===false){
-      var box=pvpMobileFeedbackRect(rect);
-      var w=Math.max(54,box.width*Number(scale||1.18)),h=Math.max(72,box.height*Number(scale||1.18));
-      node.style.left=(box.left+box.width/2-w/2)+'px';
-      node.style.top=(box.top+box.height/2-h/2)+'px';
+      var w=Math.max(54,rect.width*Number(scale||1.18)),h=Math.max(72,rect.height*Number(scale||1.18));
+      node.style.left=(rect.left+rect.width/2-w/2)+'px';
+      node.style.top=(rect.top+rect.height/2-h/2)+'px';
       node.style.width=w+'px';node.style.height=h+'px';
     }else{
       var insideScale=Math.max(.1,Number(scale||1));
@@ -590,14 +593,12 @@
       var swordGroup=document.createElementNS('http://www.w3.org/2000/svg','g');swordGroup.setAttribute('transform','rotate(-45 12 12)');
       var sword=document.createElementNS('http://www.w3.org/2000/svg','image');sword.setAttribute('href','/engine/assets/battle/Blade.png');sword.setAttributeNS('http://www.w3.org/1999/xlink','href','/engine/assets/battle/Blade.png');sword.setAttribute('x','2');sword.setAttribute('y','2');sword.setAttribute('width','20');sword.setAttribute('height','20');sword.setAttribute('preserveAspectRatio','xMidYMid meet');sword.setAttribute('class','gl-pending-attack-sword');swordGroup.appendChild(sword);marker.appendChild(swordGroup);defs.appendChild(marker);svg.appendChild(defs);document.body.appendChild(svg);
     }
-    var mobile=typeof document!=='undefined'&&document.documentElement.classList.contains('gl-pvp-mobile-gameplay');
-    svg.setAttribute('viewBox',mobile?'0 0 1600 747':'0 0 '+Math.max(1,window.innerWidth||1)+' '+Math.max(1,window.innerHeight||1));
+    svg.setAttribute('viewBox','0 0 '+Math.max(1,window.innerWidth||1)+' '+Math.max(1,window.innerHeight||1));
     return svg;
   }
   function pendingAttackDirectionPoints(rw){
     if(!rw)return null;
     var from=battleHeroRect(rw.source_side,rw.source_lane),to=battleHeroRect(rw.target_side,rw.target_lane);if(!from||!to)return null;
-    from=pvpMobileFeedbackRect(from);to=pvpMobileFeedbackRect(to);
     var x1=from.left+from.width/2,y1=from.top+from.height/2,x2=to.left+to.width/2,y2=to.top+to.height/2,dx=x2-x1,dy=y2-y1,dist=Math.sqrt(dx*dx+dy*dy)||1;
     var a=Math.min(from.width,from.height)*.28,b=Math.min(to.width,to.height)*.28;
     var sx=x1+dx/dist*a,sy=y1+dy/dist*a,ex=x2-dx/dist*b,ey=y2-dy/dist*b;
@@ -719,8 +720,8 @@
     var w=Math.min(86,Math.max(54,item.from.width||72)), h=Math.round(w*1.4); img.style.width=w+'px'; img.style.height=h+'px'; img.style.left=(item.from.left+(item.from.width-w)/2)+'px'; img.style.top=(item.from.top+(item.from.height-h)/2)+'px'; layer.appendChild(img);
     var origin=visualRectCenter({left:parseFloat(img.style.left)||0,top:parseFloat(img.style.top)||0,width:w,height:h});
     var ghostAlpha=item.ghost?0.74:1;
-    var frames=[{transform:'translate(0px,0px) scale(1)',opacity:ghostAlpha}], lastRect=item.from;
-    item.steps.forEach(function(step,idx){ var c=visualRectCenter(step.rect); if(!c) return; lastRect=step.rect; var isLast=idx===item.steps.length-1; frames.push({transform:'translate('+(c.x-origin.x)+'px,'+(c.y-origin.y)+'px) scale('+(isLast?(item.hold_key?.88:.78):.92)+')',opacity:isLast?(item.hold_key?ghostAlpha:.10):ghostAlpha,offset:(idx+1)/item.steps.length}); });
+    var frames=[{translate:'0px 0px',scale:'1',opacity:ghostAlpha}], lastRect=item.from;
+    item.steps.forEach(function(step,idx){ var c=visualRectCenter(step.rect); if(!c) return; lastRect=step.rect; var isLast=idx===item.steps.length-1; frames.push({translate:(c.x-origin.x)+'px '+(c.y-origin.y)+'px',scale:String(isLast?(item.hold_key?.88:.78):.92),opacity:isLast?(item.hold_key?ghostAlpha:.10):ghostAlpha,offset:(idx+1)/item.steps.length}); });
     var total=Math.max(220,Number(item.duration||520));
     var finished=false,completionWatchdog=null;
     function done(){
@@ -737,8 +738,8 @@
     function startVisualAnimation(){
       if(item.play_sound!==false) playCardMotionSound();
       if(typeof img.animate==='function'){ try{ var a=img.animate(frames,{duration:total,easing:'cubic-bezier(.2,.75,.2,1)',fill:'forwards'}); a.onfinish=done; a.oncancel=done; completionWatchdog=setTimeout(done,total+1250); return; }catch(e){} }
-      var last=frames[frames.length-1]; img.style.transition='transform '+total+'ms cubic-bezier(.2,.75,.2,1), opacity '+total+'ms ease';
-      img.style.transform=last.transform; img.style.opacity=String(last.opacity); setTimeout(done,total+40);
+      var last=frames[frames.length-1]; img.style.transition='translate '+total+'ms cubic-bezier(.2,.75,.2,1), scale '+total+'ms ease, opacity '+total+'ms ease';
+      img.style.translate=last.translate; img.style.scale=last.scale; img.style.opacity=String(last.opacity); setTimeout(done,total+40);
     }
     if(item.eager_start)nextVisualFrame(startVisualAnimation);else prepareImageForPaint(img).then(function(){nextVisualFrame(startVisualAnimation);});
   }
@@ -756,7 +757,7 @@
     var prepared=parts.map(function(part,idx){
       var img=document.createElement('img');img.className='gl-flying-card';img.src=part.src||'/assets/ui/back-main.webp';img.alt='';img.dataset.animationId=String(item.id)+'-'+idx;
       var w=Math.min(86,Math.max(54,part.from.width||72)),h=Math.round(w*1.4);img.style.width=w+'px';img.style.height=h+'px';img.style.left=(part.from.left+(part.from.width-w)/2)+'px';img.style.top=(part.from.top+(part.from.height-h)/2)+'px';layer.appendChild(img);
-      var origin=visualRectCenter({left:parseFloat(img.style.left)||0,top:parseFloat(img.style.top)||0,width:w,height:h}),dest=visualRectCenter(part.to),frames=[{transform:'translate(0px,0px) scale(1)',opacity:1},{transform:'translate('+(dest.x-origin.x)+'px,'+(dest.y-origin.y)+'px) scale(.78)',opacity:.12}];
+      var origin=visualRectCenter({left:parseFloat(img.style.left)||0,top:parseFloat(img.style.top)||0,width:w,height:h}),dest=visualRectCenter(part.to),frames=[{translate:'0px 0px',scale:'1',opacity:1},{translate:(dest.x-origin.x)+'px '+(dest.y-origin.y)+'px',scale:'.78',opacity:.12}];
       return {img:img,frames:frames,ready:prepareImageForPaint(img)};
     });
     Promise.all(prepared.map(function(entry){return entry.ready;})).then(function(){nextVisualFrame(function(){
@@ -766,7 +767,7 @@
         var completionWatchdog=null;
         function done(){if(doneCalled)return;doneCalled=true;if(completionWatchdog)clearTimeout(completionWatchdog);oneDone(img);}
         if(typeof img.animate==='function'){try{var a=img.animate(frames,{duration:total,easing:'cubic-bezier(.2,.75,.2,1)',fill:'forwards'});a.onfinish=done;a.oncancel=done;completionWatchdog=setTimeout(done,total+1250);return;}catch(e){}}
-        img.style.transition='transform '+total+'ms cubic-bezier(.2,.75,.2,1), opacity '+total+'ms ease';img.style.transform=frames[1].transform;img.style.opacity='.12';setTimeout(done,total+40);
+        img.style.transition='translate '+total+'ms cubic-bezier(.2,.75,.2,1), scale '+total+'ms ease, opacity '+total+'ms ease';img.style.translate=frames[1].translate;img.style.scale=frames[1].scale;img.style.opacity='.12';setTimeout(done,total+40);
       });
     });});
   }
@@ -1297,17 +1298,18 @@
     }
     // The S0 current Item/Event export has empty `effect` arrays. Materialize only
     // explicitly stated one-target Status text and duration (not S1 effect values).
-    if(c.card_id==='S0-EVT-006' || c.card_id==='S0-ITM-020'){
-      var printedStatus=s0RulesParseText(source.card_text).match(/\bInflict\s+(Stun|Freeze)\s+on\s+one\s+of\s+your\s+opponent's\s+Heroes\s+for\s+(\d+)\s+turn/i);
+    if(c.card_id==='S0-EVT-006' || c.card_id==='S0-ITM-020' || c.card_id==='S0-ITM-021'){
+      var printedStatus=s0RulesParseText(source.card_text).match(/\bInflict\s+(Stun|Freeze|Burn)\s+on\s+one\s+of\s+your\s+opponent's\s+Heroes\s+for\s+(\d+)\s+turn/i);
       if(printedStatus && !c.effect.some(function(e){return e.kind==='inflict_status'&&e.status===printedStatus[1];}))
         c.effect.push({kind:'inflict_status',status:printedStatus[1],duration:Number(printedStatus[2]),source_s0_printed_row:true});
     }
     if(c.card_id==='S0-CLE-028'){
-      // BUFF one selected allied Hero with SURE HIT for the current turn; draw 2.
+      // BUFF one selected allied Hero with SURE HIT for this turn; select 1 Zol from deck to hand.
       c.effect=c.effect.filter(function(e){return e.kind!=='attack_restriction';});
       c.effect.push({kind:'buff',source_s0_printed_row:true,scope:'chosen_hero',key:'SURE_HIT_ATTACKS'});
-      if(!c.effect.some(function(e){return e.kind==='draw_cards';}))c.effect.push({kind:'draw_cards',count:2,source_s0_printed_row:true});
+      c.effect=c.effect.filter(function(e){return e.kind!=='draw_cards';});
     }
+    if(c.card_id==='S0-EVT-013')c.effect=c.effect.filter(function(e){return e.kind!=='draw_cards';});
     if(c.card_id==='S0-CLE-018'){
       c.effect.push({kind:'buff',source_s0_printed_row:true,scope:'allied_active_heroes',key:'ATTACK_DAMAGE_THIS_TURN'});
     }
@@ -1432,11 +1434,41 @@
     }
     return result;
   }
+  function applyRC42MainDeckPrint(source){
+    var active=(window.GL_RC42_MAINDECK_OVERLAY||{})[source&&source.card_id];
+    if(!active)return source;
+    var c=clone(source);
+    if(active.sha256)c.asset=Object.assign({},c.asset||{},{file:window.GL_PVP_CARD_ART_URL(c.card_id),sha256:active.sha256,format:'webp'});
+    if(active.text){
+      var rows=active.rows||[],mapped={},damageMap={},reqRows=[];
+      c.card_text=active.text;c.effect_text=active.text;
+      c.printed=Object.assign({},c.printed||{}, {text:active.text,rows:rows.map(function(x){return{label:x.label,damage:x.damage||null,effect:x.effect||null,text:x.text||''};}),blocks:rows.map(function(x){return{label:x.label,damage:x.damage||null,effect:x.effect||null,text:x.text||''};}),source:'Official active Main Deck printed artwork'});
+      rows.forEach(function(x){
+        var cls=String(x.label||'').replace(/\s*\(Rank\s*[IVX]+\).*$/i,'').trim();
+        var rank=(String(x.label||'').match(/Rank\s*([IVX]+)/i)||[])[1]||'I';
+        if(cls){mapped[cls]=String(x.text||'');reqRows.push({class:cls,rank:'Rank '+rank,effect_text:String(x.text||''),damage:Number(x.damage||0)});if(x.damage!=='')damageMap[cls]=Number(x.damage);}
+      });
+      if(Object.keys(mapped).length){
+        c.effect_strings_by_class=mapped;
+        c.requirement=Object.assign({},c.requirement||{},{printed_class_rank_requirements:reqRows});
+        c.printed_class_rank_requirements=reqRows.slice();
+      }
+      if(c.attack&&Object.keys(damageMap).length)c.attack=Object.assign({},c.attack,{damage_by_class:damageMap});
+      if(active.cost!==undefined){c.cost=Object.assign({},c.cost||{},{mana:Number(active.cost)});c.canonical_cost=Object.assign({},c.canonical_cost||{},{mana:Number(active.cost)});c.cost_mana=Number(active.cost);c.cost_display=Number(active.cost)?active.cost+' Mana':'No Mana cost';}
+      // Do not keep effects manufactured from the superseded printed wording.
+      if(c.card_id==='S0-CLE-024')c.effect=(c.effect||[]).filter(function(e){return e.kind!=='inflict_status';});
+    }
+    c.active_print_authority='Main Deck active printed artwork';
+    return c;
+  }
   function initCards(){
     assertActiveRuntimeSourceStack();
     CARDS=flattenCards(window.GL_CARD_DEFINITIONS||{}).map(function(c){return c.card_id==='S0-ITM-011'?clone(c):c;}).map(s0MaterializeHybridHero);
     validateHeroComponentRuntimeData();
-    CARDS=CARDS.map(applyRC41ApprovedPrint).map(materializeS0SimpleRuntimeEffects).map(materializeS0LegacyAbility).map(applyApprovedAreaAttackRuling);
+    CARDS=CARDS.map(applyRC41ApprovedPrint).map(applyRC42MainDeckPrint);
+    var extra=window.GL_RC42_NEW_MAIN_CARDS||{};
+    CARDS=CARDS.concat(Object.keys(extra).map(function(id){return clone(extra[id]);}));
+    CARDS=CARDS.map(materializeS0SimpleRuntimeEffects).map(materializeS0LegacyAbility).map(applyApprovedAreaAttackRuling);
     CARD_BY_ID={};CARDS.forEach(function(c){CARD_BY_ID[c.card_id]=c;});materializeS0UltimateTributeContracts();
   }
   function card(id){ return CARD_BY_ID[id] || {card_id:id, name:id, family:'Unknown'}; }
@@ -1448,9 +1480,11 @@
     if(!c||c.family!=='Hero')return{racialTrait:null,classAbility:null,identity:(c&&c.identity)||{},card:c};
     return{racialTrait:c.racial_ability||null,classAbility:c.class_ability||null,identity:c.identity||{},card:c};
   }
+  // Parsing only: treat straight and typographic apostrophes identically.
+  // NEVER write this normalized text back into card/printed text or OSA data.
+  function s0RulesParseText(value){return String(value||'').replace(/[\u2018\u2019\u02bc\uff07]/g,"'");}
   // Bind current S0 Hero Class Ability text to established v6.91.9 handler
   // contracts. All numeric values below are parsed from S0's own current print.
-  function s0RulesParseText(value){return String(value||'').replace(/[\u2018\u2019\u02bc\uff07]/g,"'");}
   function s0ClassActionFromCurrentPrint(ab){
     if(!ab||!ab.name||!ab.text)return null;
     var name=s0RulesParseText(ab.name),raw=s0RulesParseText(ab.text);
@@ -3131,7 +3165,7 @@
   function isHealCard(c){ return !!(c && ((c.card_id==='S0-ITM-001'||c.card_id==='S0-ITM-002') || (Array.isArray(c.effect) && c.effect.some(function(e){ return e.kind==='heal' || e.kind==='heal_target_hero' || e.kind==='heal_allied_heroes' || e.kind==='heal_all_allied_heroes'; })))); }
   function isDrawCard(c){ return Array.isArray(c.effect) && c.effect.some(function(e){ return e.kind==='draw_cards'; }); }
   function hasInflictStatusEffect(c){ return Array.isArray(c.effect) && c.effect.some(function(e){ return e.kind==='inflict_status'; }); }
-  function isStatusTactical(c){ return (hasInflictStatusEffect(c) || (c && (c.card_id==='S0-EVT-006'||c.card_id==='S0-ITM-020'))) && runtimeTagList(c).indexOf('BUFF')===-1 && !isAttackCard(c) && !isResponseOnly(c); }
+  function isStatusTactical(c){ return (hasInflictStatusEffect(c) || (c && (c.card_id==='S0-EVT-006'||c.card_id==='S0-ITM-020'||c.card_id==='S0-ITM-021'))) && runtimeTagList(c).indexOf('BUFF')===-1 && !isAttackCard(c) && !isResponseOnly(c); }
   function requiresSourceHero(c){
     // Final Grit is a tactical revive/legacy-recovery action and must not require an active Warrior source.
     // Otherwise it becomes unplayable exactly when the Warrior line is already in Legacy Mode.
@@ -3346,6 +3380,14 @@
     shufflePile(deck);action._s0_condition_committed=true;action.s0_condition_return_count=picked.length;
     action._s0_return_ghost_count=picked.length;
     pushLog(state,cardName(c)+' returns '+picked.map(function(item){return cardName(card(item.card_id));}).join(', ')+' from Discard Pile to Main Deck as CONDITION, then shuffles.');
+    // CONDITION always resolves before the main effect, including its own Draw.
+    var conditionDraw={'S0-ARC-028':1,'S0-CLE-030':2}[c.card_id]||0;
+    if(conditionDraw){
+      var before=sideHand(state,side).length;
+      drawMany(state,side,conditionDraw,{reason:'CARD_EFFECT'});
+      pushLog(state,cardName(c)+' CONDITION draws '+(sideHand(state,side).length-before)+' card(s) before the main effect.');
+      action.s0_condition_draw_count=sideHand(state,side).length-before;
+    }
     return picked.length;
   }
   function godsBlessingSelectedDiscardValid(state,side,action){
@@ -3552,6 +3594,11 @@
       if(isElixirCard(c)) return !!(h && Number(h.hp||0)>0 && !isLegacyModeHero(h) && h.statuses && h.statuses.some(function(st){ return isNegativeStatusName(statusName(st)); }));
       if(isHeroAttachmentItem(c)){ if(!heroMatchesLineageGate(h,itemLineageGate(c))) return false; return !!(h && Number(h.hp||0)>0 && !isLegacyModeHero(h) && attachmentSlotIndex(h)!==-1); }
       if(isAttackCard(c)){
+        // Casting locks an opposing POSITION at declaration, not a Hero.
+        // Legacy may occupy the locked position. At release, the current
+        // occupant determines the hit; if still Legacy, no hit or damage.
+        // All other Attack cards still require an active opposing Hero.
+        if(isCastingCard(c)) return true;
         if(!(h && h.hp>0) || isLegacyModeHero(h)) return false;
         if(isSingleTargetAttack(c) && heroHasSingleTargetProtection(state,h)) return false;
         if(isExecuteEffect(c)) return executeTargetValid(h);
@@ -3568,7 +3615,8 @@
       }
       if(!(h && h.hp>0) || isLegacyModeHero(h)) return false;
       return true; });
-    if(targetSide===oppositeSide(side) && isAttackCard(c) && !attackActsAsAreaForSource(state,c,sourceHero)) legal=applyTauntTargeting(state,targetSide,legal);
+    // Taunt applies to attacks that choose Heroes. Casting chooses a position.
+    if(targetSide===oppositeSide(side) && isAttackCard(c) && !isCastingCard(c) && !attackActsAsAreaForSource(state,c,sourceHero)) legal=applyTauntTargeting(state,targetSide,legal);
     return legal;
   }
   function legalPlayStateFor(state, side, cardId){
@@ -3861,9 +3909,105 @@
     });
     return best;
   }
+  // RC41 Intermediate tactical custody: skills whose original base-Class Hero
+  // is defeated are reserved for the once-per-Reform EXP Tribute before a
+  // Legacy discard cost. Check Tribute receiver legality independently of
+  // the current Phase; never change the authoritative Tribute rules.
+  function aiIntermediateDeadLineageSkill(state,c){
+    if(!state||!c||!isSkillCard(c))return false;
+    var family=cardBaseSkillClass(c),heroes=state.aiHeroes||{},dead=false,live=false;
+    LANE_ORDER.forEach(function(lane){
+      var h=heroes[lane];if(!h)return;
+      var code=String(heroIdFrom(h)||'').match(/^S0-(ARC|CLE|MAG|THF|WAR)-L\d{3}$/),
+        legacyFamily=code?({ARC:'Archer',CLE:'Cleric',MAG:'Mage',THF:'Thief',WAR:'Warrior'}[code[1]]):null,
+        ownerFamily=legacyFamily||baseFamilyForHero(h);
+      if(ownerFamily!==family)return;
+      if(isActiveHeroSlot(h))live=true;else dead=true;
+    });
+    return dead&&!live;
+  }
+  function aiIntermediateTributableDeadSkill(state,id){
+    var c=card(id);return aiIntermediateDeadLineageSkill(state,c)&&
+      (state.phase==='Deploy'||!state.tributeUsedThisReform)&&LANE_ORDER.some(function(lane){
+        return canReceiveTributeFor(state,'AI',id,lane);
+      });
+  }
+  function aiIntermediateLegacyCosts(state,ability){
+    var all=legacyCostCandidates(state,'AI',ability).slice();
+    if(!aiIntermediate(state))return all;
+    return all.filter(function(x){return !aiIntermediateTributableDeadSkill(state,x.card_id);});
+  }
+  // Evaluate a future Rank without consuming an actual Rank-Up card.
+  // Expired exhaustion/statuses are not permanent lineage restrictions.
+  function aiIntermediateSkillUsableByLiving(state,c){
+    if(!state||!c||!isSkillCard(c))return false;
+    return LANE_ORDER.some(function(lane){
+      var h=(state.aiHeroes||{})[lane];if(!isActiveHeroSlot(h))return false;
+      for(var rank=heroRank(h);rank<=3;rank++){
+        var futureId=rank===heroRank(h)?heroIdFrom(h):rankHeroIdFromProgression(heroProgressionId(h),rank);
+        if(!futureId||(rank>heroRank(h)&&(state.aiLegacy||[]).indexOf(futureId)<0))continue;
+        var trial=Object.assign({},h,{card_id:futureId,hp:Math.max(1,Number(h.hp||1)),exhausted:false,
+          statuses:[],attachments:[null,null],stamina_no_proactive_skill_turn:null});
+        if(sourceCompatibleForMode(c,trial,{response:true}))return true;
+      }
+      return false;
+    });
+  }
+  function aiIntermediateLivingAttackHandCount(state){
+    return (state.aiHand||[]).filter(function(id){var c=card(id);return c&&isSkillCard(c)&&
+      isAttackCard(c)&&aiIntermediateSkillUsableByLiving(state,c);}).length;
+  }
+  // Legacy 002: attack first while fewer than TWO viable Attack Skills are
+  // in Hand; then defensive Skills. A dead owner's Skill cannot win priority.
+  // Thief 002 is a distinct ITEM-return ability: no unwanted item recycling.
+  function aiIntermediateLegacyEffectPriority(state,ability,id){
+    var c=card(id),eff=ability&&ability.effect||{},isThief=String(ability&&ability.action_key||'')==='hidden_archives';
+    if(!c)return -10000;
+    if(isThief){
+      var heroes=LANE_ORDER.map(function(l){return (state.aiHeroes||{})[l];}).filter(Boolean),
+        alive=heroes.filter(isActiveHeroSlot),defeated=heroes.filter(function(h){return !isActiveHeroSlot(h);}),
+        missing=alive.map(function(h){return Math.max(0,Number(h.maxHp||100)-Number(h.hp||0));}),
+        maxMissing=missing.length?Math.max.apply(null,missing):0;
+      if(id==='S0-ITM-018'){
+        var canFind=(state.aiDeck||[]).some(function(x){var skill=card(x);return skill&&isSkillCard(skill)&&
+          !isUltimateCard(skill)&&aiIntermediateSkillUsableByLiving(state,skill);});
+        return canFind&&!(state.aiHand||[]).includes(id)?1700:-10000;
+      }
+      if(id==='S0-ITM-002')return maxMissing>=40?1100+maxMissing*4:-10000;
+      if(id==='S0-ITM-008')return defeated.length?1450+defeated.length*50:-10000;
+      if(cardFamily(c)==='Item'&&String(c.classification||'')==='Protection'){
+        if(!alive.length)return -10000;
+        var gates=itemLineageGate(c);
+        if(!alive.some(function(h){return heroMatchesLineageGate(h,gates);}))return -10000;
+        var enemy=LANE_ORDER.map(function(l){return (state.playerHeroes||{})[l];}).filter(isActiveHeroSlot);
+        if(!enemy.length)return -10000;
+        var physical=enemy.filter(function(h){return ['Archer','Thief','Warrior'].indexOf(baseFamilyForHero(h))>=0;}).length;
+        var magical=enemy.length-physical;
+        return id==='S0-ITM-016'?600+physical*75:
+          (id==='S0-ITM-007'?600+magical*75:670);
+      }
+      return -10000;
+    }
+    if(!isSkillCard(c)||!aiIntermediateSkillUsableByLiving(state,c))return -10000;
+    var attackCount=aiIntermediateLivingAttackHandCount(state),attack=isAttackCard(c),
+      defense=isResponseOnly(c)||/defen[cs]e/i.test(String(cardSubtype(c)||c.classification||''));
+    if(!attack&&!defense)return -10000;
+    if(attack&&attackCount>=2)return -10000;
+    var duplicates=(state.aiHand||[]).filter(function(x){return x===id;}).length;
+    var base=attack?1300:attackCount>=2?1300:450;
+    if(attack&&/sure hit|piercing/i.test(String(c.card_text||'')))base+=85;
+    if(attack)base+=Math.min(120,Number(currentClassDamage(c,LANE_ORDER.map(function(l){return (state.aiHeroes||{})[l];}).find(function(h){return isActiveHeroSlot(h)&&sourceCompatibleForMode(c,Object.assign({},h,{exhausted:false,statuses:[]}),{response:true});})||{})||0));
+    return base-duplicates*220-Math.max(0,Number(cardCost(c)||0)-Number(state.aiManaRegen||1)-2)*25;
+  }
+  function aiIntermediateLegacyAvailableChoices(state,ability){
+    var pool=legacyAbilityNeedsDeckChoice(ability)?legacyDeckSearchCandidates(state,'AI',ability):
+      legacyAbilityNeedsDiscardChoice(ability)?legacyDiscardReturnCandidates(state,'AI',ability,[]):[];
+    return pool.filter(function(row){return aiIntermediateLegacyEffectPriority(state,ability,row.card_id)>0;});
+  }
   function aiLegacyStrategicCardScore(state,id){
     var c=card(id),score=0;if(!c)return -9999;
     if(state&&state.aiPlan){var p=state.aiPlan;if(id===p.preferred_card_id||id===p.preferred_attack_card_id)score+=500;}
+    if(aiIntermediate(state)&&aiIntermediateTributableDeadSkill(state,id))score+=5000;
     if(isUltimateCard(c))score+=260;
     if(isAttackCard(c))score+=130;
     else if(isResponseOnly(c))score+=110;
@@ -3894,12 +4038,30 @@
         candidates.push({type:'LEGACY_ABILITY',side:'AI',source_side:'AI',source_lane:lane,card_id:heroIdFrom(h),ability_id:entry.abilityId,label:entry.label||cardName(card(heroIdFrom(h))),legacy_entry:entry,score:aiLegacyAbilityScore(state,lane,entry)});
       });
     });
-    if(!aiIntermediate(state))return candidates[0]||null; // Beginner: first legal Legacy, no value optimization.
+    if(!aiIntermediate(state))return candidates[0]||null; // Beginner unchanged.
+    candidates=candidates.filter(function(a){
+      var ability=a.legacy_entry&&a.legacy_entry.ability||{},effect=ability.effect||{},
+        costs=aiIntermediateLegacyCosts(state,ability),need=legacyCostCount(ability);
+      if(costs.length<need)return false; // Tribute reserved dead-Hero Skills first.
+      if(effect.type==='DRAW_CARDS'||effect.type==='DRAW_PER_DISCARD'){
+        // L001: the owner's threshold is Hand <= 5 BEFORE paying 1 Skill.
+        // Keep it above 5, and avoid consuming the last few mandatory draws.
+        if((state.aiHand||[]).length>5||(state.aiDeck||[]).length<=3)return false;
+        a.score=100+Number(a.score||0);
+      }else if(effect.type==='SEARCH_DECK_TO_HAND'||effect.type==='RETURN_DISCARD_TO_HAND'){
+        var picks=aiIntermediateLegacyAvailableChoices(state,ability);
+        if(picks.length<legacyResultCount(ability))return false;
+        var best=Math.max.apply(null,picks.map(function(x){return aiIntermediateLegacyEffectPriority(state,ability,x.card_id);}));
+        // Always prefer a meaningful L002 over L001 whenever both are legal.
+        a.score=700+best/10+Number(a.score||0);
+      }else a.score=Number(a.score||0);
+      return a.score>0;
+    });
     candidates.sort(function(a,b){return Number(b.score||0)-Number(a.score||0);});
-    return candidates.length&&Number(candidates[0].score||0)>0?candidates[0]:null;
+    return candidates[0]||null;
   }
   function aiChooseLegacyCostIndexes(state,ability){
-    var need=legacyCostCount(ability),candidates=legacyCostCandidates(state,'AI',ability).slice();
+    var need=legacyCostCount(ability),candidates=aiIntermediateLegacyCosts(state,ability).slice();
     if(aiIntermediate(state))candidates.sort(function(a,b){return aiLegacyStrategicCardScore(state,a.card_id)-aiLegacyStrategicCardScore(state,b.card_id)||Number(a.hand_index)-Number(b.hand_index);});
     // Beginner pays with the earliest eligible Hand cards rather than optimizing value.
     return candidates.slice(0,Math.min(need,candidates.length)).map(function(x){return Number(x.hand_index);});
@@ -3909,7 +4071,10 @@
     if(legacyAbilityNeedsDiscardChoice(ability))choices=legacyDiscardReturnCandidates(state,'AI',ability,costPaid||[]);
     else if(legacyAbilityNeedsDeckChoice(ability))choices=legacyDeckSearchCandidates(state,'AI',ability);
     choices=choices.slice();
-    if(aiIntermediate(state))choices.sort(function(a,b){return aiLegacyStrategicCardScore(state,b.card_id)-aiLegacyStrategicCardScore(state,a.card_id);});
+    if(aiIntermediate(state)){
+      choices=choices.filter(function(x){return aiIntermediateLegacyEffectPriority(state,ability,x.card_id)>0;});
+      choices.sort(function(a,b){return aiIntermediateLegacyEffectPriority(state,ability,b.card_id)-aiIntermediateLegacyEffectPriority(state,ability,a.card_id);});
+    }
     return choices.slice(0,Math.max(0,count||1));
   }
   function executeAILegacyAbility(state,action){
@@ -3951,7 +4116,7 @@
   function isArcaneScrollCard(c){ return !!(c && c.card_id==='S0-ITM-010'); }
   function isHolyMedallionCard(c){ return !!(c && c.card_id==='S0-ITM-014'); }
   function isEnrageSetupCard(c){ return !!(c && c.card_id==='S0-WAR-013'); }
-  function isAttackBuffSetupCard(c){ return !!(c && (isPoisonVialCard(c) || isCoordinationAttackCard(c) || isHolyMedallionCard(c) || isArcaneScrollCard(c) || isBlessingMightCard(c) || isBlessingWisdomCard(c) || isEnrageSetupCard(c) || isLastResortCard(c) || c.card_id==='S0-CLE-018' || c.card_id==='S0-CLE-028')); }
+  function isAttackBuffSetupCard(c){ return !!(c && (isPoisonVialCard(c) || isCoordinationAttackCard(c) || isHolyMedallionCard(c) || isArcaneScrollCard(c) || isBlessingMightCard(c) || isBlessingWisdomCard(c) || isEnrageSetupCard(c) || isLastResortCard(c) || isTripleShotCard(c) || c.card_id==='S0-MAG-022' || c.card_id==='S0-CLE-018' || c.card_id==='S0-CLE-028')); }
   function isTacticalFollowUpSetupCard(c){ return isAttackBuffSetupCard(c) || isRingOfGraceCard(c) || isDoubleCastingCard(c) || isWildfireCard(c) || isHeavensFuryCard(c) || !!(c&&c.card_id==='S0-ITM-020'); }
   function aiRemainingManaAfterAction(state, action){
     if(!state||!action)return manaPoolCardsForSide(state||{},'AI').length;
@@ -3979,6 +4144,10 @@
     if(setupCard.card_id==='S0-CLE-028')return attackAction.source_lane===setupAction.target_lane;
     if(setupCard.card_id==='S0-CLE-018')return true;
     if(isPoisonVialCard(setupCard)) return attackAction.source_lane===setupAction.target_lane && isPoisonVialEligibleAttack(attackCard) && actualType==='Physical';
+    if(isTripleShotCard(setupCard))return attackAction.source_lane===setupAction.source_lane &&
+      ['S0-ARC-002','S0-ARC-007'].indexOf(attackCard.card_id)>=0 && aiAreaCoverageCount(state,attackAction.source_lane)>=2;
+    if(setupCard.card_id==='S0-MAG-022')return attackAction.source_lane===setupAction.source_lane &&
+      explicitAttackLabel(attackCard)==='Physical Attack';
     if(isArcaneScrollCard(setupCard)) return attackAction.source_lane===setupAction.target_lane && attackSubtype==='Magical Attack';
     if(isHolyMedallionCard(setupCard)) return attackAction.source_lane===setupAction.target_lane && (attackSubtype==='Physical Attack' || attackSubtype==='Magical Attack');
     if(isBlessingMightCard(setupCard)) return attackAction.source_lane===setupAction.target_lane && attackSubtype==='Physical Attack';
@@ -3990,7 +4159,9 @@
   }
   function aiAttackPlanValue(state, setupAction, attackAction){
     var value=aiAttackTacticalScore(state,attackAction), setupCard=card(setupAction.card_id), attackCard=card(attackAction.card_id);
-    if(isPoisonVialCard(setupCard)){
+    if(isTripleShotCard(setupCard))value+=Math.max(0,aiAreaCoverageCount(state,attackAction.source_lane)-1)*45;
+    else if(setupCard.card_id==='S0-MAG-022')value+=40;
+    else if(isPoisonVialCard(setupCard)){
       if(isDualArrowCard(attackCard)) value+=30;
       else value+=20;
     } else if(isArcaneScrollCard(setupCard) || isHolyMedallionCard(setupCard) || isBlessingMightCard(setupCard) || isBlessingWisdomCard(setupCard) || isEnrageSetupCard(setupCard)) value+=20;
@@ -4008,7 +4179,9 @@
     if(!state || !setupAction) return null;
     var sim=aiManaSimulationAfterSetup(state,setupAction,'Battle',false);
     var legal=getLegalActions('AI',sim).filter(function(a){
-      return a.type==='PLAY_CARD' && isAttackCard(card(a.card_id)) && !isAIChoiceHeavyCard(card(a.card_id)) && aiAttackMatchesSetup(sim,setupAction,a) && aiIntermediateCastingTargetAllowed(sim,a);
+      return a.type==='PLAY_CARD' && isAttackCard(card(a.card_id)) && !isCastingCard(card(a.card_id)) &&
+        !isAIChoiceHeavyCard(card(a.card_id)) && aiAttackMatchesSetup(sim,setupAction,a) &&
+        aiIntermediateCastingTargetAllowed(sim,a) && aiAttackTacticalScore(sim,a)>0;
     });
     legal=aiPreferStatusPrimedAttacks(sim,legal);
     legal.sort(function(a,b){ return aiAttackPlanValue(sim,setupAction,b)-aiAttackPlanValue(sim,setupAction,a) || Number(b.cost||0)-Number(a.cost||0); });
@@ -4389,19 +4562,38 @@
       return profile.effective>=Number(h.hp||Infinity);
     });
   }
+  function aiIntermediatePrintedRankOwner(state,c){
+    if(!state||!c||!isSkillCard(c)||!isAttackCard(c))return null;
+    var rows=(c.requirement&&c.requirement.printed_class_rank_requirements)||[],highest=aiIntermediateHighestPrintedRank(c);
+    if(highest<=1)return null;
+    var printed=rows.filter(function(row){return row&&parseRank(row.rank||'Rank I')===highest&&row.class;});
+    for(var p=0;p<printed.length;p++){
+      var req=printed[p],wanted=normalizedClassToken(req.class);
+      for(var i=0;i<LANE_ORDER.length;i++){
+        var lane=LANE_ORDER[i],h=(state.aiHeroes||{})[lane];
+        if(!isActiveHeroSlot(h))continue;
+        var futureId=rankHeroIdFromProgression(heroProgressionId(h),highest);
+        if(!futureId)continue;
+        if(heroRank(h)<highest&&(state.aiLegacy||[]).indexOf(futureId)<0)continue;
+        if(normalizedClassToken(heroClass({card_id:futureId}))===wanted)
+          return {lane:lane,hero:h,rank:highest,printed_class:req.class};
+      }
+    }
+    return null; // Owner defeated or unavailable: other legal Hero may use it.
+  }
   function aiIntermediatePreserveSkillForRank(state,action){
     if(!aiIntermediate(state)||!action||action.type!=='PLAY_CARD')return false;
     var c=card(action.card_id);if(!c||!isSkillCard(c))return false;
-    // The only exception is a credible immediate MATCH win, not any normal kill.
+    var source=action.source_lane&&(state.aiHeroes||{})[action.source_lane];
+    // A certain match-winning Attack outranks conserving the printed rank.
     if(isAttackCard(c)&&aiIntermediateAttackWinsMatch(state,action))return false;
+    if(source&&isActiveHeroSlot(source)&&isAttackCard(c)){
+      var premium=aiIntermediatePrintedRankOwner(state,c);
+      if(premium && (action.source_lane!==premium.lane||heroRank(premium.hero)<premium.rank))
+        return true; // Save for a living Hero that can use its best printed Class row.
+    }
     if(aiStarterIs(state,4)&&c.card_id==='S0-ARC-025'&&
       !aiS4DreadDamageClearsTarget(state,action))return true;
-    var source=action.source_lane&&(state.aiHeroes||{})[action.source_lane];
-    if(source&&isActiveHeroSlot(source)&&isAttackCard(c)){
-      var rank=heroRank(source),highest=aiIntermediateHighestPrintedRank(c),exp=Number(source.exp_total||0);
-      if(rank===1&&highest>=2)return true; // Silver and Gold should not be spent at Rank I.
-      if(rank===2&&highest>=3&&exp>=500)return true; // Gold is playable early in Rank II.
-    }
     // At 200/600 EXP, do not spend the FINAL normal Skill before Reform Tribute.
     if(!isUltimateCard(c)){
       var needsOne=LANE_ORDER.some(function(l){var h=(state.aiHeroes||{})[l];
@@ -4466,6 +4658,7 @@
       klass=String(c.classification||''),cost=Number(cardCost(c)||0),regen=Number(state.aiManaRegen||1),score=0;
     if(same>1)score+=240;
     if(isUltimateCard(c))score+=Number(h.exp_total||0)<700?235:0;
+    if(aiIntermediateTributableDeadSkill(state,c.card_id))score+=800;
     // Finish a Rank Up with exactly the needed EXP and enable Return EXP + Mana Regen bonus.
     if(missing===val)score+=900;
     // Prefer sacrificing ordinary low-value Skills over a valuable printed Rank II/III Attack.
@@ -4565,7 +4758,7 @@
   // to overfill Hand merely because Aura/Dreadbolt happens to be in Hand.
   function aiS4DrawAmount(id){
     // Deploy-phase Draw enablers for Alden's Aura / Colossal combo.
-    return ['S0-ARC-005','S0-EVT-002','S0-CLE-028'].indexOf(id)>=0?2:(id==='S0-ARC-022'?3:0);
+    return ['S0-ARC-005','S0-EVT-002'].indexOf(id)>=0?2:(id==='S0-ARC-022'?3:0);
   }
   // RC39 Aura combo ownership: an Intermediate AI with living Alden/Arbalest
   // reserves real Main Deck Draw cards while an unplayed Aura is in Hand/Deck.
@@ -4578,12 +4771,12 @@
       'S0-THF-028':1, // Camouflage (usable while exhausted)
       'S0-ARC-022':3, // Singularity Reload (usable while exhausted)
       'S0-EVT-002':2, // Market Bargain
-      'S0-CLE-028':2, // Blessing of Accuracy (Vae condition)
+      'S0-CLE-028':0, // Blessing of Accuracy searches Zol; not Draw
       'S0-CLE-013':3, // God's Blessing (discard condition)
       'S0-EVT-001':5, // Begin Anew (shuffle Hand, Draw 5)
-      'S0-ARC-028':2, // Midnight Lullaby (conditional Attack)
+      'S0-ARC-028':1, // Midnight Lullaby CONDITION draw occurs before attack
       'S0-CLE-031':3, // Grand Finale (conditional Defense)
-      'S0-ARC-029':1, // Swift Movement (conditional Response)
+      'S0-ARC-029':0, // Swift Movement searches for Vae instead of Drawing
       'S0-THF-030':1  // Flash Combo (draws only when attack hits)
     };
     return Number(amounts[id]||0);
@@ -4592,7 +4785,7 @@
     // Only deterministic Deploy-phase enablers are allowed to justify CAST.
     // Responses / on-hit Attack draws cannot be promised two turns ahead.
     return ['S0-ARC-005','S0-ARC-014','S0-THF-028','S0-ARC-022',
-      'S0-EVT-002','S0-CLE-028','S0-CLE-013','S0-EVT-001'].indexOf(id)>=0?
+      'S0-EVT-002','S0-CLE-013','S0-EVT-001'].indexOf(id)>=0?
       aiAuraMainDeckDrawAmount(id):0;
   }
   function aiAuraFutureUnplayed(state){
@@ -4646,7 +4839,7 @@
     // Only actual Draw 2 from the MAIN Deck. Mana-Shard draws, three-card
     // draws, searches that put cards into Hand, and exchange/redraw abilities
     // do not count. S0-ARC-028 is an Attack with a Draw 2 rider.
-    return !!(c&&['S0-ARC-005','S0-EVT-002','S0-CLE-028','S0-ARC-028'].indexOf(c.card_id)>=0);
+    return !!(c&&['S0-ARC-005','S0-EVT-002','S0-ARC-028'].indexOf(c.card_id)>=0);
   }
   function aiIntermediateHasNoOtherSkillCard(state,sourceCardId){
     // A Draw 2 Skill cannot count itself as an alternative Skill in Hand.
@@ -4945,6 +5138,30 @@
     var repeatedAttacks=opponents.length>=2&&availableNext>=6;
     return endangered?{score:320,reason:'critical allied Hero'}:(repeatedAttacks?{score:225,reason:'multiple opposing attacks affordable'}:null);
   }
+  function aiIntermediateDefensiveBuffOpportunity(state,action){
+    var id=action.card_id,allies=state.aiHeroes||{},opponents=state.playerHeroes||{},
+      alive=LANE_ORDER.map(function(l){return allies[l];}).filter(isActiveHeroSlot),
+      enemy=LANE_ORDER.map(function(l){return opponents[l];}).filter(isActiveHeroSlot),
+      source=allies[action.source_lane],host=allies[action.target_lane||action.source_lane];
+    if(!alive.length||!enemy.length)return -1000;
+    var opponentMana=manaPoolCardsForSide(state,'PLAYER').length;
+    var threat=opponentMana+Math.max(0,Number(state.manaRegen||1))>=3;
+    if(id==='S0-ITM-015'||id==='S0-THF-028'){
+      if(!host||!threat||hasActiveAttachmentForHero(state,host,id))return -1000;
+      var hpRatio=Number(host.hp||0)/Math.max(1,Number(host.maxHp||100));
+      return (hpRatio<=0.60?220:(aiNormalAttackExposure(state,action.target_lane||action.source_lane)>=1?95:-1000));
+    }
+    if(id==='S0-WAR-005'){
+      if(!source||!threat||Number(source.hp||0)<50||hasActiveAttachmentForHero(state,source,id))return -1000;
+      var threatened=alive.some(function(h){return h!==source&&Number(h.hp||0)<Number(h.maxHp||100)*0.70;});
+      return threatened?145:-1000;
+    }
+    if(id==='S0-MAG-028'){
+      if(!source||opponentMana>3||hasActiveAttachmentForHero(state,source,id))return -1000;
+      return enemy.length>0?95:-1000;
+    }
+    return null;
+  }
   function aiIntermediateDeployGate(state,action){
     var c=card(action.card_id);if(!c)return null;
     var id=c.card_id,hand=(state.aiHand||[]),count=hand.length;
@@ -4952,6 +5169,10 @@
     if(id==='S0-EVT-012'){
       var defenseDecision=aiIntermediateDefensiveFormationDecision(state);
       return defenseDecision?defenseDecision.score-Number(action.cost||0):-1000;
+    }
+    if(['S0-ITM-015','S0-THF-028','S0-WAR-005','S0-MAG-028'].indexOf(id)>=0){
+      var protective=aiIntermediateDefensiveBuffOpportunity(state,action);
+      return protective===null?-1000:(protective<0?protective:protective-Number(action.cost||0));
     }
     if(aiAuraShouldReserveDraw(state,action))return -1000;
     if(!aiIntermediateDrawTwoPermitted(state,action))return -1000;
@@ -4996,6 +5217,9 @@
       var hasFinisher=bestAttack&&bestAttack.card_id==='S0-ARC-010';
       return 60+(recycle.hasLoop?80:0)+(hasFinisher?45:0)+urgency-Number(action.cost||0);
     }
+    if(/\bBUFF\b/i.test(String(c.card_text||''))&&!isTacticalFollowUpSetupCard(c) &&
+      ['S0-EVT-012','S0-WAR-005','S0-MAG-028','S0-THF-028','S0-ITM-015'].indexOf(id)<0)
+      return -1000; // An unplanned timed BUFF must never be spent for a bare +55 score.
     if(id==='S0-ITM-008'){
       // Phoenix Feather is valuable only if the revived hero survives or has a healing follow-up.
       var healed=hand.some(function(x){return isHealCard(card(x))&&x!==id;});
@@ -5392,7 +5616,7 @@
     if(phase==='Deploy'){
       // Beginner does not sequence multi-turn Casting, combo setup, or Warp
       // Scroll tactical positioning. It can still use straightforward cards.
-      var basic=play.filter(function(a){var c=card(a.card_id);return !isAttackCard(c)&&!isTacticalFollowUpSetupCard(c)&&!isWarpScrollCard(c);});
+      var basic=play.filter(function(a){var c=card(a.card_id);return !isAttackCard(c)&&(!isTacticalFollowUpSetupCard(c)||isTripleShotCard(c)||(c&&c.card_id==='S0-MAG-022'))&&!isWarpScrollCard(c);});
       if(!basic.length)return skip;
       function value(a){
         var c=card(a.card_id),family=cardFamily(c),score=0;
@@ -7075,8 +7299,7 @@
   function lunMayBlockForHero(c,incoming,hero){
     if(!c||c.card_id!=='S0-CLE-026') return true;
     var type=String(incoming&&incoming.damage_type||'');
-    if(type==='Magical')return true;
-    return type==='Physical' && /^(?:Bard|Maestro)$/i.test(String(heroClass(hero)||''));
+    return type==='Physical'||type==='Magical';
   }
   function responseBlockAmount(rc, incoming, defenderHero){
     // PIERCING disables the BLOCK portion of every Response, including Deflect.
@@ -7088,6 +7311,7 @@
     // PIERCING is handled above. Block amount is capped by damage resolution.
     if(s0ProtectionItemCanBlock(rc,incoming))return 40;
     if(!lunMayBlockForHero(rc,incoming,defenderHero))return 0;
+    if(rc&&rc.card_id==='S0-CLE-026')return classMappedNumber({Cleric:30,Bard:40},defenderHero,rc);
     var override=responseProfileOverride(rc,incoming);
     if(override && override.kind==='block'){ if(override.amount_by_class) return classMappedNumber(override.amount_by_class, defenderHero, rc); return Number(override.amount||0); }
     var amount=0; if(!rc || !Array.isArray(rc.effect)) return 0;
@@ -7147,7 +7371,7 @@
       var rk=responseKind(rc,incoming); if(!rk || !lunMayBlockForHero(rc,incoming,defender)) return;
       if(incoming.cannot_block && ['S0-WAR-012','S0-WAR-029','S0-THF-022'].indexOf(rc.card_id)>=0 &&
          !/\bREFLECT\s+\d+\b/i.test(String(branchEffectText(rc,defender)||'')))return;
-      if(rc.card_id==='S0-THF-023' && !shadowSwitchCanReposition(state,responderSide,incoming)) return;
+      // Shadow Switch DODGE must remain legal even if the follow-up Swap is impossible.
       // Area Attacks open a separate Response Window for each affected Hero.
       // A Protection Item affects the Hero in the CURRENT window only.
       if((incoming.affected_lanes||[]).length>1 && !(isSacredBulwarkCard(rc) || isBlessingDivinityCard(rc) || isDefensiveFormationCard(rc) || isSpectralGrapplingHookCard(rc) || isChainMailCard(rc) || isRingProtectionCard(rc) || rk==='negate_return')) return;
@@ -7256,10 +7480,10 @@
     if((isThiefDodgeResponseCard(c)||isDodgeResponseCard(c))&&incoming.cannot_dodge) reasons.push('The incoming effect cannot be Dodged.');
     if((isThiefDodgeResponseCard(c)||isDodgeResponseCard(c))&&defender&&hasStatus(defender,'Freeze')) reasons.push(cardName(card(defender.card_id))+' is Frozen and cannot Dodge.');
     if(incoming.cannot_block && c.card_id!=='S0-WAR-012' && Array.isArray(c.effect) && c.effect.some(function(e){return e.kind==='block_damage'||e.kind==='protective_def_response_block';})) reasons.push('The incoming effect cannot be Blocked.');
-    if(isSpectralGrapplingHookCard(c)&&!LANE_ORDER.some(function(l){return spectralGrapplingHookResponderValid(sideHeroes(state,responderSide)[l]);})) reasons.push('Spectral Grappling Hook requires an active Archer or Thief Item user.');
-    if(c&&c.card_id==='S0-THF-023'&&!shadowSwitchCanReposition(state,responderSide,incoming)) reasons.push('Shadow Switch requires both Heroes to be able to swap (not Frozen or Stunned).');
-    if(isChainMailCard(c)&&!LANE_ORDER.some(function(l){return chainMailResponderValid(sideHeroes(state,responderSide)[l]);})) reasons.push('Chain Mail requires an active Warrior, Archer, or Thief Item user.');
-    if((incoming.affected_lanes||[]).length>1&&!(isSacredBulwarkCard(c)||isBlessingDivinityCard(c)||isDefensiveFormationCard(c)||isSpectralGrapplingHookCard(c)||isSmokeScreenCard(c)||isTacticalAdaptationCard(c))) reasons.push('This card cannot protect the full multi-target response frame.');
+    if(isSpectralGrapplingHookCard(c)&&!spectralGrapplingHookResponderValid(defender)) reasons.push('This Response Window requires the affected Hero to have Archer or Thief lineage for Spectral Grappling Hook.');
+
+    if(isChainMailCard(c)&&!chainMailResponderValid(defender)) reasons.push('This Response Window requires the affected Hero to have Warrior, Archer, or Thief lineage for Chain Mail.');
+    if((incoming.affected_lanes||[]).length>1&&!(isSacredBulwarkCard(c)||isBlessingDivinityCard(c)||isDefensiveFormationCard(c)||isSpectralGrapplingHookCard(c)||isChainMailCard(c)||isRingProtectionCard(c)||isSmokeScreenCard(c)||isTacticalAdaptationCard(c))) reasons.push('This card cannot protect the full multi-target response frame.');
     var kind=responseKind(c,incoming);
     if(!kind&&!reasons.length) reasons.push('This card does not match the incoming '+String(incoming.damage_type||'')+' damage / '+String(incoming.attack_type||'Attack')+' response condition.');
     if(isCoverUpCard(c)){
@@ -7270,7 +7494,7 @@
       var any=false, sample=[];
       LANE_ORDER.forEach(function(lane){var h=sideHeroes(state,responderSide)[lane],rr=responseSourceLegalityReasons(state,responderSide,c,h);if(!rr.length){var pol=attachmentPolicyForCard(c,h);if(!pol||attachmentSlotIndex(h)!==-1)any=true;}else sample=sample.concat(rr);});
       if(!any) reasons.push(sample[0]||'No allied Hero meets this card’s Class, Rank, Lineage, status, Mana, or Attachment requirements.');
-    } else if(requiresSourceHero(c)){
+    } else if(requiresSourceHero(c)||isSpectralGrapplingHookCard(c)||isChainMailCard(c)||isRingProtectionCard(c)){
       var rr=responseSourceLegalityReasons(state,responderSide,c,defender); rr.forEach(function(x){reasons.push(x);});
     } else {
       var cost=responseCostForSource(c,defender,state,responderSide), available=manaAvailableValueForCard(state,responderSide,c);if(cost>available)reasons.push('Not enough Mana value: needs '+cost+', available '+available+'.');
@@ -7523,6 +7747,31 @@
     state.cardSwapNotices.push(notice);
     if(state.cardSwapNotices.length>32)state.cardSwapNotices.splice(0,state.cardSwapNotices.length-32);
   }
+  // F23: keep every post-Attack Swap result on the SAME Card Played entry as
+  // the Attack that created it. An optional choice resolves after the damage
+  // entry is already created, so the pending action must preserve its event ID.
+  function recordAttackCardSwapResult(state,action,affectedSide,from,to,movedHero,partnerHero,outcome,reason){
+    if(!state||!action||!isAttackCard(card(action.card_id)))return null;
+    var sourceSide=action.source_side||action.side||'PLAYER';
+    var eventId=sourceSide==='PLAYER'?action.player_event_id:(action.ai_event_id||action.opponent_event_id);
+    var evt=eventId?findPlayedEventStrict(state,sourceSide,eventId):null;
+    if(!evt){
+      var candidates=sourceSide==='PLAYER'?(state.playerPlayedEvents||[]):(state.opponentPlayedEvents||[]);
+      evt=candidates.find(function(x){return x&&x.card_id===action.card_id&&action.commit_token&&x.commit_token===action.commit_token;})||null;
+    }
+    if(!evt){
+      evt=sourceSide==='PLAYER'?findLocalPlayerEventForAction(state,action,'ATK'):findOpponentEventForAction(state,action,'ATK');
+    }
+    if(!evt||evt.card_id!==action.card_id)return null;
+    var status=String(outcome||'').toUpperCase(), movedName=movedHero?cardName(card(heroIdFrom(movedHero))):'',partnerName=partnerHero?cardName(card(heroIdFrom(partnerHero))):'';
+    evt.swap_results=evt.swap_results||[];
+    evt.swap_results.push({status:status,affected_side:affectedSide||'',from_lane:from||'',to_lane:to||'',moved_name:movedName,partner_name:partnerName,reason:String(reason||'')});
+    if(status==='SWAPPED'&&from&&to&&movedHero&&partnerHero){
+      recordPlayedResolvedEffect(state,sourceSide,action.card_id,movedHero,'SWAP',from+' \u2192 '+to,'Moved by '+cardName(card(action.card_id)),evt.id);
+      recordPlayedResolvedEffect(state,sourceSide,action.card_id,partnerHero,'SWAP',to+' \u2192 '+from,'Swapped with '+movedName,evt.id);
+    }
+    return evt;
+  }
   function recordMandatorySwapCompleted(state, action, side, from, to){
     if(!state||!action||!side||!from||!to)return;
     state.swapCompletedSeq=Number(state.swapCompletedSeq||0)+1;
@@ -7553,6 +7802,7 @@
     state.swapCanceledSeq=Number(state.swapCanceledSeq||0)+1;
     state.lastSwapCanceled={sequence:state.swapCanceledSeq,reason:reason,card_id:action.card_id,side:side};
     recordCardSwapNotice(state,{kind:'canceled',card_id:action.card_id,side:side,reason:reason});
+    recordAttackCardSwapResult(state,action,side,lane,null,h,null,'CANCELED',reason);
     pushLog(state,'Swap canceled — '+reason+' ('+cardName(card(action.card_id))+').');
   }
   function resolvePostAttackChoices(state, action, post, result, options){
@@ -7593,13 +7843,18 @@
       var sourcePrompt=promptOptionalSwap(state, action, null);
       if(sourcePrompt===true) return true;
       if(sourcePrompt==='AUTO_RESOLVED') return false;
-      notifyNoLegalCardSwap(state,action,'source');
+      var sourceObj=sideHeroes(state,action.source_side)[action.source_lane];
+      if(isMandatorySourceSwapCard(card(action.card_id),sourceObj))notifyNoLegalCardSwap(state,action,'source');
+      else {recordAttackCardSwapResult(state,action,action.source_side,action.source_lane,null,sourceObj,null,'SKIPPED','Optional Swap has no legal adjacent destination.');pushLog(state,cardName(card(action.card_id))+' optional Swap skipped: no legal adjacent destination.');}
     }
     if(targetSwapRequested){
       var targetPrompt=promptOptionalTargetSwap(state, action, null);
       if(targetPrompt===true) return true;
       if(targetPrompt==='AUTO_RESOLVED') return false;
-      notifyNoLegalCardSwap(state,action,'target');
+      if(isSoulBlastShotCard(card(action.card_id))){
+        recordAttackCardSwapResult(state,action,action.target_side,action.target_lane,null,sideHeroes(state,action.target_side)[action.target_lane],null,'SKIPPED','Optional Swap has no legal adjacent destination.');
+        pushLog(state,cardName(card(action.card_id))+' optional Swap skipped: no legal adjacent destination.');
+      }else notifyNoLegalCardSwap(state,action,'target');
     }
     // No legal reposition option (including same-column source/front no-op): finish deferred discard only when this card was held for continuation.
     if(post.defer_reposition_discard || post.deferred_discard_card_id) finalizeDeferredRepositionDiscard(state,post,action.source_side,action.card_id);
@@ -8321,7 +8576,7 @@
   function resolveResponseWindow(responseOption,committedContext){
     var activeResponseContext=committedContext||appState&&appState.responseWindow;
     if(!appState || !activeResponseContext) return false;
-    if(responseOption && responseOption.card_id==='S0-THF-023' && !shadowSwitchCanReposition(appState,activeResponseContext.target_side,responseIncomingFromWindow(activeResponseContext))){showInfo('Cannot Respond','Shadow Switch cannot swap a Frozen or Stunned Hero.');return false;}
+
     if(responseOption && isHandCardResponseOption(responseOption) && !responseOption._payment_complete){
       // Choosing a Response is still pre-commit. Revalidate before opening its payment gate.
       // If the option became stale before payment, nothing is paid and the old window remains open.
@@ -8412,7 +8667,7 @@
       }
       }
       var sideEffects=(responseOption.response_kind==='legacy_reduce'||responseOption.response_kind==='dragon_scale'||responseOption.response_kind==='second_chance')?[]:applyResponseSideEffects(rc,source,target);
-      if(rc&&rc.card_id==='S0-ARC-029'&&kind==='dodge'&&dodged){drawOne(appState,rw.target_side,false,{reason:'CARD_EFFECT'});sideEffects.push('Swift Movement draws 1 card after DODGE');}
+      if(rc&&rc.card_id==='S0-ARC-029'&&kind==='dodge'&&dodged){var vae=addPrintedNamedCardFromDeck(appState,rw.target_side,rc,'S0-CLE-027');sideEffects.push(vae?'Swift Movement adds 1 Vae to Hand after DODGE':'Swift Movement searches for Vae; none remains in deck');}
       // REFLECT is applied below, after the Attack has been resolved and a
       // connected Hit established. BLOCK 50 alone must never trigger it.
       if(rw.multi_sequence&&(isDefensiveFormationCard(rc)||isSacredBulwarkCard(rc))){rw.action=rw.action||{};rw.action.team_area_block=Math.max(Number(rw.action.team_area_block||0),Number(block||0));}
@@ -8421,13 +8676,13 @@
         if(stepFrom===stepFront){
           stepInRepositionLine='Step In dodge resolved; the responding Hero was already directly in front of the attacker.';
           responseName+='; '+stepInRepositionLine;
-        } else if(isActiveHeroSlot(stepHero) && isActiveHeroSlot(frontHero) && skillEffectSwapPairEligible(stepHero,frontHero)){
+        } else if(adjacentLanes(stepFrom).indexOf(stepFront)!==-1 && !positionLockedOneVsOne(appState) && isActiveHeroSlot(stepHero) && isActiveHeroSlot(frontHero) && skillEffectSwapPairEligible(stepHero,frontHero)){
           var stepName=cardName(card(stepHero.card_id)), frontName=cardName(card(frontHero.card_id));
           swapBoardStateLanes(appState,rw.target_side,stepFrom,stepFront);
           stepInRepositionLine=stepName+' repositioned '+stepFrom+' -> '+stepFront+'; '+frontName+' moved '+stepFront+' -> '+stepFrom+'.';
           responseName+='; '+stepInRepositionLine;
         } else {
-          stepInRepositionLine='Step In dodge resolved; reposition could not resolve because the attacker-facing slot no longer contained an active allied Hero.';
+          stepInRepositionLine='Step In dodge resolved; reposition was not legal (adjacency, Freeze, Stun, or unavailable partner).';
           responseName+='; '+stepInRepositionLine;
         }
       }
@@ -8850,7 +9105,7 @@
       else if(GL_AI_TURN_DIRECTOR.active) aiDirectorEnterEnd(state);
       else {
         resolveEndPhaseCleanupForSide(state,'AI');
-        if(!state.pending&&!state.gameOver){state.autoEndTurnPending=false;state.autoEndResumeScheduled=false;clearAIPlanAtTurnEnd(state);advanceRoundAfterCompletedTurnPair(state,'AI');beginPlayerTurnDrawPhase(state,'AI ends turn. PLAYER begins Draw Phase for Round '+state.round+'.');}
+        if(!state.pending&&!state.gameOver){clearAIPlanAtTurnEnd(state);advanceRoundAfterCompletedTurnPair(state,'AI');beginPlayerTurnDrawPhase(state,'AI ends turn. PLAYER begins Draw Phase for Round '+state.round+'.');}
       }
     }
     return true;
@@ -8891,20 +9146,21 @@
     // Opponent Mana identity is hidden during selection. Transfer-style effects remove the chosen
     // opponent Shard to its owner's deck, then gain from the acting player's own Shard Deck.
     // Source S0 Bard effects resolve independent Draw after the existing Attack/Response sequence.
-    if(c.card_id==='S0-ARC-028'){drawMany(state,sourceSide,2,{reason:'CARD_EFFECT'});pushLog(state,cardName(c)+' draws up to 2 cards after resolving its Area Attack.');}
+    // Midnight Lullaby's CONDITION Draw has already completed before its Attack.
     if(c.card_id==='S0-CLE-031'){drawMany(state,sourceSide,3,{reason:'CARD_EFFECT'});pushLog(state,cardName(c)+' draws up to 3 cards after its Attack.');}
-    if(c.card_id==='S0-MAG-021' && connectedHits>0 && (cls==='Spell Blade' || cls==='Arcane Duelist')) queueOpponentManaInteraction(result,'REMOVE_AND_GAIN_OWN',2,cardName(c)+' connected hit');
-    if(c.card_id==='S0-MAG-023' && connectedHits>0) queueOpponentManaInteraction(result,'REMOVE_ONLY',cls==='Arcane Duelist'?3:1,cardName(c)+' connected hit');
-    if(c.card_id==='S0-MAG-024' && cls==='Arcane Duelist' && connectedHits>0) queueOpponentManaInteraction(result,'REMOVE_ONLY',connectedHits,cardName(c)+' connected hits');
+    if(c.card_id==='S0-MAG-021' && connectedHits>0 && ['Mage','Spell Blade','Arcane Duelist'].indexOf(cls)>=0) queueOpponentManaInteraction(result,'REMOVE_AND_GAIN_OWN',cls==='Mage'?1:2,cardName(c)+' connected hit');
+    if(c.card_id==='S0-MAG-023' && connectedHits>0) queueOpponentManaInteraction(result,'REMOVE_ONLY',cls==='Arcane Duelist'?5:3,cardName(c)+' connected hit');
+    if(c.card_id==='S0-MAG-024' && ['Spell Blade','Arcane Duelist'].indexOf(cls)>=0 && connectedHits>0) queueOpponentManaInteraction(result,'REMOVE_ONLY',connectedHits*(cls==='Arcane Duelist'?2:1),cardName(c)+' connected hits');
     if((c.card_id==='S0-MAG-026'||c.card_id==='S0-MAG-020') && connectedHits>0){
       var printedBurn=String(branchEffectText(c,sourceHero)||'').match(/When this Attack hits,\s*MANA BURN\s*(\d+)/i);
       if(printedBurn)queueOpponentManaInteraction(result,'REMOVE_ONLY',Number(printedBurn[1])*connectedHits,cardName(c)+' connected hit');
     }
     if(c.card_id==='S0-THF-030' && printedAttackHitCount(result)>0){ drawOne(state,sourceSide,false); pushLog(state,cardName(c)+' hit and draws 1 card.'); }
-    if(physicalAttackConvertedByAether(c,sourceHero) && connectedHits>0) queueOpponentManaInteraction(result,'REMOVE_ONLY',2*connectedHits,'Aether Infusion converted Attack connected hit');
+    if(physicalAttackConvertedByAether(c,sourceHero) && connectedHits>0) queueOpponentManaInteraction(result,'REMOVE_ONLY',3*connectedHits,'Aether Infusion converted Attack connected hit');
     if(isShieldBashCard(c)){ pushLog(state, cardName(c)+' Attachment gives '+cardName(card(sourceHero.card_id))+' incoming Physical damage -20 until the start of the owner next turn.'); }
     if(isHolyRingCard(c) && ['Priest','Saint'].indexOf(heroClass(sourceHero))!==-1){ pushLog(state, cardName(c)+' Attachment gives '+cardName(card(sourceHero.card_id))+' attack-target prevention until the owner next Draw Phase.'); }
     if(isHolySlashCard(c) && hpDamage>0){ healHeroIfLegal(state,sourceHero,20,c,sourceHero,'Holy Slash successful HP damage'); }
+    if(c.card_id==='S0-CLE-024' && hpDamage>0){healHeroIfLegal(state,sourceHero,30,c,sourceHero,'Divine Judgement dealt HP damage');}
     if(c.card_id==='S0-CLE-009'){ healAllAlliedHeroes(state,sourceSide,20,c,sourceHero,'Holy Blast independent heal'); }
   }
   function transferManaShard(state, side, c){
@@ -8919,6 +9175,16 @@
     if(!Array.isArray(pile)) return pile;
     for(var i=pile.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var tmp=pile[i]; pile[i]=pile[j]; pile[j]=tmp; }
     return pile;
+  }
+  function addPrintedNamedCardFromDeck(state, side, sourceCard, wantedId){
+    var deck=deckForSide(state,side)||[],pos=deck.indexOf(wantedId),obtained=null;
+    if(pos>=0){
+      obtained=deck.splice(pos,1)[0];var hand=sideHand(state,side);hand.push(obtained);
+      recordPublicSelectedPickup(state,side,obtained,'Main Deck',sourceCard.card_id,hand.length-1);
+    }
+    shufflePile(deck);
+    pushLog(state,cardName(sourceCard)+' searches for '+cardName(card(wantedId))+': '+(obtained?'added 1 to Hand':'no copy available')+'. Deck shuffled; this is not a Draw.');
+    return obtained;
   }
   function filterMatchesCard(c, filter){
     filter=filter||{}; if(!c) return false;
@@ -9003,7 +9269,7 @@
   function responseProfileOverride(rc,incoming){
     if(rc && rc.card_id==='S0-CLE-026'){
       var dt=String(incoming&&incoming.damage_type||'');
-      return incoming&&!incoming.cannot_block&&/^(?:Physical|Magical)$/i.test(dt)?{kind:'block',amount:20}:null;
+      return incoming&&!incoming.cannot_block&&/^(?:Physical|Magical)$/i.test(dt)?{kind:'block',amount_by_class:{Cleric:30,Bard:40,Maestro:40}}:null;
     }
     // Compatibility-only response shape overrides. Numeric Block authority must come
     // from the canonical structured runtime data, never from application-local values.
@@ -9320,14 +9586,14 @@
       c.card_id==='S0-WAR-015' || c.card_id==='S0-WAR-025' || c.card_id==='S0-WAR-030'
     ));
   }
-  function isSourceFrontSwapCard(c){ return !!(c && ['S0-THF-002','S0-THF-020','S0-THF-026','S0-WAR-015','S0-WAR-025','S0-WAR-030'].indexOf(c.card_id)!==-1); }
+  function isSourceFrontSwapCard(c){ return !!(c && ['S0-THF-002','S0-THF-020','S0-THF-026','S0-THF-024','S0-WAR-015','S0-WAR-025','S0-WAR-030'].indexOf(c.card_id)!==-1); }
   // Official S0 wording: Warrior Charge attacks use imperative 'Swap', unlike optional Thief 'You may swap'.
-  function isMandatorySourceSwapCard(c){ return !!(c && ['S0-WAR-015','S0-WAR-025','S0-WAR-030'].indexOf(c.card_id)!==-1); }
+  function isMandatorySourceSwapCard(c,hero){ return !!(c && (['S0-WAR-015','S0-WAR-025','S0-WAR-030'].indexOf(c.card_id)!==-1 || (c.card_id==='S0-THF-024' && hero && heroClass(hero)==='Spell Blade'))); }
   function isAnyAlliedSwapCard(c){ return !!(c && c.card_id==='S0-THF-024'); }
   function cardEffectSwapModel(c){
     if(isSoulBlastShotCard(c)) return 'target_adjacent';
     if(isSourceFrontSwapCard(c)) return 'source_front';
-    if(isAnyAlliedSwapCard(c)) return 'source_any_allied';
+    if(isAnyAlliedSwapCard(c)) return 'source_front';
     if(isCoverUpCard(c)) return 'response_redirect';
     if(c && c.card_id==='S0-THF-023') return 'dodge_then_reposition';
     return null;
@@ -9433,12 +9699,17 @@
     // but a legal partner may be either an active Hero or Legacy. Freeze/Exhaust do not add a second movement gate.
     if(!isActiveHeroSlot(sourceHero)) return [];
     var candidates=[];
+    // F22: all current Attack-card source Swaps obey adjacent battlefield AoA
+    // (LEFT <-> CENTER, CENTER <-> RIGHT). RANGE affects attack targeting, NOT
+    // the range of this separate allied Swap effect. Only Warp Scroll currently
+    // authorizes a direct LEFT <-> RIGHT Swap and uses its own Item path.
+    var adjacent=adjacentLanes(sourceLane);
     if(model==='source_front'){
       var facing=action.target_lane;
-      if(facing && facing!==sourceLane && skillEffectSwapPairEligible(sourceHero,heroes[facing])) candidates.push(facing);
+      if(adjacent.indexOf(facing)!==-1 && skillEffectSwapPairEligible(sourceHero,heroes[facing])) candidates.push(facing);
     } else if(model==='source_any_allied'){
-      LANE_ORDER.forEach(function(lane){
-        if(lane!==sourceLane && skillEffectSwapPairEligible(sourceHero,heroes[lane])) candidates.push(lane);
+      adjacent.forEach(function(lane){
+        if(skillEffectSwapPairEligible(sourceHero,heroes[lane])) candidates.push(lane);
       });
     }
     return candidates;
@@ -9447,7 +9718,7 @@
     if(!action) return null;
     var c=card(action.card_id), opts=sourceSwapOptions(appState,action);
     if(opts.length) return opts[0];
-    if(isSourceFrontSwapCard(c) && action.target_lane && action.target_lane!==action.source_lane) return action.target_lane;
+    if(isSourceFrontSwapCard(c) && adjacentLanes(action.source_lane).indexOf(action.target_lane)!==-1) return action.target_lane;
     return null;
   }
   function soulBlastTargetSwapOptions(state, action){
@@ -9474,14 +9745,22 @@
   function performOptionalTargetSwapDecision(lane){
     if(!appState || !appState.pending || appState.pending.type!=='optional_target_swap') return false;
     var p=appState.pending, heroes=sideHeroes(appState,p.target_side), a=p.target_lane, opts=p.swap_options||[], nextPending=p.next_pending?clone(p.next_pending):null;
-    if(!positionLockedOneVsOne(appState) && lane && opts.indexOf(lane)!==-1 && skillEffectSwapPairEligible(heroes[a],heroes[lane])){
+    // R3.94: the attacker MAY Swap. SKIP must always be a legal choice.
+    // Revalidate the chosen destination against the live board before commit.
+    var legal=(!positionLockedOneVsOne(appState) && isActiveHeroSlot(heroes[a]))?
+      opts.filter(function(opt){return adjacentLanes(a).indexOf(opt)!==-1&&skillEffectSwapPairEligible(heroes[a],heroes[opt]);}):[];
+    if(!lane){
+      recordAttackCardSwapResult(appState,p,p.target_side,a,null,heroes[a],null,'SKIPPED','Optional Swap declined.');
+      pushLog(appState,cardName(card(p.card_id))+' optional target Swap skipped by attacker.');
+    } else if(legal.indexOf(lane)!==-1){
       var targetId=heroIdFrom(heroes[a]), adjacentId=heroIdFrom(heroes[lane]);
       swapBoardStateLanes(appState,p.target_side,a,lane);
-      pushLog(appState, cardName(card(p.card_id))+' force reposition resolved: '+cardName(card(targetId))+' '+a+' ↔ '+cardName(card(adjacentId))+' '+lane+'.');
-    } else if(!positionLockedOneVsOne(appState) && opts.some(function(opt){return skillEffectSwapPairEligible(heroes[a],heroes[opt]);})){
-      // Printed 'swap' is mandatory. A missing/invalid input cannot decline a legal move.
-      return false;
-    } else pushLog(appState, cardName(card(p.card_id))+' force reposition has no legal remaining partner.');
+      recordMandatorySwapCompleted(appState,p,p.target_side,a,lane);
+      recordAttackCardSwapResult(appState,p,p.target_side,a,lane,heroes[lane],heroes[a],'SWAPPED','');
+      pushLog(appState, cardName(card(p.card_id))+' target reposition selected by attacker: '+cardName(card(targetId))+' '+a+' ↔ '+cardName(card(adjacentId))+' '+lane+'.');
+    } else if(legal.length){return false;} else {
+      recordAttackCardSwapResult(appState,p,p.target_side,a,null,heroes[a],null,'CANCELED','No legal adjacent Swap destination.');
+    }
     finalizeDeferredRepositionDiscard(appState,p,p.source_side,p.card_id);
     appState.pending=nextPending||null; closeChoice(); syncCounts(appState); if(appState.pending&&appState.pending.type==='legacy_defeat_choice') renderLegacyDefeatChoice(); render(); return true;
   }
@@ -9509,7 +9788,7 @@
   }
   function localPendingClosePolicy(state,p){
     if(!p) return 'CLOSE_ONLY';
-    if(p.type==='optional_target_swap') return 'MANDATORY_NO_CANCEL'; // Soul Blast Shot prints 'swap', not 'may swap'.
+    if(p.type==='optional_target_swap') return 'POST_RESOLUTION_DECLINE'; // R3.94: printed 'you may swap'.
     if(['optional_swap','post_attack_reposition_choice'].indexOf(p.type)!==-1) return 'POST_RESOLUTION_DECLINE';
     if(['trial_rankup_return_exp','scouting_exp_selection','s0_bard_draw_choice','legacy_defeat_choice','racial_stoneblood','saint_purify_choice','hand_limit_discard','draw_replacement_choice','crystal_ball_reorder','response_window'].indexOf(p.type)!==-1) return 'MANDATORY_NO_CANCEL';
     if(pendingRevealsHiddenInformation(p) || pendingActionCommitted(p) || (state&&state.responseWindow)) return 'MANDATORY_NO_CANCEL';
@@ -9860,8 +10139,8 @@
     var p=appState.pending, opts=p.swap_options||[];
     if(!pvpLocalOwnsPending(appState.pending)){ pvpHideChoiceForNonOwner(); return; }
     if(SUPPRESS_RENDER || !$('choiceOverlay')) return;
-    $('choiceTitle').textContent='Soul Blast Shot — Force Reposition'; $('choiceConfirm').style.display='none';
-    $('choiceBody').innerHTML='<p class="choice-instruction">'+esc(cardName(card(p.card_id)))+' hit. Choose an adjacent opponent Hero or Legacy to reposition with the affected slot. Hero ↔ Hero and Hero ↔ Legacy are legal; Legacy ↔ Legacy is not.</p><div class="choice-footer-buttons">'+opts.map(function(l){ return '<button class="primary optionalTargetSwap" data-target-swap-lane="'+esc(l)+'" type="button">Reposition with '+esc(l)+'</button>'; }).join('')+'</div>';
+    $('choiceTitle').textContent='Soul Blast Shot — Optional Swap'; $('choiceConfirm').style.display='none';
+    $('choiceBody').innerHTML='<p class="choice-instruction">'+esc(cardName(card(p.card_id)))+' hit. Choose an adjacent opponent Hero or Legacy to reposition with the affected slot. Hero ↔ Hero and Hero ↔ Legacy are legal; Legacy ↔ Legacy is not.</p><div class="choice-footer-buttons">'+opts.map(function(l){ return '<button class="primary optionalTargetSwap" data-target-swap-lane="'+esc(l)+'" type="button">Reposition with '+esc(l)+'</button>'; }).join('')+'<button id="optionalTargetSwapNo" type="button">SKIP</button></div>';
     $('choiceOverlay').classList.add('open');
   }
   function renderOptionalSwapChoice(){
@@ -9876,20 +10155,38 @@
   }
 
   function promptOptionalTargetSwap(state, action, nextPending){
-    // RC41 F19: a printed mandatory target Swap never opens a choice popup.
-    // One legal partner: use it. Two legal partners: choose fairly at random.
-    // In either case the affected side, not the attacking side, owns the notice.
+    // R3.94 printed 'you may': human may choose Swap or SKIP with even one
+    // legal destination. Only no-legal-destination suppresses the popup.
+    // AI uses the same legal destinations but resolves its own choice automatically.
     var opts=soulBlastTargetSwapOptions(state,action); if(!opts.length)return false;
-    var from=action.target_lane,to=opts[Math.floor(Math.random()*opts.length)];
-    var heroes=sideHeroes(state,action.target_side)||{};
-    if(!skillEffectSwapPairEligible(heroes[from],heroes[to]))return false;
-    var targetId=heroIdFrom(heroes[from]),partnerId=heroIdFrom(heroes[to]);
-    swapBoardStateLanes(state,action.target_side,from,to);
-    recordMandatorySwapCompleted(state,action,action.target_side,from,to);
-    pushLog(state,cardName(card(action.card_id))+' mandatory target Swap: '+cardName(card(targetId))+' '+from+' ↔ '+cardName(card(partnerId))+' '+to+'.');
-    finalizeDeferredRepositionDiscard(state,action,action.source_side,action.card_id);
-    if(state===appState){syncCounts(state);render();}
-    return 'AUTO_RESOLVED';
+    var auto=(action.source_side==='AI' && !state.pvpHumanVsHuman);
+    if(auto){
+      var from=action.target_lane,to=opts.length===1?opts[0]:opts[Math.floor(Math.random()*opts.length)];
+      var heroes=sideHeroes(state,action.target_side)||{};
+      if(!skillEffectSwapPairEligible(heroes[from],heroes[to]))return false;
+      var targetId=heroIdFrom(heroes[from]),partnerId=heroIdFrom(heroes[to]);
+      swapBoardStateLanes(state,action.target_side,from,to);
+      recordMandatorySwapCompleted(state,action,action.target_side,from,to);
+      recordAttackCardSwapResult(state,action,action.target_side,from,to,heroes[to],heroes[from],'SWAPPED','');
+      pushLog(state,cardName(card(action.card_id))+' optional opponent Swap'+
+        (opts.length===1?' (only legal destination)':' (AI automatic selection)')+': '+
+        cardName(card(targetId))+' '+from+' ↔ '+cardName(card(partnerId))+' '+to+'.');
+      finalizeDeferredRepositionDiscard(state,action,action.source_side,action.card_id);
+      if(state===appState){syncCounts(state);render();}
+      return 'AUTO_RESOLVED';
+    }
+    state.pending={type:'optional_target_swap',decision_side:action.source_side,
+      card_id:action.card_id,source_side:action.source_side,source_lane:action.source_lane,
+      source_card_id:action.source_card_id||null,target_side:action.target_side,target_lane:action.target_lane,
+      player_event_id:action.player_event_id||null,ai_event_id:action.ai_event_id||null,
+      swap_options:opts.slice(),next_pending:nextPending?clone(nextPending):null,
+      deferred_discard_card_id:action.deferred_discard_card_id||action.card_id,
+      deferred_discard_side:action.deferred_discard_side||action.source_side,
+      visual_hold_key:action.visual_hold_key||(nextPending&&nextPending.visual_hold_key)||null,
+      commit_token:action.commit_token||(nextPending&&nextPending.commit_token)||null};
+    if(state===appState)renderOptionalTargetSwapChoice();
+    pushLog(state,cardName(card(action.card_id))+' optional opponent Swap awaits attacker choice (including SKIP): '+opts.join(', ')+'.');
+    return true;
   }
   function optionalSwapAvailable(state, action){
     if(!action || !isChargeSwapCard(card(action.card_id))) return false;
@@ -9903,11 +10200,18 @@
     if(choice===true) b=p.swap_lane||opts[0]||null;
     else if(typeof choice==='string' && opts.indexOf(choice)!==-1) b=choice;
     var nextPending=p.next_pending?clone(p.next_pending):null;
-    if(!positionLockedOneVsOne(appState) && b && opts.indexOf(b)!==-1 && isActiveHeroSlot(heroes[a]) && skillEffectSwapPairEligible(heroes[a],heroes[b])){
+    if(!positionLockedOneVsOne(appState) && b && adjacentLanes(a).indexOf(b)!==-1 &&
+      opts.indexOf(b)!==-1 && isActiveHeroSlot(heroes[a]) && skillEffectSwapPairEligible(heroes[a],heroes[b]) &&
+      (!isSourceFrontSwapCard(card(p.card_id)) || p.target_lane===b)){
       var sourceId=heroIdFrom(heroes[a]), partnerId=heroIdFrom(heroes[b]);
       swapBoardStateLanes(appState,p.source_side,a,b);
+      recordAttackCardSwapResult(appState,p,p.source_side,a,b,heroes[b],heroes[a],'SWAPPED','');
       pushLog(appState, cardName(card(p.card_id))+' optional reposition resolved: '+cardName(card(sourceId))+' '+a+' ↔ '+cardName(card(partnerId))+' '+b+'.');
-    } else pushLog(appState, cardName(card(p.card_id))+' optional reposition declined or no longer legal.');
+    } else {
+      var skipReason=!b?'Player chose SKIP.':'Swap destination is no longer legal.';
+      recordAttackCardSwapResult(appState,p,p.source_side,a,null,heroes[a],null,!b?'SKIPPED':'CANCELED',skipReason);
+      pushLog(appState, cardName(card(p.card_id))+' optional reposition declined or no longer legal.');
+    }
     finalizeDeferredRepositionDiscard(appState,p,p.source_side,p.card_id);
     appState.pending=nextPending||null; closeChoice(); syncCounts(appState); if(appState.pending&&appState.pending.type==='legacy_defeat_choice') renderLegacyDefeatChoice(); render(); return true;
   }
@@ -9916,17 +10220,19 @@
     // Mandatory Warrior position swaps have exactly one eligible 'in front of attacked Hero'
     // lane. Execute automatically after a connected Attack / Response resolution; there is
     // no legal Do Not Swap decision. Leave the printed optional Thief route unchanged.
-    if(isMandatorySourceSwapCard(card(action.card_id))){
+    if(isMandatorySourceSwapCard(card(action.card_id),sideHeroes(state,action.source_side)[action.source_lane])){
       var from=action.source_lane,to=opts[0],heroes=sideHeroes(state,action.source_side);
       if(skillEffectSwapPairEligible(heroes[from],heroes[to])){
         var oldSource=heroIdFrom(heroes[from]),oldPartner=heroIdFrom(heroes[to]);
         swapBoardStateLanes(state,action.source_side,from,to);
+        recordMandatorySwapCompleted(state,action,action.source_side,from,to);
+        recordAttackCardSwapResult(state,action,action.source_side,from,to,heroes[to],heroes[from],'SWAPPED','');
         pushLog(state,cardName(card(action.card_id))+' mandatory swap: '+cardName(card(oldSource))+' '+from+' ↔ '+cardName(card(oldPartner))+' '+to+'.');
       }
       finalizeDeferredRepositionDiscard(state,action,action.source_side,action.card_id);
       return 'AUTO_RESOLVED';
     }
-    state.pending={type:'optional_swap', decision_side:action.source_side, card_id:action.card_id, source_side:action.source_side, source_lane:action.source_lane, source_card_id:action.source_card_id||null, swap_lane:opts[0], swap_options:opts.slice(), next_pending:nextPending?clone(nextPending):null, deferred_discard_card_id:action.deferred_discard_card_id||action.card_id, deferred_discard_side:action.deferred_discard_side||action.source_side, visual_hold_key:action.visual_hold_key||(nextPending&&nextPending.visual_hold_key)||null, commit_token:action.commit_token||(nextPending&&nextPending.commit_token)||null};
+    state.pending={type:'optional_swap', decision_side:action.source_side, card_id:action.card_id, source_side:action.source_side, source_lane:action.source_lane, source_card_id:action.source_card_id||null, target_side:action.target_side||null, target_lane:action.target_lane||null, player_event_id:action.player_event_id||null, ai_event_id:action.ai_event_id||null, swap_lane:opts[0], swap_options:opts.slice(), next_pending:nextPending?clone(nextPending):null, deferred_discard_card_id:action.deferred_discard_card_id||action.card_id, deferred_discard_side:action.deferred_discard_side||action.source_side, visual_hold_key:action.visual_hold_key||(nextPending&&nextPending.visual_hold_key)||null, commit_token:action.commit_token||(nextPending&&nextPending.commit_token)||null};
     if(action.source_side==='AI' && !state.pvpHumanVsHuman && state===appState){
       pushLog(state,'AI chooses optional reposition with '+opts[0]+' for '+cardName(card(action.card_id))+'.');
       performOptionalSwapDecision(opts[0]);
@@ -9958,6 +10264,13 @@
     });
   }
   function applyImmediateEventItemEffects(state, side, c, sourceHero, target, hostHero, action){
+    if(c.card_id==='S0-EVT-013') {
+      var cardsInEnemyHand=(sideHand(state,oppositeSide(side))||[]).length,ownHand=sideHand(state,side),returned=ownHand.splice(0);
+      deckForSide(state,side).push.apply(deckForSide(state,side),returned);shufflePile(deckForSide(state,side));
+      var initial=ownHand.length;drawMany(state,side,cardsInEnemyHand,{reason:'CARD_EFFECT'});
+      pushLog(state,cardName(c)+' shuffles '+returned.length+' remaining Hand card(s) into Main Deck and draws '+(ownHand.length-initial)+' (opponent Hand count '+cardsInEnemyHand+').');
+      recordPlayedResolvedEffect(state,side,c.card_id,null,'CARD MOVEMENT','Cheers!','Shuffled '+returned.length+' remaining Hand cards; drew '+(ownHand.length-initial)+' from Main Deck, equal to opponent Hand count '+cardsInEnemyHand+'.',action&&(action.player_event_id||action.ai_event_id),'team');
+    }
     if(isBeginAnewCard(c)){ var hand=sideHand(state,side), moved=hand.splice(0); deckForSide(state,side).push.apply(deckForSide(state,side),moved); shufflePile(deckForSide(state,side)); pushLog(state, cardName(c)+' shuffles remaining hand into deck ('+moved.length+' card(s)) then draws 5.'); drawMany(state,side,5,{reason:'CARD_EFFECT'}); if(side==='AI') appendOpponentEventResult(state,c.card_id,['AI shuffled remaining hand into deck ('+moved.length+' card(s)).','AI drew 5 cards.']); recordPlayedResolvedEffect(state,side,c.card_id,null,'CARD MOVEMENT','Hand reshuffle and draw','Shuffled '+moved.length+' card(s) from Hand to Main Deck; actually drew '+hand.length+' card(s).',action&&(action.player_event_id||action.ai_event_id),'team'); }
     if(isLastResortCard(c)){ var solo=LANE_ORDER.map(function(l){return sideHeroes(state,side)[l];}).filter(function(h){return h&&Number(h.hp||0)>0&&!isLegacyModeHero(h);}); if(solo.length===1){ action.attachment_effect={modifier_mode:'double_full_attack_card_damage',multiplier:2,active_from_round:Number(state.round||1)}; pushLog(state, cardName(c)+' Attachment doubles the remaining Hero’s full Attack Card damage this turn.'); } }
     if(isScoutingCard(c)){
@@ -9976,6 +10289,7 @@
         action._trial_scouting_needs_choice=true;
       }
     }
+    if(c.card_id==='S0-CLE-028') {var zol=addPrintedNamedCardFromDeck(state,side,c,'S0-ARC-026');recordPlayedResolvedEffect(state,side,c.card_id,hostHero,'CARD MOVEMENT','Blessing of Accuracy',zol?'Zol added from Main Deck to Hand (not Draw).':'Zol not available; deck shuffled after search.',action&&(action.player_event_id||action.ai_event_id));}
     if(isForgedAllianceCard(c)){ var key=side==='PLAYER'?'racial':'aiRacial',beforeTokens=Number(state[key]||0); state[key]=Math.min(RACIAL_TOKEN_CAP,beforeTokens+1); pushLog(state, cardName(c)+' gains 1 Racial Token.'); recordPlayedResolvedEffect(state,side,c.card_id,null,'RESOURCE','Racial Tokens',beforeTokens+' → '+Number(state[key]||0)+' (maximum '+RACIAL_TOKEN_CAP+').',action&&(action.player_event_id||action.ai_event_id),'team'); }
     if(isManaCatalystCard(c)){ var catalyst=(c.effect||[]).find(function(e){return e&&e.kind==='gain_mana';}), catalystMana=Number(catalyst&&catalyst.amount||2),poolBefore=manaPoolCardsForSide(state,side).length; gainMana(state,side,catalystMana); pushLog(state, cardName(c)+' gains '+catalystMana+' Mana.'); recordPlayedResolvedEffect(state,side,c.card_id,null,'RESOURCE','Mana Catalyst','Mana Pool Shards: '+poolBefore+' → '+manaPoolCardsForSide(state,side).length+' (requested +'+catalystMana+').',action&&(action.player_event_id||action.ai_event_id),'team'); }
     if(c.card_id==='S0-CLE-018'&&sourceHero){
@@ -10442,9 +10756,17 @@ function getActivatedHeroAbilities(state, side, lane){
       aiEvent=recordOpponentAction(state,aiLabel,cardId,cardName(c),baseLog,{action_line:'Action: AI played '+cardName(c)+'.', source_side:action.source_side||side, source_lane:action.source_lane||null, target_side:action.target_side, target_lane:action.target_lane, metric_before:(action.target_side&&action.target_lane?heroEventSnapshot(state,action.target_side,action.target_lane):null), result_lines:[baseLog],commit_token:action.commit_token||null,card_played_chain_id:action.card_played_chain_id||null,card_played_chain_step:action.card_played_chain_id?0:null});
       if(aiEvent)action.ai_event_id=aiEvent.id;
     }
+    // Card Played retains the complete chronology: CONDITION returned its
+    // actual cards and Draw completed before any primary action or response.
+    if(action._s0_condition_committed){
+      appendCardPlayedResultForSide(state,side,playerEvent,aiEvent,
+        'CONDITION resolved before card effect: '+Number(action.s0_condition_return_count||0)+
+        ' card(s) returned to Main Deck; '+Number(action.s0_condition_draw_count||0)+
+        ' card(s) actually Drawn.');
+    }
     if(state.pvpHumanVsHuman && !isCastingCard(c)){
       var pvpLabel=pvpCardActionLabel(c);
-      recordPvpSideAction(state,side,pvpLabel,cardId,cardName(c),baseLog,{action_line:'Action: '+side+' played '+cardName(c)+'.', source_side:action.source_side||side, source_lane:action.source_lane||null, target_side:action.target_side, target_lane:action.target_lane, result_lines:[baseLog],commit_token:action.commit_token||null,card_played_chain_id:action.card_played_chain_id||null,card_played_chain_step:action.card_played_chain_id?0:null});
+      recordPvpSideAction(state,side,pvpLabel,cardId,cardName(c),baseLog,{action_line:'Action: '+side+' played '+cardName(c)+'.', source_side:action.source_side||side, source_lane:action.source_lane||null, target_side:action.target_side, target_lane:action.target_lane, result_lines:[baseLog],card_played_chain_id:action.card_played_chain_id||null,card_played_chain_step:action.card_played_chain_id?0:null});
     }
     if(isWarpScrollCard(c)){
       var wl=(action.target_lanes||[]).slice(0,2), legalNow=warpScrollLegalHeroLanes(state,side);
@@ -10464,8 +10786,8 @@ function getActivatedHeroAbilities(state, side, lane){
       // The existing deck-search UI is authoritative for human choice and shuffles after selection.
       if(startCardSearchChoice(state,{side:side,zone:'deck',sourceCard:c,commit_token:action.commit_token,
         predicate:function(x){return !!(x&&Object.keys(S0_NOTE_CARD_IDS).some(function(k){return S0_NOTE_CARD_IDS[k]===x.card_id;}) );},
-        max_count:2,required_count:2,title:'Tune Up — Add 2 Notes',
-        instruction:'Choose 2 cards in any combination of Zol, Lun, and Vae from your Main Deck.',confirm_text:'Add 2 Notes'}))return true;
+        max_count:3,required_count:3,title:'Tune Up — Add 3 Notes',
+        instruction:'Choose 3 cards in any combination of Zol, Lun, and Vae from your Main Deck.',confirm_text:'Add 3 Notes'}))return true;
       finalizeCommittedSourceCard(state,action,side,cardId,'discard',{reason:'Tune Up resolved without enough eligible notes'});
       state.pending=null;syncCounts(state);render();return true;
     }
@@ -11738,7 +12060,7 @@ function getActivatedHeroAbilities(state, side, lane){
     if(names.length) lines.push('Source: '+names.join(', '));
     return lines.join('\n') || ('Duration: '+duration);
   }
-  function glCounterAsset(value){value=Math.max(1,Math.min(6,Number(value||1)));return 'assets/counters/Counter-'+value+'.png';}
+  function glCounterAsset(value){value=Math.max(1,Math.min(6,Number(value||1)));return '/engine/assets/counters/Counter-'+value+'.png';}
   function glCounterHtml(value,label,cls){value=Number(value||0);if(value<1)return '';var face=Math.min(6,value);return '<span class="gl-die-counter '+esc(cls||'')+'" title="'+esc(label||('Counter '+face))+'" aria-label="'+esc(label||('Counter '+face))+'"><img src="'+esc(glCounterAsset(face))+'" alt="'+esc(String(face))+'"></span>'; }
   function glDieCounterAsset(value){return glCounterAsset(value);}
   function glDieCounterHtml(value,label,cls){return glCounterHtml(value,label,cls);}
@@ -11913,6 +12235,13 @@ function getActivatedHeroAbilities(state, side, lane){
     var usedBy=evt.source_snapshot&&evt.source_snapshot.name||'';
     if(!usedBy&&evt.source_side&&evt.source_lane&&appState){var sh=sideHeroes(appState,evt.source_side)[evt.source_lane];if(sh&&sh.card_id)usedBy=cardName(card(sh.card_id));}
     if(!specialMove&&!tribute&&!legacy&&usedBy)add('Used By',usedBy);
+    // F23: post-Response Swap may complete after the damage Card Played entry
+    // was created. Read the authoritative committed outcome, not the print.
+    (evt.swap_results||[]).forEach(function(sw){
+      if(sw.status==='SWAPPED')add('Swap Result',(sw.moved_name||'Hero')+' '+sw.from_lane+' \u2194 '+(sw.partner_name||'Hero')+' '+sw.to_lane+'.');
+      else if(sw.status==='SKIPPED')add('Swap Result','SKIPPED - '+(sw.reason||'Optional Swap declined.'));
+      else if(sw.status==='CANCELED')add('Swap Result','CANCELED - '+(sw.reason||'No legal Swap available.'));
+    });
     var target=evt.target_snapshot&&evt.target_snapshot.name||evt.metric_before&&evt.metric_before.name||'';
     if(!target&&evt.target_side&&evt.target_lane&&appState){var th=sideHeroes(appState,evt.target_side)[evt.target_lane];if(th&&th.card_id)target=cardName(card(th.card_id));}
     if(tribute){if(target)add('Hero',target);}else if(!specialMove&&target&&!(evt.damage_breakdown_by_hero||[]).length&&!evt.damage_summary&&!(evt.healing_breakdown||[]).length&&!(evt.status_breakdown||[]).length&&!(evt.effect_breakdown_by_hero||[]).length)add('Target',target);
@@ -12605,7 +12934,7 @@ function getActivatedHeroAbilities(state, side, lane){
     if(state.pending && state.pending.type==='mana_shard_payment_choice') return 'Waiting: choose Color Mana payment for '+cardName(card(state.pending.card_id))+'.';
     if(state.pending && state.pending.type==='mana_spend_choice') return 'Waiting: choose Mana spend for '+cardName(card(state.pending.card_id))+'.';
     if(state.pending && state.pending.type==='exact_two_target_selection') return 'Waiting: choose '+Number(state.pending.required_targets||2)+' active opponent Hero target(s) for '+cardName(card(state.pending.card_id))+' ('+Number((state.pending.selected_target_lanes||[]).length)+'/'+Number(state.pending.required_targets||2)+').';
-    if(state.pending && state.pending.type==='optional_target_swap') return 'Waiting: choose optional target swap for '+cardName(card(state.pending.card_id))+'.';
+    if(state.pending && state.pending.type==='optional_target_swap') return 'Waiting: choose mandatory opponent swap for '+cardName(card(state.pending.card_id))+'.';
     if(state.pending && state.pending.type==='manual_reposition') return 'Waiting: choose Reposition pair or cancel.';
     if(state.turn==='AI' && state.aiPresentationStatus) return state.aiPresentationStatus;
     return state.turn+' · '+state.phase+' Phase · Mana '+state.mana+'/'+state.manaRegen+' Regen · AI Mana '+state.aiMana+'/'+state.aiManaRegen+' Regen';
@@ -12869,7 +13198,7 @@ var desktopMarkup='<div class="gl-lab-authority '+(state.turn==='AI'?'turn-ai':'
       var formationChunks=[];
       LANE_ORDER.forEach(function(lane,index){
         formationChunks.push(setupFormationCard(side,d,lane,rankView));
-        if(index<LANE_ORDER.length-1){var nextLane=LANE_ORDER[index+1];formationChunks.push('<button class="vsai-v643-swap-button" type="button" data-vsai-side="'+esc(side)+'" data-vsai-swap-left="'+esc(lane)+'" data-vsai-swap-right="'+esc(nextLane)+'" aria-label="Swap '+esc(lane)+' and '+esc(nextLane)+'"><img src="assets/lobby/Swap.png?v='+esc(GL_ASSET_REV)+'" alt="" draggable="false" aria-hidden="true"></button>');}
+        if(index<LANE_ORDER.length-1){var nextLane=LANE_ORDER[index+1];formationChunks.push('<button class="vsai-v643-swap-button" type="button" data-vsai-side="'+esc(side)+'" data-vsai-swap-left="'+esc(lane)+'" data-vsai-swap-right="'+esc(nextLane)+'" aria-label="Swap '+esc(lane)+' and '+esc(nextLane)+'"><img src="/engine/assets/lobby/Swap.png?v='+esc(GL_ASSET_REV)+'" alt="" draggable="false" aria-hidden="true"></button>');}
       });
       formation='<div class="vsai-v643-formation-grid clean-hero-preview">'+formationChunks.join('')+'</div><div class="vsai-v643-rank-control" data-vsai-rank-side="'+esc(side)+'" aria-label="Hero rank preview"><button type="button" data-vsai-side="'+esc(side)+'" data-vsai-rank-delta="-1" aria-label="Previous rank">‹</button><strong data-vsai-rank-label>RANK '+['I','II','III'][rankView-1]+'</strong><button type="button" data-vsai-side="'+esc(side)+'" data-vsai-rank-delta="1" aria-label="Next rank">›</button></div>';
     }else{
@@ -13421,7 +13750,7 @@ var desktopMarkup='<div class="gl-lab-authority '+(state.turn==='AI'?'turn-ai':'
     var p=appState.pending; finalizeCommittedSourceCard(appState,{commit_token:p.commit_token},p.side,p.source_card_id,'discard',{reason:'Magic Scope reveal closed'}); pushLog(appState,cardName(card(p.source_card_id))+' reveal closes and the Item moves to Discard Pile.'); appState.pending=null; closeChoice(); syncCounts(appState); render(); return true;
   }
 
-  function handleChoiceConfirm(){ if(appState&&appState.pending&&appState.pending.type==='s0_bard_draw_choice') commitS0BardDrawChoice(false); else if(appState&&appState.pending&&appState.pending.type==='mana_shard_payment_choice') commitManaShardPaymentChoice(); else if(appState&&appState.pending&&appState.pending.type==='magic_scope_reveal') commitMagicScopeReveal(); else if(appState&&appState.pending&&appState.pending.type==='hand_limit_discard') commitHandLimitDiscard(); else if(appState&&appState.pending&&appState.pending.type==='card_search_choice') commitCardSearchChoice(); else if(appState&&appState.pending&&appState.pending.type==='legacy_defeat_choice') commitLegacyDefeatChoice(); else if(appState&&appState.pending&&appState.pending.type==='scouting_exp_selection') commitScoutingExpChoice(); else if(appState&&appState.pending&&appState.pending.type==='trial_rankup_return_exp') trialConfirmRankUpReturn(); else if(appState&&appState.pending&&appState.pending.type==='crystal_ball_reorder') commitCrystalBallReorder(); else if(appState&&appState.pending&&appState.pending.type==='mana_spend_choice') commitArrowBarrageManaSpend(); else if(appState&&appState.pending&&appState.pending.type==='draw_replacement_choice') showInfo('Choice Required','Choose Keep Card or Shuffle & Redraw for this Draw Phase ability.'); else if(appState&&appState.pending&&appState.pending.type==='optional_magical_surge') showInfo('Choice Required','Choose Use or Do Not Use for this optional class ability.'); else if(appState&&appState.pending&&appState.pending.type==='status_removal_choice') commitStatusRemovalChoice(); else if(appState&&appState.pending&&appState.pending.type==='saint_purify_choice') commitSaintPurifyChoice(); else if(appState&&appState.pending&&appState.pending.type==='opponent_hand_choice') commitOpponentHandChoice(); else if(appState&&appState.pending&&appState.pending.type==='opponent_mana_selection') commitOpponentManaSelection(); else if(appState&&appState.pending&&appState.pending.type==='response_payment_choice') commitResponsePaymentChoice(); else if(appState&&appState.pending&&appState.pending.type==='exact_two_target_selection') performDualArrowPairChoice('confirm'); else if(appState&&appState.pending&&appState.pending.type==='legacy_cost_selection') commitLegacyCostChoice(); else if(appState&&appState.pending&&appState.pending.type==='legacy_card_choice') commitLegacyCardChoice(); else if(appState&&appState.pending&&appState.pending.type==='optional_swap') showInfo('Swap Decision Required','Choose Swap or Do Not Swap.'); else if(appState&&appState.pending&&appState.pending.type==='optional_target_swap') showInfo('Swap Decision Required','Choose a target swap option or Do Not Swap.'); else if(appState&&appState.pending&&appState.pending.type==='manual_reposition') showInfo('Reposition','Choose a Reposition pair or Cancel.'); else closeChoice(); }
+  function handleChoiceConfirm(){ if(appState&&appState.pending&&appState.pending.type==='s0_bard_draw_choice') commitS0BardDrawChoice(false); else if(appState&&appState.pending&&appState.pending.type==='mana_shard_payment_choice') commitManaShardPaymentChoice(); else if(appState&&appState.pending&&appState.pending.type==='magic_scope_reveal') commitMagicScopeReveal(); else if(appState&&appState.pending&&appState.pending.type==='hand_limit_discard') commitHandLimitDiscard(); else if(appState&&appState.pending&&appState.pending.type==='card_search_choice') commitCardSearchChoice(); else if(appState&&appState.pending&&appState.pending.type==='legacy_defeat_choice') commitLegacyDefeatChoice(); else if(appState&&appState.pending&&appState.pending.type==='scouting_exp_selection') commitScoutingExpChoice(); else if(appState&&appState.pending&&appState.pending.type==='trial_rankup_return_exp') trialConfirmRankUpReturn(); else if(appState&&appState.pending&&appState.pending.type==='crystal_ball_reorder') commitCrystalBallReorder(); else if(appState&&appState.pending&&appState.pending.type==='mana_spend_choice') commitArrowBarrageManaSpend(); else if(appState&&appState.pending&&appState.pending.type==='draw_replacement_choice') showInfo('Choice Required','Choose Keep Card or Shuffle & Redraw for this Draw Phase ability.'); else if(appState&&appState.pending&&appState.pending.type==='optional_magical_surge') showInfo('Choice Required','Choose Use or Do Not Use for this optional class ability.'); else if(appState&&appState.pending&&appState.pending.type==='status_removal_choice') commitStatusRemovalChoice(); else if(appState&&appState.pending&&appState.pending.type==='saint_purify_choice') commitSaintPurifyChoice(); else if(appState&&appState.pending&&appState.pending.type==='opponent_hand_choice') commitOpponentHandChoice(); else if(appState&&appState.pending&&appState.pending.type==='opponent_mana_selection') commitOpponentManaSelection(); else if(appState&&appState.pending&&appState.pending.type==='response_payment_choice') commitResponsePaymentChoice(); else if(appState&&appState.pending&&appState.pending.type==='exact_two_target_selection') performDualArrowPairChoice('confirm'); else if(appState&&appState.pending&&appState.pending.type==='legacy_cost_selection') commitLegacyCostChoice(); else if(appState&&appState.pending&&appState.pending.type==='legacy_card_choice') commitLegacyCardChoice(); else if(appState&&appState.pending&&appState.pending.type==='optional_swap') showInfo('Swap Decision Required','Choose Swap or Do Not Swap.'); else if(appState&&appState.pending&&appState.pending.type==='optional_target_swap') showInfo('Swap Required','Choose the adjacent opposing Hero or Legacy. SKIP is not allowed.'); else if(appState&&appState.pending&&appState.pending.type==='manual_reposition') showInfo('Reposition','Choose a Reposition pair or Cancel.'); else closeChoice(); }
   function executeConfirmedSurrender(){
     if(appState && matchStarted && !appState.gameOver){ closeInfo(); finishGame(appState,'AI','PLAYER surrendered the match.'); syncCounts(appState); render(); showResult(); }
     else showInfo('Surrender','No active match to surrender.');
@@ -13541,7 +13870,7 @@ var desktopMarkup='<div class="gl-lab-authority '+(state.turn==='AI'?'turn-ai':'
       var racialBtn=ev.target.closest('[data-racial-id]'); if(racialBtn && appState){if(racialBtn.closest('.mobile-hero-action-menu'))closeInfo(); beginActivatedRacialAbility(appState, racialBtn.getAttribute('data-racial-side'), racialBtn.getAttribute('data-racial-lane'), racialBtn.getAttribute('data-racial-id')); return; }
       var mr=ev.target.closest('[data-reposition-pair]'); if(mr){ performManualReposition(mr.getAttribute('data-reposition-pair')); return; }
       if(ev.target.closest('#manualRepositionCancel')){ cancelManualReposition(); return; }
-      if(ev.target.closest('#optionalTargetSwapNo')){ showInfo('Swap Required','Soul Blast Shot must Swap with a legal adjacent Hero or Legacy.'); return; }
+      if(ev.target.closest('#optionalTargetSwapNo')){performOptionalTargetSwapDecision(null);return;}
       var opEvt=ev.target.closest('[data-op-event-id]'); if(opEvt && appState){ appState.selectedOpponentEventId=opEvt.getAttribute('data-op-event-id'); }
       var opArch=ev.target.closest('[data-op-archive-id]'); if(opArch && appState){ var ae=(appState.opponentPlayedEvents||[]).find(function(e){ return e.id===opArch.getAttribute('data-op-archive-id'); }); if(ae){ appState.selectedOpponentEventId=ae.id; showOpponentEventDetail(ae); } return; }
       var info=ev.target.closest('[data-info-title]'); if(info){ showInfo(info.getAttribute('data-info-title'), info.getAttribute('data-info-body')); return; }
@@ -13847,8 +14176,8 @@ var desktopMarkup='<div class="gl-lab-authority '+(state.turn==='AI'?'turn-ai':'
     s.phase='Battle'; s.mana=30; s.aiMana=30; s.playerHeroes.CENTER.card_id='S0-ARC-H002'; s.playerHeroes.CENTER.hp=100; s.playerHeroes.CENTER.maxHp=100; s.playerHeroes.CENTER.exhausted=false; s.playerHand=['S0-ARC-012']; s.aiHeroes.CENTER.card_id='S0-WAR-H001'; s.aiHeroes.CENTER.exhausted=false; s.aiHand=['S0-WAR-002']; commitPlayedCard(s,{card_id:'S0-WAR-002', hand_index:0, source_side:'AI', source_lane:'CENTER', target_side:'PLAYER', target_lane:'CENTER'}); var def=s.responseWindow&&s.responseWindow.options.find(function(o){return o.card_id==='S0-ARC-012';}); if(!def) return {ok:false, reason:'Deflect Arrow response option missing', rw:s.responseWindow}; resolveResponseWindow(def); if(s.playerHeroes.CENTER.hp!==100) return {ok:false, reason:'Deflect Arrow block amount failed', hp:s.playerHeroes.CENTER.hp};
     // Replenish uses compact multi-select card choice from discard.
     s.phase='Deploy'; s.mana=30; s.playerHeroes.CENTER.exhausted=false; s.playerHand=['S0-ARC-014']; s.playerDiscard=['S0-ARC-001','S0-ARC-002','S0-ARC-003','S0-WAR-001']; beginPlayFromHand(0); chooseHeroFromBoard('PLAYER','CENTER'); if(!s.pending || s.pending.type!=='card_search_choice' || !s.pending.multi_select || s.pending.required_count!==2 || s.pending.candidates.length!==3) return {ok:false, reason:'Replenish choice UI missing', pending:s.pending}; s.pending.selected_indices=[0,1]; var deckBefore=s.playerDeck.length,handBefore=s.playerHand.length; commitCardSearchChoice(); if(s.playerDeck.length!==deckBefore+1 || s.playerHand.length!==handBefore+1 || s.playerDiscard.indexOf('S0-ARC-014')===-1) return {ok:false, reason:'Replenish return 2, shuffle, draw 1 resolution failed', deck:s.playerDeck, hand:s.playerHand, discard:s.playerDiscard};
-    // Soul Blast Shot optional target swap after actual HP damage.
-    s.phase='Battle'; s.mana=30; s.playerHeroes.CENTER.card_id='S0-ARC-H002'; s.playerHeroes.CENTER.hp=100; s.playerHeroes.CENTER.maxHp=100; s.playerHeroes.CENTER.exhausted=false; s.playerHand=['S0-ARC-016']; LANE_ORDER.forEach(function(l){s.aiHeroes[l].hp=100;}); beginPlayFromHand(0); chooseHeroFromBoard('PLAYER','RIGHT'); chooseHeroFromBoard('AI','CENTER'); resolveResponseWindow(null); if(!s.pending || s.pending.type!=='optional_target_swap') return {ok:false, reason:'Soul Blast optional target swap pending missing', pending:s.pending}; performOptionalTargetSwapDecision('LEFT'); if(s.aiHeroes.LEFT.lane!=='LEFT' || s.aiHeroes.CENTER.lane!=='CENTER') return {ok:false, reason:'Soul Blast target swap lane labels failed'};
+    // Soul Blast Shot mandatory target swap after a printed hit (no choice popup).
+    s.phase='Battle'; s.mana=30; s.playerHeroes.CENTER.card_id='S0-ARC-H002'; s.playerHeroes.CENTER.hp=100; s.playerHeroes.CENTER.maxHp=100; s.playerHeroes.CENTER.exhausted=false; s.playerHand=['S0-ARC-016']; LANE_ORDER.forEach(function(l){s.aiHeroes[l].hp=100;}); beginPlayFromHand(0); chooseHeroFromBoard('PLAYER','RIGHT'); chooseHeroFromBoard('AI','CENTER'); resolveResponseWindow(null); if(s.pending || !s.lastSwapCompleted || s.lastSwapCompleted.card_id!=='S0-ARC-016') return {ok:false, reason:'Soul Blast mandatory Swap did not auto-resolve', pending:s.pending}; if(s.aiHeroes.LEFT.lane!=='LEFT' || s.aiHeroes.CENTER.lane!=='CENTER' || s.aiHeroes.RIGHT.lane!=='RIGHT') return {ok:false, reason:'Soul Blast target swap lane labels failed'};
     // Charged Shot can target outside default coverage and doubles damage.
     s.phase='Battle'; s.mana=30; s.playerHeroes.LEFT.card_id='S0-ARC-H002'; s.playerHeroes.LEFT.hp=100; s.playerHeroes.LEFT.maxHp=100; s.playerHeroes.LEFT.exhausted=false; s.playerHand=['S0-ARC-018']; s.aiHeroes.RIGHT.hp=100; beginPlayFromHand(0); chooseHeroFromBoard('PLAYER','LEFT'); if(!s.pending || s.pending.legal_targets.indexOf('RIGHT')===-1) return {ok:false, reason:'Charged Shot outside coverage target missing', pending:s.pending}; chooseHeroFromBoard('AI','RIGHT'); if(s.responseWindow){ if(s.responseWindow.damage!==60) return {ok:false, reason:'Charged Shot double damage failed', rw:s.responseWindow}; resolveResponseWindow(null); } if(s.aiHeroes.RIGHT.hp!==40) return {ok:false, reason:'Charged Shot HP result failed', hp:s.aiHeroes.RIGHT.hp};
     appState=oldApp; matchStarted=oldMatch; SUPPRESS_RENDER=oldSuppress; return {ok:true, archerSkillCardsAudited:18, bowBash:true, aimShot:true, burningPoisonStatuses:true, arrowVolleyCoverage:true, powerShotPassive:true, reload:true, eyesOfHawk:true, archerDefResponses:true, replenishChoice:true, soulBlastOptionalTargetSwap:true, chargedShotUltimateOutsideCoverage:true, phase3Resolved:['Arrow Barrage automatic all-Mana damage','Triple Shot chosen-card binding','Dual Arrow center lane-pair picker'], uiKeyword:'LOCAL_AI_UI v5.35'};
@@ -14880,7 +15209,7 @@ function withUnshuffledSelfTest(fn){ return function(){ var old=STARTUP_SHUFFLE_
       addStatus(s.playerHeroes.LEFT,'Poison',1,'test poison'); resolveStatusTicksForSide(s,'PLAYER');
       if(!opponentPlayedVisibleEvents(s).some(function(e){ return e.label==='RESOLVE' && /Status Tick/i.test(e.title||''); })) return {ok:false, reason:'Status tick resolve not visible in Opponent Played', events:opponentPlayedVisibleEvents(s)};
       // Soul Blast Shot hit opens force reposition decision and supports Hero ↔ Legacy.
-      s=buildInitialMatchState(); appState=s; s.turn='PLAYER'; s.phase='Battle'; s.round=2; s.mana=30; s.playerHeroes.CENTER.card_id='S0-ARC-H002'; s.playerHeroes.CENTER.hp=100; s.playerHeroes.CENTER.maxHp=100; s.playerHeroes.CENTER.exhausted=false; s.playerHand=['S0-ARC-016']; s.aiHeroes.CENTER.hp=100; s.aiHeroes.CENTER.maxHp=100; s.aiHeroes.RIGHT=sanitizeLegacySlot({card_id:'S0-ARC-L001', side:'AI', lane:'RIGHT', mode:'LEGACY', legacy_mode:true, defeated_hero_snapshot:{card_id:'S0-ARC-H001'}}); beginPlayFromHand(0); chooseHeroFromBoard('PLAYER','CENTER'); chooseHeroFromBoard('AI','CENTER'); if(s.responseWindow) resolveResponseWindow(null); if(!s.pending || s.pending.type!=='optional_target_swap' || s.pending.swap_options.indexOf('RIGHT')===-1) return {ok:false, reason:'Soul Blast force reposition did not offer adjacent Legacy partner', pending:s.pending}; performOptionalTargetSwapDecision('RIGHT'); if(!isLegacySlot(s.aiHeroes.CENTER) || !isHeroSlot(s.aiHeroes.RIGHT)) return {ok:false, reason:'Soul Blast force reposition did not swap Hero and Legacy', center:s.aiHeroes.CENTER, right:s.aiHeroes.RIGHT};
+      s=buildInitialMatchState(); appState=s; s.turn='PLAYER'; s.phase='Battle'; s.round=2; s.mana=30; s.playerHeroes.CENTER.card_id='S0-ARC-H002'; s.playerHeroes.CENTER.hp=100; s.playerHeroes.CENTER.maxHp=100; s.playerHeroes.CENTER.exhausted=false; s.playerHand=['S0-ARC-016']; s.aiHeroes.CENTER.hp=100; s.aiHeroes.CENTER.maxHp=100; s.aiHeroes.RIGHT=sanitizeLegacySlot({card_id:'S0-ARC-L001', side:'AI', lane:'RIGHT', mode:'LEGACY', legacy_mode:true, defeated_hero_snapshot:{card_id:'S0-ARC-H001'}}); addStatus(s.aiHeroes.LEFT,'Freeze',1,'QA force RIGHT'); beginPlayFromHand(0); chooseHeroFromBoard('PLAYER','CENTER'); chooseHeroFromBoard('AI','CENTER'); if(s.responseWindow) resolveResponseWindow(null); if(s.pending || !s.lastSwapCompleted || s.lastSwapCompleted.to_lane!=='RIGHT') return {ok:false, reason:'Soul Blast force reposition did not auto-select unique Legacy partner', pending:s.pending, notice:s.lastSwapCompleted}; if(!isLegacySlot(s.aiHeroes.CENTER) || !isHeroSlot(s.aiHeroes.RIGHT)) return {ok:false, reason:'Soul Blast force reposition did not swap Hero and Legacy', center:s.aiHeroes.CENTER, right:s.aiHeroes.RIGHT};
       return {ok:true, spectralValidator:true, opponentPlayedSupportTacticalResolve:true, soulBlastForceReposition:true, uiKeyword:'LOCAL_AI_UI v5.35'};
     } finally { appState=oldApp; matchStarted=oldMatch; SUPPRESS_RENDER=oldSuppress; STARTUP_SHUFFLE_ENABLED=oldShuffle; closeResponseWindowUI(); closeChoice(); closeInfo(); }
   }
@@ -16809,10 +17138,10 @@ function withUnshuffledSelfTest(fn){ return function(){ var old=STARTUP_SHUFFLE_
 
       s=fresh(); setHero(s.aiHeroes.CENTER,'S0-WAR-H001',150); setHero(s.aiHeroes.LEFT,'S0-MAG-H001',100); setHero(s.aiHeroes.RIGHT,'S0-CLE-H001',100);
       var soulAction={card_id:'S0-ARC-016',source_side:'PLAYER',source_lane:'CENTER',target_side:'AI',target_lane:'CENTER'};
-      if(!resolvePostAttackChoices(s,soulAction,{}, {damage:30,hp_damage:30,connected:true}) || !s.pending || s.pending.type!=='optional_target_swap') return {ok:false,reason:'Soul Blast HP damage did not open target-adjacent reposition',pending:s.pending};
-      var soulOpts=s.pending.swap_options||[]; if(JSON.stringify(soulOpts)!==JSON.stringify(['LEFT','RIGHT'])) return {ok:false,reason:'Soul Blast adjacent target options failed',opts:soulOpts};
-      var targetId=heroIdFrom(s.aiHeroes.CENTER), leftId=heroIdFrom(s.aiHeroes.LEFT); performOptionalTargetSwapDecision('LEFT');
-      if(heroIdFrom(s.aiHeroes.LEFT)!==targetId || heroIdFrom(s.aiHeroes.CENTER)!==leftId) return {ok:false,reason:'Soul Blast target swap did not update board',heroes:s.aiHeroes};
+      var targetId=heroIdFrom(s.aiHeroes.CENTER),sideHeroesBefore={LEFT:heroIdFrom(s.aiHeroes.LEFT),RIGHT:heroIdFrom(s.aiHeroes.RIGHT)};
+      if(resolvePostAttackChoices(s,soulAction,{}, {damage:30,hp_damage:30,connected:true}) || s.pending || !s.lastSwapCompleted) return {ok:false,reason:'Soul Blast HP damage did not immediately force adjacent Swap',pending:s.pending};
+      var targetDest=s.lastSwapCompleted.to_lane; if(['LEFT','RIGHT'].indexOf(targetDest)<0) return {ok:false,reason:'Soul Blast destination outside adjacent lanes',to:targetDest};
+      if(heroIdFrom(s.aiHeroes[targetDest])!==targetId || heroIdFrom(s.aiHeroes.CENTER)!==sideHeroesBefore[targetDest]) return {ok:false,reason:'Soul Blast target swap did not update board',heroes:s.aiHeroes};
 
       s=fresh(); setHero(s.playerHeroes.CENTER,'S0-WAR-H003',140); setHero(s.playerHeroes.LEFT,'S0-CLE-H001',100); setHero(s.aiHeroes.CENTER,'S0-WAR-H001',100); s.playerHand=['S0-WAR-004'];
       var coverIncoming={damage:40,damage_type:'Physical',attack_type:'Single Target',card_id:'S0-WAR-001',source_side:'AI',source_lane:'CENTER',target_side:'PLAYER',target_lane:'LEFT'};
@@ -16859,9 +17188,9 @@ function withUnshuffledSelfTest(fn){ return function(){ var old=STARTUP_SHUFFLE_
       var soulAction={card_id:'S0-ARC-016',source_side:'PLAYER',source_lane:'CENTER',target_side:'AI',target_lane:'CENTER'};
       var soulOpts=soulBlastTargetSwapOptions(s,soulAction);
       if(soulOpts.indexOf('LEFT')===-1 || soulOpts.indexOf('RIGHT')===-1) return {ok:false,reason:'Soul Blast Shot did not offer adjacent Hero and Legacy',options:soulOpts};
+      addStatus(s.aiHeroes.RIGHT,'Freeze',1,'QA force LEFT');
       resolvePostAttackChoices(s,soulAction,{defer_reposition_discard:true},{damage:0,hp_damage:0,prevented:true,connected:false});
-      if(!s.pending || s.pending.type!=='optional_target_swap') return {ok:false,reason:'Soul Blast Shot connected hit did not open target reposition',pending:s.pending};
-      performOptionalTargetSwapDecision('LEFT');
+      if(s.pending || !s.lastSwapCompleted || s.lastSwapCompleted.to_lane!=='LEFT') return {ok:false,reason:'Soul Blast Shot printed hit did not auto-swap with available Legacy',pending:s.pending,notice:s.lastSwapCompleted};
       if(!isLegacySlot(s.aiHeroes.CENTER) || heroIdFrom(s.aiHeroes.LEFT)!=='S0-WAR-H001') return {ok:false,reason:'Soul Blast Shot Hero-Legacy target swap failed',heroes:s.aiHeroes};
 
       s=fresh(); s.turn='AI'; setHero(s.aiHeroes.LEFT,'S0-WAR-H008',130); s.aiHeroes.CENTER=legacy('AI','CENTER','S0-WAR-L001'); setHero(s.playerHeroes.CENTER,'S0-CLE-H001',100);
@@ -17084,7 +17413,7 @@ function withUnshuffledSelfTest(fn){ return function(){ var old=STARTUP_SHUFFLE_
       var stack=window.GL_SOURCE_STACK||{};
       if(stack.runtime_foundation!=='v1.94.2'||stack.runtime_core!=='v0.61'||stack.runtime_data!=='v0.16.2'||stack.effect_checkpoint!=='v0.15.2'||stack.effect_recipe!=='v0.15.2') return {ok:false,reason:'v3.85 source stack mismatch',stack:stack};
       if(CARDS.length!==200 || Object.keys((window.GL_ASSET_MANIFEST||{}).cards||{}).length!==200) return {ok:false,reason:'200-card data/asset count mismatch'};
-      if(cardName(card('S0-THF-014'))!=='Viper’s Fang') return {ok:false,reason:'Viper’s Fang printed display name mismatch',name:cardName(card('S0-THF-014'))};
+      if(s0RulesParseText(cardName(card('S0-THF-014')))!=="Viper's Fang") return {ok:false,reason:'Viper’s Fang printed display name mismatch',name:cardName(card('S0-THF-014'))};
       if(Number(cardCost(card('S0-EVT-003')))!==3 || requiresAttachmentSlot(card('S0-EVT-003'))) return {ok:false,reason:'Scouting FINAL lock mismatch'};
       if(sourceShouldExhaust(card('S0-ARC-013'))) return {ok:false,reason:'Triple Shot still Exhausts'};
       var s=buildInitialMatchState(); appState=s; s.turn='PLAYER'; s.phase='Deploy'; s.mana=30; s.playerHeroes.CENTER.card_id='S0-ARC-H002'; s.playerHeroes.CENTER.exhausted=false; s.playerHeroes.CENTER.attachments=[null,null]; s.playerHand=['S0-ARC-013','S0-ARC-002'];
@@ -17151,8 +17480,8 @@ function withUnshuffledSelfTest(fn){ return function(){ var old=STARTUP_SHUFFLE_
       if(!s.aiHeroes.CENTER.exhausted) return {ok:false,reason:'Defense response incorrectly readied prior Exhaust'};
 
       s=buildInitialMatchState();appState=s;s.turn='PLAYER';s.phase='Battle';s.round=2;s.mana=30;s.aiMana=30;s.playerHeroes.CENTER.card_id='S0-ARC-H003';s.playerHeroes.CENTER.exhausted=false;s.aiHeroes.CENTER.card_id='S0-WAR-H001';s.aiHeroes.CENTER.hp=100;s.aiHeroes.LEFT.card_id='S0-ARC-H001';s.aiHeroes.LEFT.hp=80;s.aiHand=['S0-WAR-003'];
-      resolveAttackWithOwnerGating(s,{card_id:'S0-ARC-016',source_side:'PLAYER',source_lane:'CENTER',target_side:'AI',target_lane:'CENTER'},{damage:50,persistent:false,attachmentSlot:-1,defer_reposition_discard:true});
-      if(s.aiHeroes.CENTER.hp!==80||!s.pending||s.pending.type!=='optional_target_swap') return {ok:false,reason:'Soul Blast partial-block HP damage did not open swap effect',hp:s.aiHeroes.CENTER.hp,pending:s.pending};
+      var partialTarget=heroIdFrom(s.aiHeroes.CENTER);resolveAttackWithOwnerGating(s,{card_id:'S0-ARC-016',source_side:'PLAYER',source_lane:'CENTER',target_side:'AI',target_lane:'CENTER'},{damage:50,persistent:false,attachmentSlot:-1,defer_reposition_discard:true});
+      if(s.pending || !s.lastSwapCompleted || heroIdFrom(s.aiHeroes[s.lastSwapCompleted.to_lane])!==partialTarget || s.aiHeroes[s.lastSwapCompleted.to_lane].hp!==80) return {ok:false,reason:'Soul Blast partial-block HP damage did not auto-swap affected Hero',notice:s.lastSwapCompleted,pending:s.pending};
 
       s=buildInitialMatchState();appState=s;s.turn='PLAYER';s.phase='Battle';s.round=2;s.mana=30;s.playerHeroes.CENTER.card_id='S0-WAR-H001';s.playerHeroes.LEFT.card_id='S0-CLE-H002';s.playerHeroes.LEFT.exhausted=true;s.playerHand=['S0-CLE-010'];
       var hb=responseOptionsFor(s,'PLAYER',{card_id:'S0-WAR-009',source_side:'AI',source_lane:'CENTER',target_side:'PLAYER',target_lane:'CENTER',damage:50,damage_type:'Physical',attack_type:'Single Target',cannot_dodge:false,cannot_block:false});
@@ -17238,9 +17567,9 @@ function withUnshuffledSelfTest(fn){ return function(){ var old=STARTUP_SHUFFLE_
       var s=buildInitialMatchState();appState=s;s.turn='PLAYER';s.phase='Battle';s.round=2;s.mana=30;
       s.playerHeroes.CENTER.card_id='S0-ARC-H003';s.playerHeroes.CENTER.exhausted=false;s.aiHeroes.CENTER.card_id='S0-WAR-H001';s.aiHeroes.LEFT.card_id='S0-MAG-H001';s.aiHeroes.RIGHT.card_id='S0-CLE-H001';
       var soulAction={card_id:'S0-ARC-016',source_side:'PLAYER',source_lane:'CENTER',target_side:'AI',target_lane:'CENTER'};
-      if(!resolvePostAttackChoices(s,soulAction,{defer_reposition_discard:true},{damage:0,hp_damage:0,prevented:true,connected:false})||!s.pending||s.pending.type!=='optional_target_swap') return {ok:false,reason:'Soul Blast Prevent-to-0 did not count as printed hit',pending:s.pending};
-      closeChoice();s.pending=null;
-      if(resolvePostAttackChoices(s,soulAction,{defer_reposition_discard:true},{damage:0,hp_damage:0,dodged:true,connected:false})||s.pending) return {ok:false,reason:'Soul Blast Dodge incorrectly counted as hit',pending:s.pending};
+      if(resolvePostAttackChoices(s,soulAction,{defer_reposition_discard:true},{damage:0,hp_damage:0,prevented:true,connected:false})||s.pending||!s.lastSwapCompleted) return {ok:false,reason:'Soul Blast Prevent-to-0 did not count as printed hit',pending:s.pending};
+      var swapSeq=s.swapCompletedSeq;
+      if(resolvePostAttackChoices(s,soulAction,{defer_reposition_discard:true},{damage:0,hp_damage:0,dodged:true,connected:false})||s.pending||s.swapCompletedSeq!==swapSeq) return {ok:false,reason:'Soul Blast Dodge incorrectly counted as hit',pending:s.pending};
       s=buildInitialMatchState();appState=s;s.turn='PLAYER';s.phase='Battle';s.round=2;s.playerHeroes.CENTER.card_id='S0-THF-H009';s.playerDeck=['S0-WAR-001'];s.playerHand=[];
       applySourcePostAttackEffects(s,'S0-THF-030',s.playerHeroes.CENTER,'PLAYER','CENTER','AI','CENTER',{damage:0,hp_damage:0,prevented:true,connected:false});
       if(s.playerHand.length!==1||s.playerHand[0]!=='S0-WAR-001') return {ok:false,reason:'Flash Combo Prevent-to-0 did not draw',hand:s.playerHand};
@@ -17563,12 +17892,12 @@ function withUnshuffledSelfTest(fn){ return function(){ var old=STARTUP_SHUFFLE_
       s=buildInitialMatchState();appState=s;s.turn='PLAYER';s.phase='Deploy';s.racial=1;fillV1400Mana(s,'PLAYER',2);s.playerHeroes.LEFT.card_id='S0-MAG-H001';resolveActivatedRacialAbility(s,'PLAYER','LEFT','ancestral_focus',null);if(s.mana!==4||s.racial!==0) return {ok:false,reason:'Ancestral Focus gain 2 Mana failed',mana:s.mana,racial:s.racial};
       var racialAudit=simulateHeroRacialEffectFixAudit();if(!racialAudit||!racialAudit.ok) return {ok:false,reason:'Response/trigger racial suite failed',audit:racialAudit};
 
-      var abilityNames={};Object.keys(CARDS||{}).forEach(function(id){var c=CARDS[id],n=c&&c.class_ability&&c.class_ability.name;if(n)abilityNames[n]=true;});
+      var abilityNames={};Object.keys(CARDS||{}).forEach(function(id){var c=CARDS[id],n=c&&c.class_ability&&c.class_ability.name;if(n)abilityNames[s0RulesParseText(n)]=true;});
       // Hybrid source data keeps Mana/Arcane Surge in locked ability text rather than class_ability.name.
       if(card('S0-THF-H008')&&/Mana Surge/i.test(String(card('S0-THF-H008').class_ability&&card('S0-THF-H008').class_ability.text||card('S0-THF-H008').card_text||''))) abilityNames['Mana Surge']=true;
       if(card('S0-THF-H009')&&/Arcane Surge/i.test(String(card('S0-THF-H009').class_ability&&card('S0-THF-H009').class_ability.text||card('S0-THF-H009').card_text||''))) abilityNames['Arcane Surge']=true;
       var required=['Sharpshooter','Dead Eye','Quick Reload','Rapid Chamber','Holy Grace','Holy Rejuvenation','Elemental Mastery','Elemental Sovereignty','Venom Mastery','Nightshade Venom','Mana Surge','Arcane Surge','Vanquisher’s Resolve','Arena Dominator','Holy Resurgence','Radiant Oblivion'];
-      var missing=required.filter(function(n){return !abilityNames[n];});if(missing.length) return {ok:false,reason:'Class ability source list incomplete',missing:missing,names:Object.keys(abilityNames)};
+      var missing=required.filter(function(n){return !abilityNames[s0RulesParseText(n)];});if(missing.length) return {ok:false,reason:'Class ability source list incomplete',missing:missing,names:Object.keys(abilityNames)};
       return {ok:true,version:'v1.43.0',opponentOrder:true,opponentMainDeckLarger:true,manaSurgeBothSeats:true,classAbilityProfiles:required.length,passiveProfilesAudited:12,activatedProfilesAudited:2,drawReplacementProfilesAudited:2,racialTraitsAudited:6,saintSingleStatusChoice:true,activatedOncePerTurn:true};
     }catch(e){return {ok:false,error:String(e&&e.stack||e)};}
     finally{appState=oldApp;matchStarted=oldMatch;SUPPRESS_RENDER=oldSuppress;window.GL_PVP_SHARED_BOARD_ACTIVE=oldShared;closeChoice();closeResponseWindowUI();}
@@ -18804,9 +19133,12 @@ function withUnshuffledSelfTest(fn){ return function(){ var old=STARTUP_SHUFFLE_
       });
       var s=fresh('PLAYER');hero(s.aiHeroes.CENTER,'S0-WAR-H001',100);hero(s.aiHeroes.LEFT,'S0-THF-H001',100);hero(s.aiHeroes.RIGHT,'S0-CLE-H001',100);
       var a={card_id:'S0-ARC-016',source_side:'PLAYER',source_lane:'CENTER',target_side:'AI',target_lane:'CENTER'};
-      check(promptOptionalTargetSwap(s,a,null)===true&&s.pending&&s.pending.type==='optional_target_swap','Soul Blast Shot forces choice of adjacent position');
-      check(performOptionalTargetSwapDecision(false)===false&&s.pending&&s.pending.type==='optional_target_swap','Soul Blast Shot cannot skip legal forced swap');
-      check(performOptionalTargetSwapDecision('LEFT')===true&&heroIdFrom(s.aiHeroes.LEFT)==='S0-WAR-H001','Soul Blast Shot target moved to selected adjacent lane');
+      var forcedHeroId=heroIdFrom(s.aiHeroes.CENTER);
+      check(promptOptionalTargetSwap(s,a,null)===true&&s.pending&&s.pending.type==='optional_target_swap','Soul Blast Shot CENTER with two legal destinations waits for attacker');
+      check(heroIdFrom(s.aiHeroes.CENTER)===forcedHeroId,'Soul Blast Shot does not move opponent before CENTER decision');
+      check(performOptionalTargetSwapDecision('LEFT')===true&&!s.pending&&s.lastSwapCompleted&&s.lastSwapCompleted.to_lane==='LEFT','Soul Blast Shot attacker confirms LEFT destination');
+      check(heroIdFrom(s.aiHeroes.LEFT)===forcedHeroId,'Soul Blast Shot target moved to selected adjacent lane');
+      check(s.cardSwapNotices.some(function(n){return n.kind==='completed'&&n.side==='AI'&&n.card_id==='S0-ARC-016';}),'Soul Blast Shot notice belongs to affected defender');
       check(cardEffectSwapModel(card('S0-THF-023'))==='dodge_then_reposition','Shadow Switch registered as forced post-DODGE swap');
       check(cardEffectSwapModel(card('S0-WAR-004'))==='response_redirect','Cover Up remains Response redirect swap');
       check(isWarpScrollCard(card('S0-ITM-019')),'Warp Scroll separate Item path registered');
@@ -19087,12 +19419,17 @@ function withUnshuffledSelfTest(fn){ return function(){ var old=STARTUP_SHUFFLE_
       check('Spectral Hook Mage-only Response denied',responseOptionsFor(s,'PLAYER',Object.assign(responseIncomingFromWindow(rw('CENTER')),{damage_type:'Physical'})).filter(function(o){return o.card_id==='S0-ITM-012';}).length===0);
       s.playerHand=['S0-ITM-013'];
       check('Ring of Grace Mage-only preplay denied',!validateCardPreconditions(s,'PLAYER','S0-ITM-013',null,null,{}).ok);
-      // Item user and protected target are not the same Hero: Archer protects Mage.
+      // RC41 P7: even with an Archer teammate, a Mage Response Window cannot
+      // use Spectral Grappling Hook; after changing the defender to Archer,
+      // only that defender (not the other Archer) can use it.
       s=fresh('AI');hero(s,'LEFT','Archer',1);hero(s,'CENTER','Mage',1);hero(s,'RIGHT','Cleric',1);
       s.playerHand=['S0-ITM-012','S0-THF-001','S0-THF-001'];
       var incoming=responseIncomingFromWindow(rw('CENTER')),
         opts=responseOptionsFor(s,'PLAYER',incoming).filter(function(o){return o.card_id==='S0-ITM-012';});
-      check('Hook Archer source protects Mage target',opts.length===1&&opts[0].source_lane==='LEFT'&&opts[0].protected_lane==='CENTER',opts);
+      check('Hook Archer teammate cannot protect Mage window',opts.length===0,opts);
+      hero(s,'CENTER','Archer',1);
+      opts=responseOptionsFor(s,'PLAYER',incoming).filter(function(o){return o.card_id==='S0-ITM-012';});
+      check('Hook only current Archer window user',opts.length===1&&opts[0].source_lane==='CENTER'&&opts[0].protected_lane==='CENTER',opts);
       var opt=opts[0],originalHand=s.playerHand.slice(),w=rw('CENTER');
       if(opt){s.responseWindow=w;w.options=opts;
         check('Hook enters precommit Hand discard picker',beginResponsePayment(s,w,clone(opt))&&s.pending&&s.pending.type==='response_payment_choice');
@@ -19108,12 +19445,18 @@ function withUnshuffledSelfTest(fn){ return function(){ var old=STARTUP_SHUFFLE_
             {hand:s.playerHand,discard:s.playerDiscard,pending:s.pending,response:s.responseWindow});
         }
       }
-      // Same printed user/target distinction for Chain Mail; Mage cannot use it.
+      // Chain Mail also belongs only to the Hero in the actual Response Window.
       s=fresh();hero(s,'LEFT','Warrior',1);hero(s,'CENTER','Mage',1);hero(s,'RIGHT','Cleric',1);s.playerHand=['S0-ITM-016'];
       opts=responseOptionsFor(s,'PLAYER',responseIncomingFromWindow(rw('CENTER'))).filter(function(o){return o.card_id==='S0-ITM-016';});
-      check('Chain Mail Warrior source protects Mage target',opts.length===1&&opts[0].source_lane==='LEFT',opts);
+      check('Chain Mail Warrior teammate cannot protect Mage window',opts.length===0,opts);
+      hero(s,'CENTER','Warrior',1);
+      opts=responseOptionsFor(s,'PLAYER',responseIncomingFromWindow(rw('CENTER'))).filter(function(o){return o.card_id==='S0-ITM-016';});
+      check('Chain Mail only current Warrior window user',opts.length===1&&opts[0].source_lane==='CENTER',opts);
       LANE_ORDER.forEach(function(l){hero(s,l,'Mage',1);});
       check('Chain Mail Mage-only Response denied',responseOptionsFor(s,'PLAYER',responseIncomingFromWindow(rw('CENTER'))).every(function(o){return o.card_id!=='S0-ITM-016';}));
+      s=fresh();hero(s,'LEFT','Cleric',1);hero(s,'CENTER','Mage',1);hero(s,'RIGHT','Thief',1);s.playerHand=['S0-ITM-007'];
+      opts=responseOptionsFor(s,'PLAYER',Object.assign(responseIncomingFromWindow(rw('CENTER')),{damage_type:'Magical'})).filter(function(o){return o.card_id==='S0-ITM-007';});
+      check('All Classes Ring of Protection responds for Mage window',opts.length===1&&opts[0].source_lane==='CENTER',opts);
       // Legacy activated cost: 1 or 2 matching Skills; never zero, wrong class,
       // duplicate physical index, or stale card ID. Cost must not be paid twice.
       var ability=card('S0-MAG-L001').ability;

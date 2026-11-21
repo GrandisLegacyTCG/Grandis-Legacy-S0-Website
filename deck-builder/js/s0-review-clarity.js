@@ -86,7 +86,12 @@ function applyItemPrintedMetric(card,rootNode){
  });
  const STATUS_COLORS=Object.freeze({Bleed:'#e46b6b',Burn:'#f6a24b',Freeze:'#79d7f6',Poison:'#a5d65a',Sleep:'#b895ee',Stun:'#f2d72e'});
  const STATUS_NAME_PATTERN=/\b(Bleed|Burn|Freeze|Poison|Sleep|Stun)\b/g;
- function statusTags(s){const t=String(s||'');return Object.keys(STATUSES).filter(k=>new RegExp('\\b'+k+'\\b','i').test(t));}
+ function statusTags(s){
+  // MANA BURN is a resource Keyword, not the Burn Status. Do not append
+  // the unrelated Burn Status explanation to a Mana Burn Skill Review.
+  const t=String(s||'').replace(/\bMANA\s+BURN\b/gi,'');
+  return Object.keys(STATUSES).filter(k=>new RegExp('\\b'+k+'\\b','i').test(t));
+ }
  function emphasizeStatus(rootNode){
   // DOM text nodes only, so keyword images, attributes, and user input never get changed.
   const walker=document.createTreeWalker(rootNode,NodeFilter.SHOW_TEXT);const nodes=[];

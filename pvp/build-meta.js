@@ -1,1 +1,1 @@
-window.GL_PVP_BUILD_META=Object.freeze({"version":"S0-RC41-PVP-NET-RC6-STAGE2-INTEGRATION-1","versionLabel":"Grandis Legacy PvP · Season 0 RC41 · R3.9 / Rulebook v3.4 · Network RC6 Stage 2","buildId":"gl-s0-pvp-rc41-r39-v34-part5-2026-11-19"});
+window.GL_PVP_BUILD_META=Object.freeze({"version":"S0-PVP-STAGE3-RC42-R394-20261122-A","versionLabel":"Grandis Legacy PvP | Season 0 | Stage 3 Official Starters and Multiplayer Candidate","buildId":"gl-s0-pvp-stage3-rc42-r394-20261122-a"});

@@ -1,7 +1,4 @@
-/* Grandis Legacy S0 PvP RC41 / R3.9: static website -> Node backend.
- * Current approved Northflank hostname (confirmed by project owner via /health).
- * Static GitHub Pages cannot proxy /ws; use WSS on the backend host.
- */
+/* Static Website /pvp/ communicates only with the standalone PvP backend. */
 window.GL_PVP_CONFIG=Object.assign({
   wsBase:'wss://p01--grandis-legacy-s0-pvp--2kwws8nzlcc2.code.run',
   wsPath:'/ws',

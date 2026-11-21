@@ -46,7 +46,7 @@
     return {id:c.card_id,name:reviewName,family:c.family==='Legacy'?'LegacyModeDefinition':c.family,
       classification:c.classification||c.action_category||'',classGroup:ident.class||c.display_class||c.class_family||baseClass||'',
       rank:rank,rankNumeric:rank,race:c.race||ident.race||'',hp:c.hp,
-      image:'/card-art/'+c.card_id+'.webp',cost:cost,text:reviewedText,rows:rows,
+      image:window.GL_PVP_CARD_ART_URL(c.card_id),cost:cost,text:reviewedText,rows:rows,
       ultimate:{isUltimate:!!c.is_ultimate,owner:c.card_id==='S0-ARC-018'?'Fenrir Ironfang':c.card_id==='S0-CLE-031'
         ?'Only Melody can use this card or tribute it with a White Mana Shard for EXP.'
         :(ult.owner||'')},
