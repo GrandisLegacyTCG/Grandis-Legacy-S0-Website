@@ -1,0 +1,33 @@
+{
+  "snapshot": "2026-11-24",
+  "buildId": "gl-s0-pvp-rc42-r398-r40-20261124-a",
+  "donor": "Grandis_Legacy_VS_AI_Season0_RC42_2026-11-23.zip",
+  "website": "Grandis_Legacy_Website_FULL_REPO_NO_PVP_VSAI_RC42_DB168_R398_R40_2026-11-24.zip",
+  "content": {
+    "mainDeck": "R3.98",
+    "legacyDeck": "R4.0",
+    "startersUnchanged": 5,
+    "standaloneArtworks": 250,
+    "websiteRootSharedArtworks": 250,
+    "otherWebsiteSharedAssets": 109
+  },
+  "localQA": {
+    "historicalMultiplayerChecks": "50/50 PASS",
+    "stage1ManaAndOutcome": "6/6 and 7/7 PASS",
+    "stage2ArtworkLoader": "14/14 PASS",
+    "stage2FrontendLocks": "8/8 PASS",
+    "stage2Casting": "5/5 PASS",
+    "stage3Starters": "5/5 PASS",
+    "currentDonorCore": "27/27 PASS",
+    "currentDonorGameplay": "37/37 PASS",
+    "currentDonorStarterCasting": "13/13 PASS",
+    "oldDonorCompatAndWS": "PASS (offline lite ws)",
+    "syntheticDesktopHeader": "PASS at 1024/1333/1600/1920",
+    "websiteSharedRootSHA256": "250+109 PASS"
+  },
+  "unverified": [
+    "native ws production container under deployed service",
+    "end-to-end complete match in two production browsers"
+  ],
+  "gitHubPushed": false
+}

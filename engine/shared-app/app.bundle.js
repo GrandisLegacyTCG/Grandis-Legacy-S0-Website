@@ -17,7 +17,7 @@
   var GL_LAB_MANA_ASSET={Generic:'card-art/S0-MAN-001.webp',Warrior:'card-art/S0-MAN-002.webp',Mage:'card-art/S0-MAN-003.webp',Cleric:'card-art/S0-MAN-004.webp',Thief:'card-art/S0-MAN-005.webp',Archer:'card-art/S0-MAN-006.webp'};
   var GL_SHARED_CARD_BASE='https://grandislegacytcg.github.io/shared/season1/v1/cards/';
   var GL_REMOTE_CARD_BASE='https://grandislegacytcg.github.io/shared/season1/v1/cards/';
-  var GL_ASSET_REV=IS_TUTORIAL_APP?'gl-tutorial-s0-stage4':'gl-vs-ai-s0-rc42-r394-20261122';
+  var GL_ASSET_REV=IS_TUTORIAL_APP?'gl-tutorial-s0-stage4':'gl-vs-ai-s0-rc42-r398-r40-20261124';
   var GL_CARD_ZOOM_ID=null;
   var GL_LAST_PLAYER_TURN_BANNER_KEY='', GL_PLAYER_TURN_BANNER_TIMER=null;
   var GL_MODAL_HOVER_GUARD_BOUND=false;
@@ -471,7 +471,7 @@
     if(!cardObj||!action)return '';
     var id=cardObj.card_id,printed=sourceHero?Number(printedClassDamage(cardObj,sourceHero)||0):0;
     var count=0,unit='',cap=0;
-    if(id==='S0-ARC-010'){count=Number(action.mana_cards_spent||0);unit='Mana Shards';cap=90;}
+    if(id==='S0-ARC-010'){count=Number(action.mana_cards_spent||0);unit='Mana Shards';cap=80;}
     else if(id==='S0-MAG-027'){count=Number(action.casting_time_at_release||0);unit='Casting Time';}
     else if(id==='S0-ARC-030'){count=Number(action.s0_condition_return_count||(action.s0_discard_condition_picks||[]).length||0);unit='Zol Returned';}
     else if(id==='S0-ARC-025'){count=Number(action.draw_count_at_attack||0);unit='Cards Drawn';cap=140;}
@@ -1439,6 +1439,22 @@
     if(!active)return source;
     var c=clone(source);
     if(active.sha256)c.asset=Object.assign({},c.asset||{},{file:'card-art/'+c.card_id+'.webp',sha256:active.sha256,format:'webp'});
+    // R3.98 card-front metadata must override both active preview and runtime
+    // classifiers. The immutable DEV44/DEV45 source is kept for audit only.
+    if(active.name){c.name=active.name;c.printed=Object.assign({},c.printed||{},{name:active.name});}
+    if(active.subtype){
+      c.classification=active.subtype;c.action_category=active.subtype;
+      c.attack=Object.assign({},c.attack||{},{attack_label:active.subtype,attack_type:active.subtype});
+    }
+    // A removed earlier-rank printed row must not remain indirectly playable
+    // through the historical lineage union in the old normalized source.
+    if(active.legal_classes){
+      c.active_print_legal_classes=active.legal_classes.slice();
+      c.legal_active_classes=active.legal_classes.join(';');
+      var reqOld=c.requirement||{},gateOld=reqOld.rank_gate||{};
+      c.requirement=Object.assign({},reqOld,{legal_active_classes:active.legal_classes.slice(),
+        rank_gate:Object.assign({},gateOld,{min_active_rank:Number(active.min_rank||gateOld.min_active_rank||1),eligible_active_classes:active.legal_classes.slice()})});
+    }
     if(active.text){
       var rows=active.rows||[],mapped={},damageMap={},reqRows=[];
       c.card_text=active.text;c.effect_text=active.text;
@@ -1457,8 +1473,16 @@
       if(active.cost!==undefined){c.cost=Object.assign({},c.cost||{},{mana:Number(active.cost)});c.canonical_cost=Object.assign({},c.canonical_cost||{},{mana:Number(active.cost)});c.cost_mana=Number(active.cost);c.cost_display=Number(active.cost)?active.cost+' Mana':'No Mana cost';}
       // Do not keep effects manufactured from the superseded printed wording.
       if(c.card_id==='S0-CLE-024')c.effect=(c.effect||[]).filter(function(e){return e.kind!=='inflict_status';});
+      // R3.98 Deflection: the old Thief/-70 Physical/REFLECT data is revoked.
+      // The new card-front contains only Spell Blade II's universal -60 BLOCK.
+      if(c.card_id==='S0-THF-022'){
+        c.effect=[{kind:'block_damage',amount_by_class:{'Spell Blade':60},
+          damage_types:['Physical','Magical'],source_s0_printed_row:true}];
+        if(Array.isArray(c.runtime_tags))c.runtime_tags=c.runtime_tags.filter(function(t){return !/REFLECT/i.test(String(t));});
+        else c.runtime_tags=String(c.runtime_tags||'').split(/[;,|]/).filter(function(t){return !/REFLECT/i.test(t);}).join(';');
+      }
     }
-    c.active_print_authority='Main Deck active printed artwork';
+    c.active_print_authority='Main Deck R3.98 printed artwork';
     return c;
   }
   function initCards(){
@@ -3174,6 +3198,9 @@
     if(window.GL_RULES_RUNTIME && window.GL_RULES_RUNTIME.cardLegalForLineage && !window.GL_RULES_RUNTIME.cardLegalForLineage(c,hero,card(heroIdFrom(hero)),heroClass(hero))) return false;
     var legal=canonicalCardLegalClasses(c);
     if(!lineageContainsAnyClass(hero,legal)) return false;
+    if(c && Array.isArray(c.active_print_legal_classes)){
+      if(!lineageContainsAnyClass(hero,c.active_print_legal_classes))return false;
+    }
     if(requiresAttachmentSlot(c,hero) && attachmentSlotIndex(hero)===-1) return false;
     var req=c.requirement||{},src=c.source_requirement||{},ultimate=req.ultimate||src.ultimate||{};
     var minRank=canonicalMinimumSourceRank(c);
@@ -3279,6 +3306,40 @@
   var S0_NOTE_CARD_IDS={Zol:'S0-ARC-026',Lun:'S0-CLE-026',Vae:'S0-CLE-027'};
   function discardConditionSpec(c){return c&&S0_BARD_DISCARD_CONDITIONS[c.card_id]||null;}
   function discardConditionRequiredCount(spec){return spec?Object.keys(S0_NOTE_CARD_IDS).reduce(function(n,k){return n+Number(spec[k]||0);},0):0;}
+  // Draw that is itself a mandatory CONDITION is distinct from a normal
+  // effect Draw, which may be partial. Decode the current printed clause,
+  // using the canonical structured draw_cards effect to exclude effect Draw
+  // such as God's Blessing. This detects all printed CONDITION Draw cards.
+  function mandatoryConditionDrawCount(c){
+    if(!c || !/\bCONDITION\b/i.test(String(c.card_text||'')))return 0;
+    if(Array.isArray(c.effect)&&c.effect.some(function(e){return e&&e.kind==='draw_cards';}))return 0;
+    var prefix=String(c.card_text||'').split(/\b(?:DEAL\s+(?:AREA\s+)?(?:PHYSICAL|MAGICAL)\s+DAMAGE|\b\d+\s+HEAL\b)\b/i)[0];
+    var m=/\bDraw\s+(\d+)\s+cards?\b/i.exec(prefix);
+    return m?Number(m[1]):0;
+  }
+  function conditionDrawCanPay(state,side,c){
+    var amount=mandatoryConditionDrawCount(c);
+    if(!amount || !state)return true;
+    var guaranteedReturn=discardConditionRequiredCount(discardConditionSpec(c));
+    return (deckForSide(state,side)||[]).length+guaranteedReturn>=amount;
+  }
+  function consumeHandConditionDraw(state,side,c,action){
+    if(!requiredDiscardSpecificIds(c).length || action._s0_hand_condition_draw_committed)return 0;
+    var need=mandatoryConditionDrawCount(c);
+    if(!need)return 0;
+    // Mandatory cards must have already been physically discarded. A payment
+    // may not open a Response Window until the full Draw has completed.
+    if(!action._s0_hand_condition_committed)throw new Error('Mandatory Hand CONDITION must discard required cards first');
+    if((deckForSide(state,side)||[]).length<need)throw new Error('Not enough cards for mandatory CONDITION Draw');
+    var before=sideHand(state,side).length;
+    drawMany(state,side,need,{reason:'CARD_EFFECT'});
+    var drawn=sideHand(state,side).length-before;
+    if(drawn!==need)throw new Error('Mandatory CONDITION Draw did not resolve fully');
+    action._s0_hand_condition_draw_committed=true;
+    action.s0_condition_draw_count=drawn;
+    pushLog(state,cardName(c)+' CONDITION Draw '+drawn+' completed before Response and main card effect.');
+    return drawn;
+  }
   function discardConditionCanPay(state,side,c){
     var spec=discardConditionSpec(c);if(!spec)return true;
     var counts={};(sideDiscard(state,side)||[]).forEach(function(id){counts[id]=(counts[id]||0)+1;});
@@ -3338,12 +3399,14 @@
     action._s0_return_ghost_count=picked.length;
     pushLog(state,cardName(c)+' returns '+picked.map(function(item){return cardName(card(item.card_id));}).join(', ')+' from Discard Pile to Main Deck as CONDITION, then shuffles.');
     // CONDITION always resolves before the main effect, including its own Draw.
-    var conditionDraw={'S0-ARC-028':1,'S0-CLE-030':2}[c.card_id]||0;
+    var conditionDraw=mandatoryConditionDrawCount(c);
+    if(conditionDraw && deck.length<conditionDraw)throw new Error('Mandatory CONDITION Draw unavailable after returning cards');
     if(conditionDraw){
       var before=sideHand(state,side).length;
       drawMany(state,side,conditionDraw,{reason:'CARD_EFFECT'});
       pushLog(state,cardName(c)+' CONDITION draws '+(sideHand(state,side).length-before)+' card(s) before the main effect.');
       action.s0_condition_draw_count=sideHand(state,side).length-before;
+      if(action.s0_condition_draw_count!==conditionDraw)throw new Error('Mandatory CONDITION Draw was partial');
     }
     return picked.length;
   }
@@ -3378,6 +3441,7 @@
     var opp=oppositeSide(side);
     if(firstPlayerAttackRestrictedNow(state, side, c)) reasons.push('First player cannot play Attack Skill Cards on their first turn.');
     if(state && !discardConditionCanPay(state,side,c)) reasons.push('CONDITION requires specified note cards in Discard Pile');
+    if(state && !conditionDrawCanPay(state,side,c))reasons.push('CONDITION Draw requires all printed cards to be available in Main Deck after mandatory returns');
     if(state && requiredDiscardSpecificIds(c).length && !handHasRequiredDiscards(sideHand(state,side),c)) reasons.push('CONDITION requires specific cards in Hand for discard payment');
     // S0 Taunt constrains ALL opponent Attacks, not just the target picker.
     // Area Attacks cannot be played; other Attacks must be able to reach the
@@ -4074,7 +4138,13 @@
   function isHolyMedallionCard(c){ return !!(c && c.card_id==='S0-ITM-014'); }
   function isEnrageSetupCard(c){ return !!(c && c.card_id==='S0-WAR-013'); }
   function isAttackBuffSetupCard(c){ return !!(c && (isPoisonVialCard(c) || isCoordinationAttackCard(c) || isHolyMedallionCard(c) || isArcaneScrollCard(c) || isBlessingMightCard(c) || isBlessingWisdomCard(c) || isEnrageSetupCard(c) || isLastResortCard(c) || isTripleShotCard(c) || c.card_id==='S0-MAG-022' || c.card_id==='S0-CLE-018' || c.card_id==='S0-CLE-028')); }
-  function isTacticalFollowUpSetupCard(c){ return isAttackBuffSetupCard(c) || isRingOfGraceCard(c) || isDoubleCastingCard(c) || isWildfireCard(c) || isHeavensFuryCard(c) || !!(c&&c.card_id==='S0-ITM-020'); }
+  // Non-damaging Burn Utility Items (currently Fire Flask) are strategic
+  // setup cards. Do not spend one without a reachable, worthwhile Attack.
+  function isBurnSetupItem(c){
+    return !!(c && cardFamily(c)==='Item' && !isAttackCard(c) &&
+      Array.isArray(c.effect) && c.effect.some(function(e){return e.kind==='inflict_status' && e.status==='Burn';}));
+  }
+  function isTacticalFollowUpSetupCard(c){ return isAttackBuffSetupCard(c) || isRingOfGraceCard(c) || isDoubleCastingCard(c) || isWildfireCard(c) || isHeavensFuryCard(c) || isBurnSetupItem(c) || !!(c&&c.card_id==='S0-ITM-020'); }
   function aiRemainingManaAfterAction(state, action){
     if(!state||!action)return manaPoolCardsForSide(state||{},'AI').length;
     var sim=clone(state),c=card(action.card_id),cost=Number(action.cost||0),plan=autoManaPaymentForAI(sim,'AI',c,cost);
@@ -4148,12 +4218,20 @@
   function aiBestAttackAfterFreezeBomb(state,setupAction){
     if(!state||!setupAction||!setupAction.target_lane)return null;
     var victim=sideHeroes(state,'PLAYER')[setupAction.target_lane];
-    if(!isActiveHeroSlot(victim))return null;
+    // Spending a second Freeze just to enable the same Attack wastes a card.
+    if(!isActiveHeroSlot(victim)||hasStatus(victim,'Freeze'))return null;
     var sim=aiManaSimulationAfterSetup(state,setupAction,'Battle',false);
     addStatus(sideHeroes(sim,'PLAYER')[setupAction.target_lane],'Freeze',1,'Freeze Bomb AI planning');
     var legal=getLegalActions('AI',sim).filter(function(a){
-      return a.type==='PLAY_CARD' && isAttackCard(card(a.card_id)) &&
-        !isAIChoiceHeavyCard(card(a.card_id)) && a.target_lane===setupAction.target_lane && aiIntermediateCastingTargetAllowed(sim,a);
+      var attack=card(a.card_id);
+      // This is the SAME Battle filter used when the follow-up is committed:
+      // casting is not immediate, preserved Skills are not available to spend,
+      // and known 0-damage Formation hits cannot justify the setup Item.
+      return a.type==='PLAY_CARD' && isAttackCard(attack) && !isCastingCard(attack) &&
+        !isAIChoiceHeavyCard(attack,sim) && a.target_lane===setupAction.target_lane &&
+        aiIntermediateCastingTargetAllowed(sim,a) &&
+        !aiIntermediatePreserveSkillForRank(sim,a) && !aiAttackFullyAbsorbedByFormation(sim,a) &&
+        aiAttackTacticalScore(sim,a)>0;
     });
     // An Intermediate Freeze Bomb must enable an actual Dodge-vulnerable Attack;
     // Freeze is wasted if the follow-up is already SURE HIT (printed or buffed).
@@ -4165,6 +4243,65 @@
     return legal[0]||null;
   }
 
+  // Fire Flask AI planning: Burn is a two-turn damage amplifier, not direct
+  // damage. Its value should be realized by a concrete, payable Attack now.
+  // The evaluator uses only public active defenses; it never guesses Hand cards.
+  function aiAttackAffectsHeroLaneNow(state,action,lane){
+    if(!state||!action||!lane||action.type!=='PLAY_CARD')return false;
+    var c=card(action.card_id),source=sideHeroes(state,'AI')[action.source_lane];
+    if(!c||!isAttackCard(c)||!isActiveHeroSlot(source)||!isActiveHeroSlot(sideHeroes(state,'PLAYER')[lane]))return false;
+    if(Array.isArray(action.target_lanes)&&action.target_lanes.length)return action.target_lanes.indexOf(lane)>=0;
+    if(isAllTargetAttack(c))return true;
+    if(attackActsAsAreaForSource(state,c,source))return targetCoverage(action.source_lane).indexOf(lane)>=0;
+    return action.target_lane===lane;
+  }
+  function aiFireFlaskRealizedBonus(state,attackAction,targetLane){
+    if(!aiAttackAffectsHeroLaneNow(state,attackAction,targetLane))return 0;
+    var c=card(attackAction.card_id),source=sideHeroes(state,'AI')[attackAction.source_lane],target=sideHeroes(state,'PLAYER')[targetLane];
+    if(!hasStatus(target,'Burn'))return 0;
+    var type=damageTypeForActionSource(c,source),hp=Number(target.hp||0);
+    if(hp<=0||aiVisibleDefenderProfile(state,target,type,0).immune)return 0;
+    var noBurnTarget=Object.assign({},target,{statuses:(target.statuses||[]).filter(function(st){return statusName(st).toLowerCase()!=='burn';})});
+    var simulated=Object.assign({},attackAction,{source_side:'AI',target_side:'PLAYER',target_lane:targetLane});
+    if(isArrowBarrageCard(c))simulated.mana_cards_spent=manaPoolCardsForSide(state,'AI').length;
+    var projectionState=Object.assign({},state,{log:[]});
+    var before=Math.max(0,Number(computedAttackDamageForAction(projectionState,Object.assign({},simulated),source,noBurnTarget)||0));
+    var afterBase=Math.max(0,Number(computedAttackDamageForAction(projectionState,Object.assign({},simulated),source,target)||0));
+    var after=afterBase+(afterBase>0?BURN_INCOMING_DAMAGE_BONUS:0);
+    var reduction=passiveIncomingDamageReduction(target,type)+defensiveFormationBonus(state,'PLAYER','AI',type);
+    if(type==='Physical'&&hasActiveAttachmentForHero(state,target,'S0-WAR-021'))reduction+=20;
+    if(hasActiveAttachmentForHero(state,target,'S0-WAR-031')&&
+       (type==='Physical'||(type==='Magical'&&heroClass(target)==='Arcane Vanguard')))reduction+=20;
+    // If the Attack is already lethal, Burn adds no realized HP damage and
+    // the AI should keep the consumable for a future opportunity.
+    return Math.max(0,Math.min(hp,Math.max(0,after-reduction))-
+      Math.min(hp,Math.max(0,before-reduction)));
+  }
+  function aiBestAttackAfterFireFlask(state,setupAction){
+    if(!state||!setupAction||!isBurnSetupItem(card(setupAction.card_id))||!setupAction.target_lane)return null;
+    var target=sideHeroes(state,'PLAYER')[setupAction.target_lane];
+    // Stacking Burn adds duration only (not +10 again). An INVINCIBLE or
+    // Status-Immune target cannot gain the intended new Burn status at all.
+    if(!isActiveHeroSlot(target)||hasStatus(target,'Burn')||statusImmune(target)||
+       opponentInvincibleStatusProtection(state,target))return null;
+    var sim=aiManaSimulationAfterSetup(state,setupAction,'Battle',false);
+    addStatus(sideHeroes(sim,'PLAYER')[setupAction.target_lane],'Burn',2,'Fire Flask AI planning');
+    var legal=getLegalActions('AI',sim).filter(function(a){
+      var attack=card(a.card_id);
+      return a.type==='PLAY_CARD'&&isAttackCard(attack)&&!isCastingCard(attack)&&
+        !isAIChoiceHeavyCard(attack,sim)&&aiIntermediateCastingTargetAllowed(sim,a)&&
+        !aiIntermediatePreserveSkillForRank(sim,a)&&
+        aiAttackAffectsHeroLaneNow(sim,a,setupAction.target_lane)&&
+        !aiAttackFullyAbsorbedByFormation(sim,a)&&aiAttackTacticalScore(sim,a)>0&&
+        aiFireFlaskRealizedBonus(sim,a,setupAction.target_lane)>0;
+    });
+    legal.sort(function(a,b){
+      var ab=aiFireFlaskRealizedBonus(sim,a,setupAction.target_lane),bb=aiFireFlaskRealizedBonus(sim,b,setupAction.target_lane);
+      return bb-ab||aiAttackTacticalScore(sim,b)-aiAttackTacticalScore(sim,a);
+    });
+    return legal[0]||null;
+  }
+
   function aiBestMageAttackAfterSetup(state, setupAction, options){
     options=options||{};
     if(!state||!setupAction||!setupAction.source_lane)return null;
@@ -4172,7 +4309,14 @@
     if(options.next_turn){setupSource.exhausted=false;setupSource.exhaust_reason=null;}
     var legal=getLegalActions('AI',sim).filter(function(a){
       var attackCard=card(a.card_id),attackTypeText=String(cardSubtype(attackCard)||attackCard.action_category||'');
-      return a.type==='PLAY_CARD'&&isAttackCard(attackCard)&&a.source_lane===setupAction.source_lane&&!isAIChoiceHeavyCard(attackCard)&&(!options.magical_only||/Magical Attack/i.test(attackTypeText))&&aiIntermediateCastingTargetAllowed(sim,a);
+      // Double Casting / Wildfire should not consume their setup on a
+      // delayed Casting declaration or a Skill reserved for Rank progression.
+      // Only forecast this turn's visible Formation: it may expire by next turn.
+      return a.type==='PLAY_CARD'&&isAttackCard(attackCard)&&!isCastingCard(attackCard)&&
+        a.source_lane===setupAction.source_lane&&!isAIChoiceHeavyCard(attackCard,sim)&&
+        (!options.magical_only||/Magical Attack/i.test(attackTypeText))&&
+        aiIntermediateCastingTargetAllowed(sim,a)&&!aiIntermediatePreserveSkillForRank(sim,a)&&
+        (options.next_turn||(!aiAttackFullyAbsorbedByFormation(sim,a)&&aiAttackTacticalScore(sim,a)>0));
     });
     legal.sort(function(a,b){return estimateAIDamage(sim,b)-estimateAIDamage(sim,a)||Number(b.cost||0)-Number(a.cost||0);});
     return legal[0]||null;
@@ -4292,6 +4436,15 @@
         preferred_card_id:pair.first.card_id,preferred_attack_card_id:pair.first.card_id,
         preferred_source_lane:pair.first.source_lane||null,preferred_target_lane:pair.first.target_lane||null,
         setup_card_id:action.card_id,remaining_mana:aiRemainingManaAfterAction(state,action)};
+    }
+    if(isBurnSetupItem(c)){
+      var burnedAttack=aiBestAttackAfterFireFlask(state,action);
+      if(!burnedAttack)return null;
+      return {kind:'ATTACK_FOLLOWUP',followup_phase:'Battle',not_before_round:Number(state.round||1),
+        preferred_card_id:burnedAttack.card_id,preferred_source_lane:burnedAttack.source_lane||null,
+        preferred_target_lane:burnedAttack.target_lane||null,preferred_target_lanes:(burnedAttack.target_lanes||[]).slice(),
+        setup_card_id:action.card_id,setup_target_lane:action.target_lane,
+        fire_flask:true,remaining_mana:aiRemainingManaAfterAction(state,action)};
     }
     if(c&&c.card_id==='S0-ITM-020'){
       var frozenAttack=aiBestAttackAfterFreezeBomb(state,action);
@@ -5267,7 +5420,16 @@
       var playable=getLegalActions('AI',state).filter(function(a){ return a.type==='PLAY_CARD' && a.card_id!==action.card_id && !isAIChoiceHeavyCard(card(a.card_id)); });
       return playable.length ? -1000 : 5;
     }
-    if(c&&c.card_id==='S0-ITM-020'){
+    if(isBurnSetupItem(c)){
+      var burnedAttack=aiBestAttackAfterFireFlask(state,action);
+      if(!burnedAttack)return -1000;
+      // Count actual net HP damage gained over playing that Attack alone;
+      // refuse an already-lethal, fully-mitigated or wrong-lane setup.
+      var fireSim=aiManaSimulationAfterSetup(state,action,'Battle',false);
+      addStatus(sideHeroes(fireSim,'PLAYER')[action.target_lane],'Burn',2,'Fire Flask valuation');
+      var bonus=aiFireFlaskRealizedBonus(fireSim,burnedAttack,action.target_lane);
+      score+=76+Math.min(100,bonus*5);
+    } else if(c&&c.card_id==='S0-ITM-020'){
       var freezeAttack=aiBestAttackAfterFreezeBomb(state,action);
       if(!freezeAttack)return -1000; // save Freeze for a genuine same-turn attack
       score+=112+Math.max(0,Math.min(80,aiAttackTacticalScore(state,freezeAttack)));
@@ -5313,6 +5475,12 @@
     if(Number(plan.not_before_round||0)>Number(state.round||0))return null;
     if(plan.followup_phase && plan.followup_phase!==phase) return null;
     if(plan.heavens_fury){var setupLane=plan.setup_target_lane||plan.preferred_source_lane,setupHero=setupLane?sideHeroes(state,'AI')[setupLane]:null;if(!setupHero||Number(setupHero.hp||0)<=0||isLegacyModeHero(setupHero)||!activeTimedAttachmentForHero(state,setupHero,'S0-CLE-018'))return null;if(plan.planned_attacker&&plan.planned_attacker!==setupLane)return null;}
+    // A negated/cleansed Freeze must not force an unrelated Attack selection.
+    // The normal Battle chooser can still select any worthwhile legal Attack.
+    if(plan.freeze_bomb && (!plan.preferred_target_lane ||
+       !hasStatus(sideHeroes(state,'PLAYER')[plan.preferred_target_lane],'Freeze')))return null;
+    if(plan.fire_flask && (!plan.setup_target_lane ||
+       !hasStatus(sideHeroes(state,'PLAYER')[plan.setup_target_lane],'Burn')))return null;
     function matchesBase(a,ignoreCard){
       if(plan.kind==='ATTACK_FOLLOWUP' && !isAttackCard(card(a.card_id))) return false;
       if(plan.kind==='HEAL_FOLLOWUP' && !aiHasPrimaryHealingEffect(card(a.card_id))) return false;
@@ -5327,6 +5495,15 @@
       candidates=playable.filter(function(a){var c=card(a.card_id);return matchesBase(a,true)&&isSingleTargetAttack(c);});
       if(candidates.length){candidates.sort(function(a,b){return estimateAIDamage(state,b)-estimateAIDamage(state,a)||Number(b.cost||0)-Number(a.cost||0);});plan.preferred_card_id=candidates[0].card_id;plan.preferred_attack_card_id=candidates[0].card_id;}
     }
+    if(plan.freeze_bomb)candidates=candidates.filter(function(a){
+      return !isCastingCard(card(a.card_id)) && aiAttackTacticalScore(state,a)>0;
+    });
+    if(plan.fire_flask)candidates=candidates.filter(function(a){
+      return !isCastingCard(card(a.card_id)) && aiAttackAffectsHeroLaneNow(state,a,plan.setup_target_lane) &&
+        aiAttackTacticalScore(state,a)>0 && aiFireFlaskRealizedBonus(state,a,plan.setup_target_lane)>0 &&
+        (!plan.preferred_target_lanes || !plan.preferred_target_lanes.length ||
+          (a.target_lanes||[]).join(',')===plan.preferred_target_lanes.join(','));
+    });
     if(!candidates.length) return null;
     if(plan.kind==='ATTACK_FOLLOWUP') candidates.sort(function(a,b){return estimateAIDamage(state,b)-estimateAIDamage(state,a);});
     return candidates[0];
@@ -5398,8 +5575,12 @@
       (heroClass(hero)==='Arcane Vanguard'&&hasActiveAttachmentForHero(state,hero,'S0-MAG-031')) ||
       hasStatus(hero,'Damage Immunity')
     );
-    var reduction=passiveIncomingDamageReduction(hero,type);
+    // Visible, already-committed team-wide damage prevention must be included
+    // in threat valuation. It is not a Response BLOCK; PIERCING does not bypass it.
+    var reduction=passiveIncomingDamageReduction(hero,type)+defensiveFormationBonus(state,'PLAYER','AI',type);
     if(type==='Physical'&&hasActiveAttachmentForHero(state,hero,'S0-WAR-021'))reduction+=20;
+    if(hasActiveAttachmentForHero(state,hero,'S0-WAR-031')&&
+       (type==='Physical'||(type==='Magical'&&heroClass(hero)==='Arcane Vanguard')))reduction+=20;
     var effective=immune?0:Math.max(0,damage-reduction);
     var racial=racialActionFor(hero)||{},effect=racial.effect||{};
     var racialCost=Number((racial.cost&&racial.cost.racial_token)||0);
@@ -5419,6 +5600,45 @@
     }
     return {protected:immune||reduction>0||racialDefense,immune:immune,effective:effective,
       reduction:reduction,racial:racialDefense,stoneblood:stoneblood};
+  }
+  // RC42 staging: do not commit an AI Attack when the opponent's visible,
+  // already-active Defensive Formation will absorb ALL of its immediate HP
+  // damage. This is AI strategy, not a new card legality rule: the Player may
+  // still make that attack, and a connected zero-damage Hit retains its usual
+  // status/REFLECT consequences. Casting that releases on a later turn is not
+  // forecast from today's Formation duration and is left unchanged.
+  function aiAttackFullyAbsorbedByFormation(state,action){
+    if(!state||!action||action.type!=='PLAY_CARD'||!action.source_lane ||
+       !activeAttachmentForSide(state,'PLAYER','S0-EVT-012'))return false;
+    var c=card(action.card_id),source=sideHeroes(state,'AI')[action.source_lane];
+    if(!c||!isAttackCard(c)||isCastingCard(c)||!isActiveHeroSlot(source))return false;
+    var type=damageTypeForActionSource(c,source);
+    if(type!=='Physical'&&type!=='Magical')return false;
+    var reduction=defensiveFormationBonus(state,'PLAYER','AI',type);
+    if(reduction<=0)return false;
+    var lanes=isAllTargetAttack(c)?LANE_ORDER:
+      (attackActsAsAreaForSource(state,c,source)?targetCoverage(action.source_lane):
+      (Array.isArray(action.target_lanes)&&action.target_lanes.length?action.target_lanes:
+       (action.target_lane?[action.target_lane]:[])));
+    var targets=lanes.filter(function(lane){return isActiveHeroSlot(sideHeroes(state,'PLAYER')[lane]);});
+    if(!targets.length)return false;
+    // Card damage projections can append formula notes (e.g. Charged Shot).
+    // Never write those forecast notes into the real match's Combat Log.
+    var projectionState=Object.assign({},state,{log:[]});
+    return targets.every(function(lane){
+      var target=sideHeroes(state,'PLAYER')[lane];
+      var simulated=Object.assign({},action,{source_side:'AI',target_side:'PLAYER',target_lane:lane});
+      // Arrow Barrage counts paid Mana Cards (Shards), not their Color values.
+      if(isArrowBarrageCard(c))simulated.mana_cards_spent=manaPoolCardsForSide(state,'AI').length;
+      var incoming=Math.max(0,Number(computedAttackDamageForAction(projectionState,simulated,source,target)||0));
+      var burn=incoming>0 && hasStatus(target,'Burn')?BURN_INCOMING_DAMAGE_BONUS:0;
+      var passive=passiveIncomingDamageReduction(target,type);
+      var active=reduction;
+      if(type==='Physical'&&hasActiveAttachmentForHero(state,target,'S0-WAR-021'))active+=20;
+      if(hasActiveAttachmentForHero(state,target,'S0-WAR-031')&&
+         (type==='Physical'||(type==='Magical'&&heroClass(target)==='Arcane Vanguard')))active+=20;
+      return incoming+burn<=passive+active;
+    });
   }
   function aiTargetOpportunityBonus(state,action,hero,profile){
     if(!hero||!action||!action.target_lane)return 0; // Area has no chosen target.
@@ -5459,6 +5679,7 @@
     return base;
   }
   function aiAttackTacticalScore(state,action){
+    if(aiAttackFullyAbsorbedByFormation(state,action))return -10000;
     if(!aiIntermediate(state))return aiBeginnerAttackScore(state,action);
     if(aiIntermediatePreserveSkillForRank(state,action))return -10000;
     var c=card(action.card_id),synergy=aiAttackStatusSynergy(state,action);
@@ -5558,9 +5779,17 @@
       return tribute[0];
     }
     if(phase==='Battle'){
+      // Even Beginner must follow through after choosing a one-use Fire Flask;
+      // other Beginner decisions remain intentionally simple.
+      if(state.aiPlan&&state.aiPlan.fire_flask){
+        var burnedFollow=aiPlannedFollowUpAction(state,'Battle',play);
+        state.aiPlan=null;
+        if(burnedFollow)return burnedFollow;
+      }
       // No enemy vulnerability scoring, status priming, multi-card planning,
       // positional prediction or long-term resource management.
-      var attacks=play.filter(function(a){return isAttackCard(card(a.card_id));});
+      var attacks=play.filter(function(a){return isAttackCard(card(a.card_id)) &&
+        !aiAttackFullyAbsorbedByFormation(state,a);});
       if(!attacks.length)return skip;
       var ordinary=attacks.filter(function(a){return !isUltimateCard(card(a.card_id));});
       if(ordinary.length)attacks=ordinary;
@@ -5571,9 +5800,14 @@
       return attacks[0];
     }
     if(phase==='Deploy'){
+      if(state.aiPlan&&state.aiPlan.fire_flask&&Number(state.aiPlan.not_before_round||0)<=Number(state.round||0))return skip;
       // Beginner does not sequence multi-turn Casting, combo setup, or Warp
       // Scroll tactical positioning. It can still use straightforward cards.
-      var basic=play.filter(function(a){var c=card(a.card_id);return !isAttackCard(c)&&(!isTacticalFollowUpSetupCard(c)||isTripleShotCard(c)||(c&&c.card_id==='S0-MAG-022'))&&!isWarpScrollCard(c);});
+      var basic=play.filter(function(a){
+        var c=card(a.card_id);
+        return !isAttackCard(c)&&(!isTacticalFollowUpSetupCard(c)||isBurnSetupItem(c)||isTripleShotCard(c)||(c&&c.card_id==='S0-MAG-022'))&&
+          !isWarpScrollCard(c)&&(!isBurnSetupItem(c)||!!aiBestAttackAfterFireFlask(state,a));
+      });
       if(!basic.length)return skip;
       function value(a){
         var c=card(a.card_id),family=cardFamily(c),score=0;
@@ -5586,7 +5820,13 @@
         return score-Number(a.cost||0)*2;
       }
       basic.sort(function(a,b){return value(b)-value(a)||Number(a.hand_index||0)-Number(b.hand_index||0);});
-      return value(basic[0])>=9?basic[0]:skip;
+      if(value(basic[0])<9)return skip;
+      if(isBurnSetupItem(card(basic[0].card_id))){
+        var flamePlan=aiPlanForSetupAction(state,basic[0]);
+        if(!flamePlan)return skip;
+        basic[0].ai_setup_plan=flamePlan;
+      }
+      return basic[0];
     }
     return skip;
   }
@@ -5624,6 +5864,10 @@
         !aiAuraShouldReserveDraw(state,a)&&aiIntermediateDrawTwoPermitted(state,a)&&
         (a.card_id!=='S0-ARC-021'||!!aiS4AuraCastPlan(state,a));
     });
+    // Gate all immediate Battle Attacks before saved plans and reserves can
+    // select one. Legal actions are NOT changed, only the AI's choice pool.
+    if(phase==='Battle')playable=playable.filter(function(a){return !isAttackCard(card(a.card_id)) ||
+      !aiAttackFullyAbsorbedByFormation(state,a);});
     var futurePlan=state.aiPlan&&Number(state.aiPlan.not_before_round||0)>Number(state.round||0)?state.aiPlan:null;
     if(futurePlan&&futurePlan.preferred_card_id)playable=playable.filter(function(a){return a.card_id!==futurePlan.preferred_card_id;});
     // Check legal instant-Rank-Up Tributes BEFORE any stored follow-up or
@@ -5690,6 +5934,11 @@
       if(attacks.length){attacks.sort(function(a,b){return aiAttackTacticalScore(state,b)-aiAttackTacticalScore(state,a);});if(aiAttackTacticalScore(state,attacks[0])>0)return aiPreferRicherClassSource(state,attacks[0],attacks);}
     }
     if(phase==='Deploy'){
+      // A guaranteed same-turn Fire Flask/Freeze Bomb combo needs its Mana
+      // intact. Avoid spending another Deploy card before the planned Attack.
+      if(state.aiPlan&&(state.aiPlan.fire_flask||state.aiPlan.freeze_bomb)&&
+         Number(state.aiPlan.not_before_round||0)<=Number(state.round||0))
+        return {type:'SKIP',side:'AI',label:'Proceed to Battle for committed status setup Attack'};
       var dueAttackPlan=state.aiPlan&&state.aiPlan.kind==='ATTACK_FOLLOWUP'&&Number(state.aiPlan.not_before_round||0)<=Number(state.round||0);
       var setup=playable.filter(function(a){ return !isAttackCard(card(a.card_id))&&!(dueAttackPlan&&isTacticalFollowUpSetupCard(card(a.card_id))); });
       var meaningful=setup.filter(function(a){ return aiDeployActionScore(state,a)>-999; });
@@ -6735,9 +6984,15 @@
     // The card's union-level runtime keyword cannot be used for Rank II.
     if(cardObj&&cardObj.card_id==='S0-MAG-025')
       return !!(sourceHero && /\bSURE\s*HIT\b/i.test(String(branchEffectText(cardObj,sourceHero)||'')));
-    // Season 0 source keyword SURE HIT has the same established S1 cannot-DODGE handler.
+    // A runtime keyword may be the UNION of two different printed Class rows.
+    // For mixed SURE HIT cards, the actual current source Hero row decides.
+    if(cardObj&&sourceHero&&/^S0-/.test(cardObj.card_id||'')){
+      var branchRows=Object.keys(cardObj.effect_strings_by_class||{}).map(function(k){return String(cardObj.effect_strings_by_class[k]||'');});
+      if(branchRows.length>1 && branchRows.some(function(t){return /\bSURE\s*HIT\b/i.test(t);}) &&
+         branchRows.some(function(t){return !/\bSURE\s*HIT\b/i.test(t);}))
+        return /\bSURE\s*HIT\b/i.test(String(branchEffectText(cardObj,sourceHero)||''));
+    }
     if(cardObj&&/^S0-/.test(cardObj.card_id||'')&&runtimeTagList(cardObj).some(function(t){return /^SURE\s*HIT$/i.test(t);}))return true;
-    if(cardObj && cardObj.card_id==='S0-THF-010') return true;
     return !!(cardObj && Array.isArray(cardObj.effect) && cardObj.effect.some(function(e){ return (e.kind==='attack_restriction' && /cannot be dodged/i.test(String(e.raw_value||e.text||''))) || (e.kind==='source_structured_effect_json' && e.payload && e.payload.cannot_be_dodged); }));
   }
   function attackCannotBeBlocked(cardObj){
@@ -6901,7 +7156,12 @@
     var eligibleLabel=String(rc.eligible_attack_label||''); if(eligibleLabel && !attackLabelQualifies(c,eligibleLabel)) return false;
     return true;
   }
-  function attackHasRangeForSource(c, sourceHero){ return !!(c && (isRangeAttackCard(c) || attackGainsRangeFromSource(c,sourceHero))); }
+  function attackHasRangeForSource(c, sourceHero){
+    // MELEE is the stronger printed restriction even when a Class Ability
+    // grants RANGE; this is universal, not a Bow Bash exception.
+    if(c&&runtimeTagList(c).some(function(t){return /^MELEE$/i.test(t);}))return false;
+    return !!(c && (isRangeAttackCard(c) || attackGainsRangeFromSource(c,sourceHero)));
+  }
   function attackActsAsAreaForSource(state,c,sourceHero){ return !!(c && (isAreaAttack(c)||isAllTargetAttack(c)||attackActsAsTripleShotAreaForState(state,{card_id:c.card_id},sourceHero))); }
   function dualArrowDefaultLanes(sourceLane){
     if(sourceLane==='LEFT') return ['LEFT','CENTER'];
@@ -7023,7 +7283,7 @@
     if(isArrowBarrageCard(c)){
       var spend=Math.max(0,Number(action.mana_cards_spent||action.mana_spent||0));
       var baseBarrage=printedClassDamage(c,sourceHero);
-      var barrage=cappedCardScalingDamage(state,c,sourceHero,targetHero,baseBarrage*spend,90);
+      var barrage=cappedCardScalingDamage(state,c,sourceHero,targetHero,baseBarrage*spend,80);
       dmg=barrage.damage;
       action.damage_formula_log='Arrow Barrage: printed '+baseBarrage+' × '+spend+' Mana Cards, card capped at '+barrage.cap+', plus external modifiers '+barrage.flat+(barrage.external_multiplier!==1?', external x'+barrage.external_multiplier:'')+' = '+dmg+' Damage.';
     }
@@ -7328,7 +7588,7 @@
       var rk=responseKind(rc,incoming); if(!rk || !lunMayBlockForHero(rc,incoming,defender)) return;
       if(incoming.cannot_block && ['S0-WAR-012','S0-WAR-029','S0-THF-022'].indexOf(rc.card_id)>=0 &&
          !/\bREFLECT\s+\d+\b/i.test(String(branchEffectText(rc,defender)||'')))return;
-      // Shadow Switch DODGE must remain legal even if the follow-up Swap is impossible.
+      // Flash Switch DODGE must remain legal even if the follow-up Swap is impossible.
       // Area Attacks open a separate Response Window for each affected Hero.
       // A Protection Item affects the Hero in the CURRENT window only.
       if((incoming.affected_lanes||[]).length>1 && !(isSacredBulwarkCard(rc) || isBlessingDivinityCard(rc) || isDefensiveFormationCard(rc) || isSpectralGrapplingHookCard(rc) || isChainMailCard(rc) || isRingProtectionCard(rc) || rk==='negate_return')) return;
@@ -10650,8 +10910,8 @@ function getActivatedHeroAbilities(state, side, lane){
         if(discardConditionSpec(c)){try{consumeS0DiscardCondition(state,side,c,action);}catch(err){restoreStateSnapshot(state,beforeReactivePayment);showInfo('Cannot Play','CONDITION failed to commit with Mana payment.');state.pending=null;render();return false;}}
         if(isGodsBlessingCard(c)){try{consumeGodsBlessingHandCondition(state,side,c,action);}catch(err){restoreStateSnapshot(state,beforeReactivePayment);showInfo('Cannot Play',"God's Blessing CONDITION failed to commit with Mana payment.");state.pending=null;render();return false;}}
         if(requiredDiscardSpecificIds(c).length){
-          try{removeRequiredDiscardsFromHand(state,side,c);action._s0_hand_condition_committed=true;}
-          catch(err){restoreStateSnapshot(state,beforeReactivePayment);showInfo('Cannot Play','Mandatory Hand CONDITION could not be paid.');state.pending=null;render();return false;}
+          try{removeRequiredDiscardsFromHand(state,side,c);action._s0_hand_condition_committed=true;consumeHandConditionDraw(state,side,c,action);}
+          catch(err){restoreStateSnapshot(state,beforeReactivePayment);showInfo('Cannot Play','Mandatory Hand CONDITION could not be paid or Drawn.');state.pending=null;render();return false;}
         }
         action._mana_payment_committed=true;
         action._mana_payment_committed_cost=Number(cost||0);
@@ -10694,7 +10954,11 @@ function getActivatedHeroAbilities(state, side, lane){
     }
     if(action && action.__qa_force_error_after_commit) throw new Error('QA forced post-commit failure');
     queueCommittedConditionGhosts(state,side,action);
-    if(!action._s0_hand_condition_committed) removeRequiredDiscardsFromHand(state,side,c);
+    if(!action._s0_hand_condition_committed){
+      removeRequiredDiscardsFromHand(state,side,c);
+      if(requiredDiscardSpecificIds(c).length)action._s0_hand_condition_committed=true;
+    }
+    consumeHandConditionDraw(state,side,c,action);
     if(sourceHero && sourceShouldExhaust(c,sourceHero)) sourceHero.exhausted=true;
     if(hostHero && attachmentPolicy){ persistent=true; }
     var normalAttackVisualHold=isAttackCard(c) && !isCastingCard(c) && visualMotion && visualMotion.target;
@@ -10715,9 +10979,9 @@ function getActivatedHeroAbilities(state, side, lane){
     }
     // Card Played retains the complete chronology: CONDITION returned its
     // actual cards and Draw completed before any primary action or response.
-    if(action._s0_condition_committed){
+    if(action._s0_condition_committed || action._s0_hand_condition_draw_committed){
       appendCardPlayedResultForSide(state,side,playerEvent,aiEvent,
-        'CONDITION resolved before card effect: '+Number(action.s0_condition_return_count||0)+
+        'CONDITION resolved before Response and card effect: '+Number(action.s0_condition_return_count||0)+
         ' card(s) returned to Main Deck; '+Number(action.s0_condition_draw_count||0)+
         ' card(s) actually Drawn.');
     }
@@ -15841,7 +16105,7 @@ function withUnshuffledSelfTest(fn){ return function(){ var old=STARTUP_SHUFFLE_
             var moveHero=sideHeroes(appState,rw.target_side)[fromLane],frontHero=sideHeroes(appState,rw.target_side)[frontLane];
             if(isActiveHeroSlot(moveHero)&&isActiveHeroSlot(frontHero)&&skillEffectSwapPairEligible(moveHero,frontHero)){
               swapBoardStateLanes(appState,rw.target_side,fromLane,frontLane);
-              pushLog(appState,'Shadow Switch repositions '+fromLane+' to '+frontLane+' after DODGE against Primal Strike.');
+              pushLog(appState,'Flash Switch repositions '+fromLane+' to '+frontLane+' after DODGE against Primal Strike.');
             }
           }
         }

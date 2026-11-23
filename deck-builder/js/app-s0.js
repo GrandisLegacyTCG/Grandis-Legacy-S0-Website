@@ -59,7 +59,21 @@ function exceedsBaseClassLimit(slots=state.slots){return Boolean(baseClassLimitI
 function legacyUniqueComplete(slots=state.slots){const ids=slots.map(slot=>slot.legacyId).filter(Boolean);return ids.length===3&&new Set(ids).size===3}
 function legacyCardCount(slots=state.slots){return slots.reduce((sum,slot)=>sum+(slot.progressionId?3:0)+(slot.legacyId?1:0),0)}
 function isDeckDirty(){return countDeck()>0||state.slots.some(slot=>slot.progressionId||slot.legacyId)||$('deckName').value.trim()!=='New Deck'}
-function toast(message){const el=$('toast');el.textContent=message;el.classList.add('show');clearTimeout(toast.timer);toast.timer=setTimeout(()=>el.classList.remove('show'),1900)}
+function toast(message,kind='info'){
+  const el=$('toast');if(!el)return;
+  const status=kind==='error'?'error':kind==='success'?'success':'info';
+  el.textContent=message;
+  el.classList.remove('show','toast--success','toast--error','toast--info');
+  el.classList.add(`toast--${status}`);
+  el.setAttribute('role',status==='error'?'alert':'status');
+  el.setAttribute('aria-live',status==='error'?'assertive':'polite');
+  const headerBottom=document.querySelector('.topbar')?.getBoundingClientRect().bottom??0;
+  const top=Math.max(12,Math.min(headerBottom+10,window.innerHeight-90));
+  el.style.setProperty('--gl-toast-top',`${top}px`);
+  el.classList.add('show');
+  clearTimeout(toast.timer);
+  toast.timer=setTimeout(()=>el.classList.remove('show'),2600);
+}
 function cardById(id){return state.byId.get(id)||state.legacyById.get(id)}
 function idSort(a,b){return String(a?.id||'').localeCompare(String(b?.id||''),undefined,{numeric:true})}
 // Match Style 2 Deck View order: Skills first, then Events, then Items.
@@ -400,7 +414,7 @@ async function placeHeroAtSlot(progressionId,targetIndex){
     proposed[targetIndex]={progressionId,legacyId:''};
     proposed[targetIndex].legacyId=defaultLegacyForProgression(progressionId,proposed);
   }
-  const classIssue=baseClassLimitIssue(proposed);if(classIssue){toast(classIssue);return}
+  const classIssue=baseClassLimitIssue(proposed);if(classIssue){toast(classIssue,'error');return}
   const removed=lostCompatibilityEntries(proposed);
   if(removed.length){
     const total=removed.reduce((sum,entry)=>sum+entry.quantity,0);
@@ -446,7 +460,7 @@ async function toggleHero(progressionId){
   }else{
     const emptyIndex=state.slots.findIndex(slot=>!slot.progressionId);if(emptyIndex<0)return;
     const proposed=clone(state.slots);proposed[emptyIndex].progressionId=progressionId;proposed[emptyIndex].legacyId=defaultLegacyForProgression(progressionId,proposed);
-    const classIssue=baseClassLimitIssue(proposed);if(classIssue){toast(classIssue);return}
+    const classIssue=baseClassLimitIssue(proposed);if(classIssue){toast(classIssue,'error');return}
     state.slots=proposed;
   }
   syncPoolGate();renderAll();
@@ -887,8 +901,8 @@ function renderStarterDialog(){
 
 function showNewDeckDialog(initial=false){state.initialChoicePending=initial;$('newDeckClose').hidden=initial;const dialog=$('newDeckDialog');if(!dialog.open)dialog.showModal()}
 function closeNewDeckDialog(){if(state.initialChoicePending)return;const dialog=$('newDeckDialog');if(dialog.open)dialog.close()}
-function chooseBlank(){blankDeck();state.initialChoicePending=false;$('newDeckDialog').close();toast('Blank deck created')}
-function chooseStarter(index){const starter=state.starters[index];if(!starter)return;applyDeck(normalizeImportedDeck(starter));state.initialChoicePending=false;$('newDeckDialog').close();toast('Starter Deck loaded')}
+function chooseBlank(){blankDeck();state.initialChoicePending=false;$('newDeckDialog').close();toast('Blank deck created','success')}
+function chooseStarter(index){const starter=state.starters[index];if(!starter)return;applyDeck(normalizeImportedDeck(starter));state.initialChoicePending=false;$('newDeckDialog').close();toast('Starter Deck loaded','success')}
 async function openNewDeckFlow(){
   if(isDeckDirty()){const ok=await askConfirm({eyebrow:'NEW DECK',title:'Replace the current deck?',message:'Starting another deck will replace the current Legacy Deck, Main Deck, Formation, and deck name.',okLabel:'CONTINUE',danger:true});if(!ok)return}
   showNewDeckDialog(false);
@@ -911,8 +925,8 @@ async function importDeckFile(file){
     }
     applyDeck(normalizeImportedDeck(data));
     if(state.initialChoicePending){state.initialChoicePending=false;const dialog=$('newDeckDialog');if(dialog&&dialog.open)dialog.close()}
-    toast('Deck imported');
-  }catch(error){await askConfirm({eyebrow:'IMPORT ERROR',title:'Could not import this deck',message:esc(error.message||String(error)),okLabel:'CLOSE'})}
+    toast('Deck imported','success');
+  }catch(error){await askConfirm({eyebrow:'IMPORT ERROR',title:'Could not import this deck',message:esc(error.message||String(error)),okLabel:'CLOSE'});toast('Deck import failed','error')}
   finally{$('deckFileInput').value=''}
 }
 
@@ -921,7 +935,7 @@ function expandedLegacy(){
 }
 function exportObject(){return s0Export('style1');}
 function downloadJson(object){const safe=(object.deck_name||'Grandis_Legacy_Deck').replace(/[^a-z0-9_-]+/gi,'_').replace(/^_+|_+$/g,'')||'Grandis_Legacy_Deck';const blob=new Blob([JSON.stringify(object,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),anchor=document.createElement('a');anchor.href=url;anchor.download=`${safe}.json`;document.body.appendChild(anchor);anchor.click();anchor.remove();setTimeout(()=>URL.revokeObjectURL(url),1000)}
-async function exportDeck(){const object=exportObject();if(!object.is_valid||countDeck()!==50){toast('Export requires a valid deck with exactly 50 cards');return}downloadJson(object);toast('Deck exported')}
+async function exportDeck(){try{const object=exportObject();if(!object.is_valid||countDeck()!==50){toast('Export requires a valid deck with exactly 50 cards','error');return}downloadJson(object);toast('Deck exported','success')}catch(error){console.error('Deck export failed:',error);toast('Deck export failed','error')}}
 
 function bindStaticEvents(){
   document.querySelectorAll('.library-tab').forEach(button=>button.addEventListener('click',()=>setLibraryTab(button.dataset.libraryTab,{focusDeck:true})));
@@ -1009,7 +1023,7 @@ function s0Validation(){
 function s0Export(style){
  const deck=s0Draft(),validation=s0Validation(),name=$('deckName').value.trim()||'New Deck';
  return {schema:'GL-SEASON0-DECK-DRAFT-1',schema_version:'GL-SEASON0-DECK-DRAFT-1',
-  source_authority:'R3.94-MainDeck_R3.9-LegacyDeck-PlayerRulebook-v3.4',rulebook:'v3.4',season:'S0',builder_version:'1.68',style,
+  source_authority:'R3.98-MainDeck_R4.0-LegacyDeck-PlayerRulebook-v3.4',rulebook:'v3.4',season:'S0',builder_version:'1.68',style,
   exported_at:new Date().toISOString(),name,deck_name:name,
   deck,validation,is_valid:validation.ok,validation_issues:validation.errors,validation_warnings:validation.warnings,
   main_deck:deck.main_deck,shard_deck:deck.shard_deck,

@@ -1,3 +1,19 @@
+# GRANDIS LEGACY — SEASON 0 WEBSITE (24 NOVEMBER 2026)
+
+**Current non-PvP website:** Homepage v2.3.17 **unchanged**; Rulebook v3.5 **unchanged**; VS AI **RC42 (24 Nov AI Conservation + Fire Flask)**; Deck Builder **v1.68 (23 Nov toaster/status updates)**; Main Deck **R3.98**; Legacy Deck **R4.0**; 250 shared artworks including **61 updated card fronts**.
+
+**Scope:** Selective source merge based on latest approved deployed non-PvP GitHub state `cdbfe6d90ba68ad8eac0b89b26211d58e679b2ca`. The update preserves `/`, `/rulebook/`, Google Analytics, shared header/logo/navigation and VS AI gold Import Deck styling; it updates VS AI runtime, current R3.98 printed overlay, two Deck Builder styles, card data/thumbnails and only changed artworks. No `/pvp/` file is included in this non-PvP ZIP; PvP remains owned by the separate developer chat.
+
+**Compatibility:** Standalone VS AI `shared-app/app-runtime.js` normally injects a local logo; the WEBSITE build preserves `/assets/site/web-s0/logo-transparent.webp`. The Website `deck-builder/js/s0-card-image-loader-v1.68.js` and appended `data-s0.js` card-art resolver are preserved because they route artwork to shared `/card-art/`; do NOT replace them with standalone-only variants. The updated R3.98 artwork cache version avoids stale 61 older card images. Old R3.94 overlay remains in `/runtime/season0-generated/` for historical compatibility but VS AI loads R3.98.
+
+**Rulebook source note:** Deck Builder standalone still labels its unchanged *deck-construction validation baseline* v3.4. The website Rulebook page remains v3.5. Card catalog and artworks have been updated from Deck Builder v1.68 R3.98/R4.0 without rewriting this source-declared rules baseline.
+
+**Deployment:** Owner manually uploads files to `GrandisLegacyTCG/Grandis-Legacy-S0-Website` (`main`). Use the update PATCH for an existing matching baseline; FULL REPO ZIP has no `/pvp/` and does not automatically delete an existing tracked `/pvp/` when files are merged. Verify real-domain VS AI gameplay, deck import/export, and card artwork after GitHub Pages deploy. No assistant GitHub writes.
+
+---
+
+## Previous release notes (historical)
+
 # GRANDIS LEGACY - SEASON 0 WEBSITE (22 NOVEMBER 2026)
 
 **Current website release:** Homepage v2.3.17 (unchanged); **Player Rulebook v3.5** (20 Nov); **VS AI RC42** (22 Nov); **Deck Builder v1.68** (22 Nov); **Main Deck R3.94**, Legacy Deck R3.9; **250 shared artworks**. VS AI Import Deck button uses the approved PvP gold gradient style (appearance only; PvP source not included).

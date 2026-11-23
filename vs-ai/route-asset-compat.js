@@ -8,7 +8,7 @@
   const root=new URL('../',window.location.href);
   const nestedPath=new URL('vs-ai/',root).pathname;
   const cardPath=new URL('card-art/',root).pathname;
-  const artworkRevision='gl-vs-ai-rc41-r39-20261118';
+  const artworkRevision='gl-vs-ai-rc42-r398-r40-20261124';
   const fix=value=>{
     if(typeof value!=='string'||!value)return value;
     let original;

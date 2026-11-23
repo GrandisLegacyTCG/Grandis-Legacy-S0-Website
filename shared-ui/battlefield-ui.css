@@ -2833,3 +2833,33 @@ html.gl-mobile-gameplay-stage:not(.gl-mobile-landscape-stage) .gl-vsai-choice-ov
 .gl-vsai-choice-overlay.gl-choice-swap .gl-swap-choice-slot.is-self-position .gl-swap-choice-frame.is-legacy-back img{
   opacity:1!important;filter:none!important;
 }
+
+/* RC42 / Main R3.98 / 2026-11-23: preserve 5:7 card art and uniform mobile scale.
+   Make only the central Phase Bar's containing grid row absorb extra logical
+   height after uniform scaling. Desktop stays on its preexisting geometry. */
+html.gl-adaptive-stage .battlefield{
+  grid-template-rows:auto minmax(0,1fr) var(--gl-stage-phase-height,39px) minmax(0,1fr) auto!important;
+}
+html.gl-adaptive-stage .phase{
+  height:var(--gl-stage-phase-height,39px)!important;
+  min-height:39px!important;top:0!important;margin:0!important;
+  align-self:stretch!important;
+}
+/* Match the actual logical viewport for every fixed modal/review overlay.
+   The same uniform stage transform is applied to both scene and overlays. */
+html.gl-mobile-gameplay-stage:not(.gl-mobile-landscape-stage) :is(
+  .gl-vsai-choice-overlay.open,.gl-played-detail-overlay.open,
+  .gl-card-review-overlay.open,.gl-progression-overlay.open,
+  .gl-result-overlay.open,.gl-exp-inspector-overlay.open
+){width:var(--gl-stage-logical-w,1600px)!important;height:var(--gl-stage-logical-h,747px)!important;}
+/* Lobby and coin-flip panels use the extra available logical height without
+   distortion; preexisting 5:7 Hero cards, controls and grid positions remain. */
+html.gl-mobile-landscape-lobby .gl-lobby-overlay.open,
+html.gl-mobile-landscape-lobby .gl-card-review-overlay.open,
+html.gl-mobile-landscape-lobby .gl-progression-overlay.open,
+html.gl-mobile-landscape-coin .gl-coin-overlay.open{
+  width:var(--gl-mobile-lobby-w,1180px)!important;
+  height:var(--gl-mobile-lobby-h,545px)!important;
+  min-width:var(--gl-mobile-lobby-w,1180px)!important;
+  min-height:var(--gl-mobile-lobby-h,545px)!important;
+}

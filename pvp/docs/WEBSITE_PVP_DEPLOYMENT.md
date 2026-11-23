@@ -1,7 +1,7 @@
 # Grandis Legacy — PvP Website Overlay Deployment
 
 This ZIP contains ONLY `pvp/` to insert into the **latest unpublished full
-Website repo** (`Grandis_Legacy_Website_FULL_REPO_NO_PVP_RC42_DB168_Rulebook35_2026-11-22.zip`).
+Website repo** (`Grandis_Legacy_Website_FULL_REPO_NO_PVP_VSAI_RC42_DB168_R398_R40_2026-11-24.zip`).
 It does not contain or replace Homepage, Deck Builder, VS AI, or any
 shared website-root assets.
 
@@ -18,9 +18,5 @@ shared website-root assets.
 - Build ID in `pvp/build-meta.js` must match the backend build. WSS endpoint
   in `pvp/config.js` must point to the live backend instance.
 
-IMPORTANT: The full latest unpublished Website source ZIP was not mounted in the
-PvP build environment. Card images have instead been verified byte-for-byte
-against the 250-file VS AI RC42 donor. Run the included backend verification
-script against the actual latest website source ZIP before publishing.
-If the source ZIP differs, fix the shared asset map instead of deploying broken
-asset links. Two-browser production WSS gameplay QA remains required.
+The actual 24-Nov full Website root and VS AI donor have been verified
+byte-for-byte for all 250 shared card arts and 109 shared other assets. Two-browser production WSS gameplay QA remains required.

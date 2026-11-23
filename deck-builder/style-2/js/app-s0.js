@@ -63,7 +63,21 @@ function legacyCardCount(slots=state.slots){return slots.reduce((sum,slot)=>sum+
 function legacyReady(slots=state.slots){return heroFormationComplete(slots)&&legacyUniqueComplete(slots)&&legacyCardCount(slots)===12}
 function cardById(id){return state.byId.get(id)||state.legacyById.get(id)}
 function isDeckDirty(){return countDeck()>0||state.slots.some(slot=>slot.progressionId||slot.legacyId)||$('deckName').value.trim()!=='New Deck'}
-function toast(message){const el=$('toast');el.textContent=message;el.classList.add('show');clearTimeout(toast.timer);toast.timer=setTimeout(()=>el.classList.remove('show'),1900)}
+function toast(message,kind='info'){
+  const el=$('toast');if(!el)return;
+  const status=kind==='error'?'error':kind==='success'?'success':'info';
+  el.textContent=message;
+  el.classList.remove('show','toast--success','toast--error','toast--info');
+  el.classList.add(`toast--${status}`);
+  el.setAttribute('role',status==='error'?'alert':'status');
+  el.setAttribute('aria-live',status==='error'?'assertive':'polite');
+  const headerBottom=document.querySelector('.topbar')?.getBoundingClientRect().bottom??0;
+  const top=Math.max(12,Math.min(headerBottom+10,window.innerHeight-90));
+  el.style.setProperty('--gl-toast-top',`${top}px`);
+  el.classList.add('show');
+  clearTimeout(toast.timer);
+  toast.timer=setTimeout(()=>el.classList.remove('show'),2600);
+}
 
 function buildProgressions(){
   const byBase=new Map();
@@ -143,7 +157,7 @@ function setTab(tab){
   if(tab==='legacy')renderLegacy();else if(!state.mainRendered)renderMain();
 }
 function cycleRank(delta){state.rankView=Math.max(1,Math.min(3,state.rankView+delta));renderLegacy()}
-function swapSlots(a,b){[state.slots[a],state.slots[b]]=[state.slots[b],state.slots[a]];renderLegacy();renderMain();toast(`${POSITIONS[a]} and ${POSITIONS[b]} swapped`)}
+function swapSlots(a,b){[state.slots[a],state.slots[b]]=[state.slots[b],state.slots[a]];renderLegacy();renderMain();toast(`${POSITIONS[a]} and ${POSITIONS[b]} swapped`,'success')}
 
 function swapIcon(){return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h10l-3-3M17 17H7l3 3M17 7l3 3-3 3M7 17l-3-3 3-3"/></svg>'}
 function positionSwapIcon(){return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h13m0 0-3-3m3 3-3 3M20 16H7m0 0 3-3m-3 3 3 3"/></svg>'}
@@ -204,7 +218,7 @@ async function selectProgression(slotIndex,progressionId){
     const total=removed.reduce((sum,item)=>sum+item.quantity,0),ok=await askConfirm({eyebrow:'CHANGE HERO',title:'Change Hero and remove incompatible cards?',message:`This formation change will remove <b>${total}</b> Main Deck card${total===1?'':'s'} that the new Hero lineages cannot use.`,list:removed.map(item=>({label:item.card?.name||item.card?.id||'Unknown card',value:`×${item.quantity}`})),okLabel:'CHANGE HERO',danger:true});
     if(!ok)return;
   }
-  state.slots=proposed;removed.forEach(item=>{if(item.card)delete state.deck[item.card.id]});$('heroPickerDialog').close();renderLegacy();renderMain();toast('Hero progression selected');
+  state.slots=proposed;removed.forEach(item=>{if(item.card)delete state.deck[item.card.id]});$('heroPickerDialog').close();renderLegacy();renderMain();toast('Hero progression selected','success');
 }
 
 function syncPoolChoiceButtons(){
@@ -325,8 +339,8 @@ function refreshLibraryAfterQuantityEdit(changedId,wasAtLimit){
   }
 }
 function addMainCard(id){
-  const card=state.byId.get(id);if(!card)return;if(!cardCompatible(card)){toast('This card is not compatible with the selected Heroes');return}
-  const current=Number(state.deck[id]||0),limit=copyLimit(card);if(countDeck()>=MAIN_DECK_WORKSPACE_LIMIT){toast(`Main Deck workspace already contains ${MAIN_DECK_WORKSPACE_LIMIT} cards`);return}if(current>=limit){toast(`Maximum ${limit} cop${limit===1?'y':'ies'} reached`);return}
+  const card=state.byId.get(id);if(!card)return;if(!cardCompatible(card)){toast('This card is not compatible with the selected Heroes','error');return}
+  const current=Number(state.deck[id]||0),limit=copyLimit(card);if(countDeck()>=MAIN_DECK_WORKSPACE_LIMIT){toast(`Main Deck workspace already contains ${MAIN_DECK_WORKSPACE_LIMIT} cards`,'error');return}if(current>=limit){toast(`Maximum ${limit} cop${limit===1?'y':'ies'} reached`,'error');return}
   const wasAtLimit=countDeck()>=MAIN_DECK_WORKSPACE_LIMIT;state.deck[id]=current+1;refreshLibraryAfterQuantityEdit(id,wasAtLimit);renderMainDeck();updateTabs();
 }
 function removeMainCard(id){const current=Number(state.deck[id]||0);if(current<=0)return;const wasAtLimit=countDeck()>=MAIN_DECK_WORKSPACE_LIMIT;if(current===1)delete state.deck[id];else state.deck[id]=current-1;refreshLibraryAfterQuantityEdit(id,wasAtLimit);renderMainDeck();updateTabs()}
@@ -336,7 +350,7 @@ function locateCardInLibrary(id){
   let tile=findTile();
   if(!tile){
     // Never silently reset the filters when a requested card is not visible.
-    toast('Card hidden by active filters. Press RESET to reveal it.');
+    toast('Card hidden by active filters. Press RESET to reveal it.','error');
     return;
   }
   if(!tile)return;
@@ -576,11 +590,11 @@ function starterCover(starter,index){const centerHero=starter.default_formation?
 function renderStarterDialog(){
   const root=$('starterList');
   root.innerHTML=window.GL_S0_MODAL.starterMarkup(state.starters,state.progressionById,starterCover,esc);
-  root.querySelectorAll('[data-starter-index]').forEach(button=>button.addEventListener('click',()=>{applyDeck(normalizeImportedDeck(state.starters[Number(button.dataset.starterIndex)]));$('starterDialog').close();toast('Starter Deck loaded')}));
+  root.querySelectorAll('[data-starter-index]').forEach(button=>button.addEventListener('click',()=>{applyDeck(normalizeImportedDeck(state.starters[Number(button.dataset.starterIndex)]));$('starterDialog').close();toast('Starter Deck loaded','success')}));
 }
 
 async function openStarter(){if(isDeckDirty()){const ok=await askConfirm({eyebrow:'LOAD STARTER',title:'Replace the current deck?',message:'Loading a Starter replaces the current Legacy Deck, Main Deck, and deck name.',okLabel:'CONTINUE',danger:true});if(!ok)return}$('starterDialog').showModal()}
-async function clearDeck(){if(!isDeckDirty()){blankDeck();return}const ok=await askConfirm({eyebrow:'CLEAR DECK',title:'Clear the current deck?',message:'This removes every selected Hero, Legacy, and Main Deck card.',okLabel:'CLEAR DECK',danger:true});if(ok){blankDeck();toast('Deck cleared')}}
+async function clearDeck(){if(!isDeckDirty()){blankDeck();return}const ok=await askConfirm({eyebrow:'CLEAR DECK',title:'Clear the current deck?',message:'This removes every selected Hero, Legacy, and Main Deck card.',okLabel:'CLEAR DECK',danger:true});if(ok){blankDeck();toast('Deck cleared','success')}}
 async function importDeckFile(file){
   try{
     const original=JSON.parse(await file.text());let data=original;
@@ -596,15 +610,15 @@ async function importDeckFile(file){
       if(!accepted)return;
       data={...migration.deck,imported_from_s1:true};
     }
-    applyDeck(normalizeImportedDeck(data));toast('Deck imported');
-  }catch(error){await askConfirm({eyebrow:'IMPORT ERROR',title:'Could not import this deck',message:esc(error.message||String(error)),okLabel:'CLOSE'})}
+    applyDeck(normalizeImportedDeck(data));toast('Deck imported','success');
+  }catch(error){await askConfirm({eyebrow:'IMPORT ERROR',title:'Could not import this deck',message:esc(error.message||String(error)),okLabel:'CLOSE'});toast('Deck import failed','error')}
   finally{$('jsonFileInput').value=''}
 }
 
 function expandedLegacy(){const output=[];state.slots.forEach((slot,index)=>{const progression=state.progressionById.get(slot.progressionId),legacy=state.legacyById.get(slot.legacyId);if(!progression)return;const packageId=`CUSTOM-SLOT-${index+1}`,packageName=`${progression.name}${legacy?` + ${legacy.name}`:''}`;progression.cardIds.forEach(id=>{const card=state.legacyById.get(id);if(card)output.push({card_id:id,card_name:card.name,card_type:'Hero',package_id:packageId,package_name:packageName})});if(legacy)output.push({card_id:legacy.id,card_name:legacy.name,card_type:'Legacy',package_id:packageId,package_name:packageName})});return output}
 function exportObject(){return s0Export('style2');}
 function downloadJson(object){const safe=(object.deck_name||'Grandis_Legacy_Deck').replace(/[^a-z0-9_-]+/gi,'_').replace(/^_+|_+$/g,'')||'Grandis_Legacy_Deck',blob=new Blob([JSON.stringify(object,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),anchor=document.createElement('a');anchor.href=url;anchor.download=`${safe}.json`;document.body.appendChild(anchor);anchor.click();anchor.remove();setTimeout(()=>URL.revokeObjectURL(url),1000)}
-async function exportDeck(){const object=exportObject();if(!object.is_valid||countDeck()!==MAIN_DECK_LEGAL_LIMIT){toast('Export requires a valid deck with exactly 50 cards');return}downloadJson(object);toast('Deck exported')}
+async function exportDeck(){try{const object=exportObject();if(!object.is_valid||countDeck()!==MAIN_DECK_LEGAL_LIMIT){toast('Export requires a valid deck with exactly 50 cards','error');return}downloadJson(object);toast('Deck exported','success')}catch(error){console.error('Deck export failed:',error);toast('Deck export failed','error')}}
 
 function resetFilters(){resetAllFilterSets();syncFilterControls();renderLibrary()}
 function bindStaticEvents(){
@@ -698,7 +712,7 @@ function s0Validation(){
 function s0Export(style){
  const deck=s0Draft(),validation=s0Validation(),name=$('deckName').value.trim()||'New Deck';
  return {schema:'GL-SEASON0-DECK-DRAFT-1',schema_version:'GL-SEASON0-DECK-DRAFT-1',
-  source_authority:'R3.94-MainDeck_R3.9-LegacyDeck-PlayerRulebook-v3.4',rulebook:'v3.4',season:'S0',builder_version:'1.68',style,
+  source_authority:'R3.98-MainDeck_R4.0-LegacyDeck-PlayerRulebook-v3.4',rulebook:'v3.4',season:'S0',builder_version:'1.68',style,
   exported_at:new Date().toISOString(),name,deck_name:name,
   deck,validation,is_valid:validation.ok,validation_issues:validation.errors,validation_warnings:validation.warnings,
   main_deck:deck.main_deck,shard_deck:deck.shard_deck,

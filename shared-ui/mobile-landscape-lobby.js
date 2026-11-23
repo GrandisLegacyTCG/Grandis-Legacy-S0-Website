@@ -33,6 +33,8 @@
       root.classList.remove('gl-mobile-landscape-lobby-portrait');
       root.style.removeProperty('--gl-mobile-lobby-transform');
       root.style.removeProperty('--gl-mobile-lobby-scale');
+      root.style.removeProperty('--gl-mobile-lobby-w');
+      root.style.removeProperty('--gl-mobile-lobby-h');
       return;
     }
     const width = Math.max(1, window.innerWidth);
@@ -42,14 +44,20 @@
     const stageHeight = portrait ? width : height;
     // Lobby/Coin share an edge-to-edge landscape stage with gameplay. Keep
     // the original logical sizes but eliminate previously hard-coded 4px gutters.
-    const scaleX=stageWidth/W, scaleY=stageHeight/H;
+    // Uniform aspect-preserving scale; grow the logical panel to cover the
+    // remaining viewport instead of stretching Hero Cards or buttons.
+    const scale=Math.min(stageWidth/W,stageHeight/H);
+    const logicalW=stageWidth/scale;
+    const logicalH=stageHeight/scale;
     root.classList.toggle('gl-mobile-landscape-lobby-portrait', portrait);
     const transform=portrait
-      ? `translate(${width}px,0px) rotate(90deg) scale(${scaleX},${scaleY})`
-      : `translate(0px,0px) scale(${scaleX},${scaleY})`;
+      ? `translate(${width}px,0px) rotate(90deg) scale(${scale})`
+      : `translate(0px,0px) scale(${scale})`;
     root.style.setProperty('--gl-mobile-lobby-transform', transform);
-    root.style.setProperty('--gl-mobile-lobby-scale', String(Math.min(scaleX,scaleY)));
-    root.dataset.glInternalRevision = 'RC35';
+    root.style.setProperty('--gl-mobile-lobby-scale', String(scale));
+    root.style.setProperty('--gl-mobile-lobby-w',logicalW+'px');
+    root.style.setProperty('--gl-mobile-lobby-h',logicalH+'px');
+    root.dataset.glInternalRevision = 'RC42-R398-UNIFORM';
   }
   function requestPosition() {
     if (scheduled) return;
