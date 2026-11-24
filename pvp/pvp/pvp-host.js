@@ -157,9 +157,35 @@ function localCardArt(id){const raw=String(id||'').trim();return typeof window.G
 function localManaArt(sh){const key=sh?.kind==='CLASS'?String(sh.class_name||'').trim():'Generic';return 'assets/shards/'+encodeURIComponent(key||'Generic')+'.webp'}
 function cardSrc(id){return localCardArt(id)}
 const imagePreloadCache=new Map();
+const lobbyImageQueue=[];
+let activeLobbyImages=0;
+function drainLobbyImages(){
+  const cap=isConstrainedMobile()?2:4;
+  while(activeLobbyImages<cap&&lobbyImageQueue.length){
+    const row=lobbyImageQueue.shift();
+    if(!imagePreloadCache.has(row.src)){row.resolve(false);continue;}
+    activeLobbyImages++;
+    const im=new Image();im.decoding='async';let settled=false;
+    const finish=ok=>{
+      if(settled)return;settled=true;
+      clearTimeout(timer);im.onload=null;im.onerror=null;
+      activeLobbyImages--;imagePreloadCache.delete(row.src);row.resolve(!!ok);
+      drainLobbyImages();
+    };
+    const timer=setTimeout(()=>finish(false),6500);
+    im.onload=()=>Promise.resolve(typeof im.decode==='function'?im.decode():null)
+      .then(()=>finish(im.naturalWidth>0),()=>finish(false));
+    im.onerror=()=>finish(false);
+    im.src=row.src;
+    if(im.complete&&im.naturalWidth>0)im.onload();
+  }
+}
 function preloadImage(src){
-  src=String(src||'');if(!src||typeof Image==='undefined')return Promise.resolve(false);if(imagePreloadCache.has(src))return imagePreloadCache.get(src);
-  const job=new Promise(resolve=>{const im=new Image();im.decoding='async';let settled=false;const finish=ok=>{if(settled)return;settled=true;resolve(!!ok)};im.onload=()=>{const d=typeof im.decode==='function'?im.decode():Promise.resolve();Promise.resolve(d).catch(()=>{}).finally(()=>finish(true))};im.onerror=()=>finish(false);im.src=src;if(im.complete&&im.naturalWidth>0)im.onload()});imagePreloadCache.set(src,job);return job;
+  src=String(src||'');if(!src||typeof Image==='undefined')return Promise.resolve(false);
+  const previous=imagePreloadCache.get(src);if(previous)return previous;
+  let resolve;const job=new Promise(r=>resolve=r);
+  imagePreloadCache.set(src,job);lobbyImageQueue.push({src,resolve});drainLobbyImages();
+  return job;
 }
 function preloadImages(urls){return Promise.allSettled([...new Set((urls||[]).filter(Boolean).map(String))].map(preloadImage))}
 function deckAssetUrls(deck){const ids=new Set();(deck?.legacy_deck_expanded||[]).filter(x=>String(x.card_type||'').toLowerCase()==='hero').forEach(x=>x?.card_id&&ids.add(String(x.card_id)));return [...ids].map(localCardArt)}
@@ -172,7 +198,8 @@ const earlyBattleEventIds=new Set();
 window.GL_PVP_EARLY_BATTLE_EVENT_IDS=earlyBattleEventIds;
 function primeBattleAssets(){
   preloadImages(BATTLE_VFX_ASSETS);
-  if(typeof Audio!=='undefined'&&!battleAudioPrime.size)for(const src of BATTLE_AUDIO_ASSETS){try{const a=new Audio();a.preload='auto';a.src=src;a.load();battleAudioPrime.set(src,a)}catch{}}
+  // The browser fetches audio only upon the first authorized feedback event.
+  // Keeping six decoded Audio buffers alive in READY is unnecessary.
 }
 function battleAudioSpec(evt){
   if(!evt||evt.play_sound===false)return null;
@@ -553,14 +580,24 @@ const BATTLE_PREFETCH=[
   '/pvp/battle/engine/shared-ui/battlefield-ui.js'
 ];
 let battlePrefetchStarted=false;
+function isConstrainedMobile(){
+  if(typeof navigator==='undefined')return false;
+  const memory=Number(navigator.deviceMemory||0);
+  // Unknown memory on iOS is not permission to allocate another engine.
+  const handheld=Number(navigator.maxTouchPoints||0)>0||
+    !!globalThis.matchMedia?.('(pointer: coarse)')?.matches;
+  return handheld||(memory>0&&memory<=4)||!!navigator.connection?.saveData;
+}
 function canWarmBattleFrame(){
   return state.connected&&state.snapshot?.match?.status==='setup'&&
     local()?.role==='player'&&!!local()?.ready&&
     document.visibilityState!=='hidden'&&
     // Do not allocate a second heavyweight DOM during an open card preview.
     !document.getElementById('pvpS0CardPreview')?.classList?.contains('open')&&
-    !(typeof navigator!=='undefined'&&navigator.connection?.saveData)&&
-    !(typeof navigator!=='undefined'&&Number(navigator.deviceMemory)>0&&Number(navigator.deviceMemory)<=2);
+    !isConstrainedMobile()&&
+    // Until both decks are READY, the expensive warmframe has no imminent user.
+    (state.snapshot?.players||[]).length===2&&
+    state.snapshot.players.every(p=>p.ready&&p.hasDeck&&p.connected);
 }
 function scheduleWarmBattleFrame(){
   if(battleFrame||battleWarmScheduled||!canWarmBattleFrame())return;
@@ -580,7 +617,9 @@ function prefetchBattlefieldWhenReady(){
   const schedule=window.requestIdleCallback||((cb)=>setTimeout(cb,100));
   schedule(()=>{
     if(!document.head)return;
-    for(const href of BATTLE_PREFETCH){
+    // Phone / data-saver: cache only the smaller bootstrap, not 9 MB of JS.
+    const files=isConstrainedMobile()?BATTLE_PREFETCH.slice(2):BATTLE_PREFETCH;
+    for(const href of files){
       const link=document.createElement('link');link.rel='prefetch';link.as='script';link.href=href+'?v='+encodeURIComponent(BUILD_ID);
       document.head.appendChild(link);
     }
@@ -616,7 +655,12 @@ function renderLobby(){
   }
   $('pvpSetupPeople').innerHTML=seatHtml(1)+seatHtml(2);if(document.activeElement!==$('pvpSetupName'))$('pvpSetupName').value=state.name||'';const me=local(),spec=me?.role==='spectator';prefetchBattlefieldWhenReady();scheduleWarmBattleFrame();$('pvpSetupReadyButton').textContent=me?.ready?'UNREADY':'READY';$('pvpSetupReadyButton').disabled=!state.connected||spec||(!d&&!me?.hasDeck);$('pvpSetupSpectatorButton').textContent=spec?'JOIN AS PLAYER':'SPECTATE';$('pvpSetupStartButton').disabled=!(me?.seat===1&&(state.snapshot?.players||[]).length===2&&(state.snapshot?.players||[]).every(p=>p.connected&&p.ready&&p.hasDeck));$('pvpSetupReconnectButton').textContent=state.sessionInvalid?'NEW SESSION':'RECONNECT';$('pvpSetupHint').textContent=state.idleNotice||(state.fatalBuildMismatch?'PvP Website/backend build mismatch. Deploy matching backend, then refresh.':state.connectionError||(!state.connected?'Connecting to PvP service…':spec?'Spectator mode is read-only. Both Hands remain hidden.':me?.seat===1?'Waiting for both players to be ready.':'Ready up when your deck is selected.'));const ic=$('pvpNameStateIcon');ic.className='pvp-v260-name-icon'+(spec?' spectate':me?.ready?' ready':'');
 }
-function boot(){state.clientId=makeClientId();try{const u=new URL(location.href),explicitDeck=u.searchParams.get('deck')||'';state.name=safeName(u.searchParams.get('name')||stored('name')||'Player');state.role=(u.searchParams.get('role')||sessionStored('role')||'player')==='spectator'?'spectator':'player';state.seatToken=sessionStored('seat')||'';const rawCustom=localStorage.getItem(STORE.custom)||'';if(rawCustom&&!explicitDeck){try{state.customDeck=JSON.parse(rawCustom);state.customDeckName=localStorage.getItem(STORE.customName)||state.customDeck?.display_name||state.customDeck?.deck_name||'Imported Deck';state.formation=baseFormation(state.customDeck)}catch{persist('custom','');persist('customName','')}}state.deckKey=explicitDeck||(!state.customDeck?stored('deck'):'')||''}catch{}persist('name',state.name);persistSession('role',state.role);window.GL_PVP_LOCAL_ROLE=state.role;installImageDecodeGuard();installActivityTracking();ensureLobby();renderLobby();window.addEventListener('resize',syncLobbyScale,{passive:true});connect(false)}
+function boot(){
+  document.addEventListener?.('visibilitychange',()=>{
+    if(document.visibilityState==='hidden'&&battleFrameWarm)removeBattleFrame();
+    else if(document.visibilityState==='visible'&&!battleFrame)scheduleWarmBattleFrame();
+  },{passive:true});
+  state.clientId=makeClientId();try{const u=new URL(location.href),explicitDeck=u.searchParams.get('deck')||'';state.name=safeName(u.searchParams.get('name')||stored('name')||'Player');state.role=(u.searchParams.get('role')||sessionStored('role')||'player')==='spectator'?'spectator':'player';state.seatToken=sessionStored('seat')||'';const rawCustom=localStorage.getItem(STORE.custom)||'';if(rawCustom&&!explicitDeck){try{state.customDeck=JSON.parse(rawCustom);state.customDeckName=localStorage.getItem(STORE.customName)||state.customDeck?.display_name||state.customDeck?.deck_name||'Imported Deck';state.formation=baseFormation(state.customDeck)}catch{persist('custom','');persist('customName','')}}state.deckKey=explicitDeck||(!state.customDeck?stored('deck'):'')||''}catch{}persist('name',state.name);persistSession('role',state.role);window.GL_PVP_LOCAL_ROLE=state.role;installImageDecodeGuard();installActivityTracking();ensureLobby();renderLobby();window.addEventListener('resize',syncLobbyScale,{passive:true});connect(false)}
 
 window.GL_PVP_HOST={version:VERSION,buildId:BUILD_ID,getSnapshot:()=>state.snapshot,subscribe(fn){state.listeners.add(fn);return()=>state.listeners.delete(fn)},sendIntent,sendIntentBatch,startMatch,chooseCoin,chooseTurnOrder:order=>send('choose-turn-order',{order}),coinPresented,confirmCoin,matchClock,surrender,returnToLobby,identity,reconnect:()=>connect(true),getConnection:()=>({connected:state.connected,buildMismatch:state.fatalBuildMismatch,rttMs:Number.isFinite(Number(state.rttMs))?Number(state.rttMs):null,peers:[...state.peerConnections.entries()].map(([seat,v])=>({seat,...v}))})};
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();

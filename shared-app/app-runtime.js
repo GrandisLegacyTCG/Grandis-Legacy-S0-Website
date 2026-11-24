@@ -340,24 +340,119 @@ function mobilePopupLogicalRect(el){
     return {left,right,top,bottom,width:right-left,height:bottom-top};
   }catch(_){return r;}
 }
+// Unified Mobile Batch 2: 120% inspection previews for action prompts; card
+// selection from a Deck/Discard keeps the prior compact footprint.
+function mobilePreviewIsCollectionChoice(anchor){
+  const center=anchor.closest?.('.gl-center-choice-stage');
+  if(center){
+    // Return EXP / Scouting EXP are direct action selections even though the
+    // existing renderer shares the generic 'discard' stage implementation.
+    if(center.dataset.glActionPopup==='1')return false;
+    return /(?:^|\s)gl-center-mode-(?:discard|legacy)(?:\s|$)/.test(center.className);
+  }
+  // The generic choice overlay hosts both collection searches and several
+  // direct action choices (e.g. Return EXP). Distinguish by pending choice type,
+  // not by reusing the overlay's generic CSS class for every action.
+  if(anchor.closest?.('.gl-vsai-choice-overlay')){
+    return !['trial_rankup_return_exp','scouting_exp_selection',
+      'optional_swap','optional_target_swap'].includes(activeModalType);
+  }
+  return !!anchor.closest?.('.gl-progression-card');
+}
+function mobilePreviewMetrics(large){
+  const rootStyle=getComputedStyle(document.documentElement);
+  const w=Number.parseFloat(rootStyle.getPropertyValue('--gl-stage-logical-w'))||1600;
+  const h=Number.parseFloat(rootStyle.getPropertyValue('--gl-stage-logical-h'))||747;
+  const width=Math.max(90,Math.min(large?298:248,((h-24)*5/7),(w-24)));
+  return {logicalW:w,logicalH:h,width,height:width*7/5,gap:12};
+}
+function mobilePreviewGroupBounds(anchor){
+  const list=anchor.closest?.('.gl-center-choice-cards') ||
+    (!mobilePreviewIsCollectionChoice(anchor) ? anchor.closest?.('.choice-grid') : null);
+  if(!list)return mobilePopupLogicalRect(anchor.closest?.('.choice-panel,.gl-exp-inspector-panel,.gl-progression-card')||anchor);
+  const boxes=[...list.querySelectorAll('.gl-center-choice-card,.card-search-choice,.discard-choice,.gl-inspect-card')].map(mobilePopupLogicalRect)
+    .filter(q=>q&&q.width>0&&q.height>0);
+  if(!boxes.length)return mobilePopupLogicalRect(list);
+  const left=Math.min(...boxes.map(q=>q.left)),right=Math.max(...boxes.map(q=>q.right));
+  const top=Math.min(...boxes.map(q=>q.top)),bottom=Math.max(...boxes.map(q=>q.bottom));
+  return {left,right,top,bottom,width:right-left,height:bottom-top};
+}
+function mobilePreviewOverlap(a,b){
+  if(!a||!b)return 0;
+  return Math.max(0,Math.min(a.right,b.right)-Math.max(a.left,b.left))*
+    Math.max(0,Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top));
+}
+function mobilePreviewPlacement(x,y,met){
+  const px=Math.min(met.logicalW-met.width-met.gap,Math.max(met.gap,x));
+  const py=Math.min(met.logicalH-met.height-met.gap,Math.max(met.gap,y));
+  return {x:px,y:py,left:px,top:py,right:px+met.width,bottom:py+met.height};
+}
 function placeMobilePopupPreview(anchor){
   if(!hasUnifiedMobilePreviewStage()||!anchor)return false;
   normalizeRotatedMobilePreview(modalHoverPreview);
-  const panel=anchor.closest?.('.gl-center-choice-cards,.choice-panel,.gl-exp-inspector-panel,.gl-progression-card')
-      ||choiceOverlay.querySelector('.choice-panel')||anchor;
-  const ar=mobilePopupLogicalRect(anchor),pr=mobilePopupLogicalRect(panel);
-  if(!pr||!ar)return false;
-  const logicalW=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--gl-stage-logical-w'))||1600;
-  const logicalH=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--gl-stage-logical-h'))||747;
-  const w=248,h=347,g=10,mid=pr.left+pr.width/2;
-  const preferRight=ar.left+ar.width/2>=mid;
-  const rightX=pr.right+g,leftX=pr.left-g-w;
-  const fitsRight=rightX+w<=logicalW-g,fitsLeft=leftX>=g;
-  const useRight=preferRight?(fitsRight||!fitsLeft):(!fitsLeft&&fitsRight);
-  const x=Math.min(logicalW-w-g,Math.max(g,useRight?rightX:leftX));
-  const y=Math.min(logicalH-h-g,Math.max(g,ar.top+(ar.height-h)/2));
-  modalHoverPreview.style.setProperty('--gl-popup-preview-x',Math.round(x)+'px');
-  modalHoverPreview.style.setProperty('--gl-popup-preview-y',Math.round(y)+'px');
+  const compact=mobilePreviewIsCollectionChoice(anchor);
+  const met=mobilePreviewMetrics(!compact);
+  const ar=mobilePopupLogicalRect(anchor),group=mobilePreviewGroupBounds(anchor);
+  if(!ar||!group)return false;
+  const y=ar.top+(ar.height-met.height)/2,g=met.gap;
+  const candidates=[
+    mobilePreviewPlacement(group.right+g,y,met),
+    mobilePreviewPlacement(group.left-met.width-g,y,met),
+    mobilePreviewPlacement(ar.left+(ar.width-met.width)/2,group.top-met.height-g,met),
+    mobilePreviewPlacement(ar.left+(ar.width-met.width)/2,group.bottom+g,met)
+  ];
+  // Never choose a side purely from the full-width invisible selection frame.
+  // Score against actual visible cards and footer actions to keep the enlarged
+  // image outside the choice whenever its available space permits it.
+  const choiceGroup=anchor.closest?.('.gl-center-choice-cards,.choice-grid');
+  const choices=[...choiceGroup?.querySelectorAll('.gl-center-choice-card,.card-search-choice,.discard-choice,.gl-inspect-card')||[]]
+    .map(mobilePopupLogicalRect).filter(Boolean);
+  const actions=mobilePopupLogicalRect(anchor.closest?.('.gl-center-choice-stage')?.querySelector('.gl-center-choice-actions'));
+  const best=candidates.map((p,i)=>{
+    const overlap=choices.reduce((sum,c)=>sum+mobilePreviewOverlap(p,c),0);
+    const actionOverlap=actions?mobilePreviewOverlap(p,actions):0;
+    const dist=Math.hypot((p.x+met.width/2)-(ar.left+ar.width/2),(p.y+met.height/2)-(ar.top+ar.height/2));
+    return {p,score:overlap*8+actionOverlap*8+dist*.06+i*.01};
+  }).sort((a,b)=>a.score-b.score)[0].p;
+  modalHoverPreview.classList.toggle('gl-mobile-preview-large',!compact);
+  modalHoverPreview.style.setProperty('--gl-popup-preview-width',Math.round(met.width)+'px');
+  modalHoverPreview.style.setProperty('--gl-popup-preview-height',Math.round(met.height)+'px');
+  modalHoverPreview.style.setProperty('--gl-popup-preview-x',Math.round(best.x)+'px');
+  modalHoverPreview.style.setProperty('--gl-popup-preview-y',Math.round(best.y)+'px');
+  return true;
+}
+// Desktop uses the existing hand/hero/mana geometry. On mobile the same
+// three source categories are docked independently in logical stage space.
+function placeMobileBattlefieldPreview(kind,anchor,layer){
+  if(!hasUnifiedMobilePreviewStage()||!anchor)return false;
+  normalizeRotatedMobilePreview(layer);
+  const met=mobilePreviewMetrics(true),ar=mobilePopupLogicalRect(anchor);
+  if(!ar)return false;
+  const dock=mobilePreviewPlacement(met.logicalW-met.width-met.gap,
+    (met.logicalH-met.height)/2,met);
+  const hero=kind==='hero',mana=kind==='shard'||kind==='opponentShard',hand=kind==='hand';
+  let candidates=[];
+  if(hero){
+    const y=ar.top+(ar.height-met.height)/2;
+    candidates=[mobilePreviewPlacement(ar.right+met.gap,y,met),mobilePreviewPlacement(ar.left-met.width-met.gap,y,met),
+      mobilePreviewPlacement(dock.x,y,met)];
+  }else if(mana){
+    const pool=mobilePopupLogicalRect(anchor.closest?.('.mana-pool')||anchor),pr=pool||ar;
+    const x=pr.left+(pr.width-met.width)/2;
+    candidates=[mobilePreviewPlacement(x,kind==='opponentShard'?pr.bottom+met.gap:pr.top-met.height-met.gap,met),
+      mobilePreviewPlacement(dock.x,kind==='opponentShard'?met.gap:met.logicalH-met.height-met.gap,met)];
+  }else if(hand){
+    candidates=[mobilePreviewPlacement(dock.x,met.logicalH-met.height-85,met)];
+  }else{
+    candidates=[mobilePreviewPlacement(ar.right+met.gap,ar.top+(ar.height-met.height)/2,met),dock];
+  }
+  const avoid=[...document.querySelectorAll('.hero-lane .hero-card,.hero-lane .attachment-card,.hand.bottom .hand-card,.player-mana-pool,.opponent-mana-pool')]
+    .filter(e=>e.getClientRects().length).map(mobilePopupLogicalRect).filter(Boolean);
+  const result=candidates.map((p,i)=>({p,score:avoid.reduce((sum,r)=>sum+mobilePreviewOverlap(p,r),0)*10+i*12})).sort((a,b)=>a.score-b.score)[0].p;
+  layer.style.setProperty('--gl-field-preview-x',Math.round(result.x)+'px');
+  layer.style.setProperty('--gl-field-preview-y',Math.round(result.y)+'px');
+  layer.style.setProperty('--gl-field-preview-width',Math.round(met.width)+'px');
+  layer.style.setProperty('--gl-field-preview-height',Math.round(met.height)+'px');
   return true;
 }
 let mobilePopupPreviewTimer=null;
@@ -381,7 +476,7 @@ function mobileFlightRect(rect){
 }
 function placeBattlefieldHoverPreview(kind,anchor){
   if(!anchor||!battlefieldHoverPreview)return;
-  if(normalizeRotatedMobilePreview(battlefieldHoverPreview))return;
+  if(placeMobileBattlefieldPreview(kind,anchor,battlefieldHoverPreview))return;
   const cs=getComputedStyle(battlefieldHoverPreview),g=8,vp=uiViewportSize(),vw=vp.width,vh=vp.height;
   let w=parseFloat(cs.width)||259,h=parseFloat(cs.height)||362,left=g,top=g;
   // Fixed-position previews are in viewport pixels, even when game canvas is scaled.
@@ -482,7 +577,7 @@ function renderInteractionFocus(s){
 function hideSidebarHoverPreview(){sidebarHoverSource=null;sidebarHoverPreview.classList.remove('open');sidebarHoverPreview.setAttribute('aria-hidden','true');sidebarHoverImg.removeAttribute('src')}
 function placeSidebarHoverPreview(anchor){
   if(!anchor||!sidebarHoverPreview||!sidebar)return;
-  if(normalizeRotatedMobilePreview(sidebarHoverPreview))return;
+  if(placeMobileBattlefieldPreview('sidebar',anchor,sidebarHoverPreview))return;
   const sr=uiRect(sidebar),ar=uiRect(anchor),cs=getComputedStyle(sidebarHoverPreview);
   const vp=uiViewportSize(),w=parseFloat(cs.width)||259,h=parseFloat(cs.height)||362,g=10,vw=vp.width,vh=vp.height;
   let left=sr.left-w-g;
@@ -2072,36 +2167,58 @@ function renderPool(host,countEl,pool,side){
   if(blindOpponent) (p.selected_indices||[]).forEach(i=>blindSelected.add(Number(i)));
 
   host.classList.toggle('gl-blind-shard-layout',!!blindOpponent&&!blindInCenter);
-  // Replacing a Mana card destroys its DOM node without firing mouseleave.
-  // Close the transient hover before rebuilding either Mana Pool so a spent AI Shard never leaves a stuck preview.
-  if(battlefieldHoverSource&&host.contains(battlefieldHoverSource))hideBattlefieldHoverPreview();
-  host.innerHTML='';const cards=[];
-  // During centered blind choice the source Shard Pool is layout-locked. Randomization
-  // exists only in the center clones; the real pool keeps its canonical/sorted positions.
+  // Preserve each Mana Shard's DOM node by UID while the pool changes. The old
+  // full re-render broke mobile 400ms Hold whenever state updated and also
+  // dismissed an already-open preview although the Shard was still present.
+  // A spent/removed Shard must still close its preview. Blind opponent selection
+  // retains the original rebuild path to avoid exposing hidden identities.
   const displayPool=(blindOpponent&&!blindInCenter)
     ? (p.candidates||[]).map(c=>(pool||[]).find(sh=>String(sh?.uid)===String(c?.uid))).filter(Boolean)
     : sortedShardPoolForDisplay(pool,side);
+  const canReuse=!blindOpponent&&host.dataset.glBlindManaPool!=='1';
+  const prior=new Map(canReuse?[...host.children].filter(x=>x.classList.contains('mana-card'))
+    .map(w=>[String(w.dataset.uid||''),w]):[]);
+  const nodes=[];
+  if(!canReuse){
+    if(battlefieldHoverSource&&host.contains(battlefieldHoverSource))hideBattlefieldHoverPreview();
+    host.innerHTML='';
+  }
+  host.dataset.glBlindManaPool=blindOpponent?'1':'0';
+
   displayPool.forEach((sh,i)=>{
-    const wrap=document.createElement('div');
+    const key=String(sh?.uid||'');
+    const wrap=canReuse&&prior.has(key)?prior.get(key):document.createElement('div');
+    prior.delete(key);
     const blindIdx=(blindOpponent&&!blindInCenter)?i:-1;
     const isBlindSelected=(blindOpponent&&!blindInCenter)&&blindSelected.has(blindIdx);
     const openingHidden=glOpeningHiddenShardUids.has((side==='AI'?'AI':'PLAYER')+'|'+String(sh.uid));
     wrap.className='mana-card'+(selected.has(String(sh.uid))||isBlindSelected?' gl-selected':'')+(selectable.has(String(sh.uid))||(blindOpponent&&!blindInCenter)?' gl-class-choice':'')+(sh?.kind==='CLASS'&&!(blindOpponent&&!blindInCenter)?' gl-class-shard':'')+(openingHidden?' gl-presentation-hidden':'');
     wrap.dataset.uid=sh.uid||'';wrap.dataset.shardKind=sh?.kind||'';
-    const im=document.createElement('img');
-    im.src=(blindOpponent&&!blindInCenter)?'assets/ui/back-shard.webp':shardArt(sh);
+    const im=wrap.querySelector(':scope > img')||document.createElement('img');
+    const src=(blindOpponent&&!blindInCenter)?'assets/ui/back-shard.webp':shardArt(sh);
+    if(im.getAttribute('src')!==src)im.src=src;
     im.alt=(blindOpponent&&!blindInCenter)?'Face-down opponent Shard':((sh.class_name||'Mana')+' Shard');
-    wrap.appendChild(im);host.appendChild(wrap);cards.push(wrap);
+    if(im.parentElement!==wrap)wrap.appendChild(im);
+    // Retain the same image node (and its long-press listener), including when
+    // the status/selection state changes. Only reorder if actually necessary.
+    if(wrap.parentElement!==host)host.appendChild(wrap);
+    nodes.push(wrap);
     if(!(blindOpponent&&!blindInCenter))bindBattlefieldPreview(im,side==='PLAYER'?'shard':'opponentShard',wrap);
     if(blindOpponent&&!blindInCenter){
-      wrap.addEventListener('click',()=>{intent('selectOpponentManaChoice',[blindIdx])});
+      wrap.onclick=()=>{intent('selectOpponentManaChoice',[blindIdx])};
     }else if(selectable.has(String(sh.uid))&&!blindInCenter){
-      wrap.addEventListener('click',()=>{
+      wrap.onclick=()=>{
         if(p?.type==='response_payment_choice') intent('toggleResponseManaShardChoice',[sh.uid]);
         else intent('toggleManaShardPaymentChoice',[sh.uid]);
-      });
-    }
+      };
+    }else wrap.onclick=null;
   });
+  // Only detach genuinely removed Shards. Never throw away an existing
+  // long-press listener for the same UID during an unrelated state update.
+  if(canReuse){
+    prior.forEach(w=>{if(battlefieldHoverSource&&w.contains(battlefieldHoverSource))hideBattlefieldHoverPreview();w.remove()});
+    nodes.forEach((w,i)=>{if(host.children[i]!==w)host.insertBefore(w,host.children[i]||null)});
+  }
   countEl.textContent=(pool||[]).length;
   requestAnimationFrame(()=>layoutManaPoolCards(host));
 }
@@ -2320,6 +2437,7 @@ function renderCenterChoiceStage(s){
   }
   setCenterChoiceBodyMode(mode);
   centerChoiceStage.className='gl-center-choice-stage open gl-center-mode-'+mode+(centerChoiceBusy?' is-busy':'');
+  centerChoiceStage.dataset.glActionPopup=['trial_rankup_return_exp','scouting_exp_selection'].includes(p?.type)?'1':'0';
   centerChoiceStage.setAttribute('aria-hidden','false');
   const title=centerChoiceStage.querySelector('.gl-center-choice-title'),helper=centerChoiceStage.querySelector('.gl-center-choice-helper'),status=centerChoiceStage.querySelector('.gl-center-choice-status'),cardsHost=centerChoiceStage.querySelector('.gl-center-choice-cards'),actions=centerChoiceStage.querySelector('.gl-center-choice-actions');
   let identity='',sig='',cards=[],selectedKeys=new Set(),clickableKeys=new Set(),titleText='',helperText='',statusText='',selectedTarget=null,otherTarget=null;

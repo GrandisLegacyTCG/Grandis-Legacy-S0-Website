@@ -1,0 +1,196 @@
+/* Grandis Legacy Season 0 PvP — isolated VS AI RC42 Mobile Batch 2 visual parity.
+   Donor: uploaded VS AI RC42 / 2026-11-24; no VS AI AI/controller/network copied.
+   PvP RC40-compatible server authority and Step1 network are unchanged. */
+
+/* Reconcile the existing PvP body-rotated portal system with the donor's
+   expanded logical stage on unusual handset/tablet aspect ratios. */
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay body,
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .app{
+  width:var(--gl-stage-logical-w,1600px)!important;
+  height:var(--gl-stage-logical-h,747px)!important;
+  min-width:var(--gl-stage-logical-w,1600px)!important;
+  min-height:var(--gl-stage-logical-h,747px)!important;
+}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay :is(
+  .gl-vsai-choice-overlay,.gl-played-detail-overlay,.gl-card-review-overlay,
+  .gl-progression-overlay,.gl-result-overlay,.gl-center-choice-stage,
+  .gl-center-focus-backdrop,.gl-animation-layer,.gl-battle-feedback-layer,
+  .gl-vsai-attack-direction-layer,.gl-pending-attack-direction-layer
+){
+  width:var(--gl-stage-logical-w,1600px)!important;
+  height:var(--gl-stage-logical-h,747px)!important;
+  max-width:var(--gl-stage-logical-w,1600px)!important;
+  max-height:var(--gl-stage-logical-h,747px)!important;
+}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .gl-vsai-choice-overlay .choice-panel{
+  max-height:calc(var(--gl-stage-logical-h,747px) - 32px)!important;
+}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .gl-vsai-choice-overlay.gl-choice-main-deck-preview .choice-panel{
+  max-width:calc(var(--gl-stage-logical-w,1600px) - 36px)!important;
+}
+
+/* --- Transplanted from approved VS AI RC42 Mobile Batch 2 --- */
+/* ===========================================================================
+ * RC42 Mobile Batch 2 (24 Nov 2026) - user-approved four-item improvement.
+ * Mobile-only selectors: desktop game, sidebar geometry, rules and AI unchanged.
+ * =========================================================================== */
+/* #1 Center the entire deck-selection row between the existing header/footer.
+ * safe center prevents clipping on phones with little available height. */
+html.gl-mobile-landscape-lobby .gl-lobby-panel>.gl-lobby-decks{
+  align-self:safe center!important;
+  justify-self:stretch!important;
+  margin-block:0!important;
+  max-height:100%!important;
+}
+/* #2 All direct Action Prompt cards use exactly the same dynamic width as
+ * Mana Payment with the same number of visible cards (up to 12, one row).
+ * Deck/Discard selection frames retain their separate grid/scroll treatment. */
+html.gl-pvp-mobile-gameplay.gl-adaptive-stage:not(.gl-mobile-landscape-stage)
+ body.gl-center-choice-active:not(.gl-center-discard) .gl-center-choice-cards{
+  box-sizing:border-box!important;
+  width:min(1500px,calc(var(--gl-stage-logical-w,1600px) - 44px))!important;
+  max-width:none!important;
+  min-width:0!important;
+  flex-wrap:nowrap!important;
+  justify-content:center!important;
+  align-items:center!important;
+  gap:8px!important;
+  padding:44px 12px 12px!important;
+  overflow-x:hidden!important;
+  overflow-y:visible!important;
+}
+html.gl-pvp-mobile-gameplay.gl-adaptive-stage:not(.gl-mobile-landscape-stage)
+ body.gl-center-choice-active:not(.gl-center-discard) .gl-center-choice-card{
+  box-sizing:border-box!important;
+  width:min(calc(var(--hero-base-w-logical,108px) * 1.02),
+    calc((100% - 48px - (var(--gl-choice-count,12) - 1) * 8px) / var(--gl-choice-count,12)))!important;
+  min-width:0!important;
+  max-width:calc(var(--hero-base-w-logical,108px) * 1.02)!important;
+  flex:0 1 auto!important;
+  aspect-ratio:5/7!important;
+  height:auto!important;
+  max-height:none!important;
+}
+/* Preserve the original scroll treatment where the source is a Deck/Discard.
+ * The same size rule still applies to other action prompts such as Stoneblood,
+ * Class Ability, Response and Rank Up - Return EXP. */
+/* #3 Enlarged previews are 20% bigger on the mobile logical landscape stage.
+ * The JS computes separate Hand, Hero, Mana and context-popup positions; larger
+ * popup previews are exempted for Deck/Discard card-collection selectors. */
+html.gl-pvp-mobile-gameplay.gl-adaptive-stage:not(.gl-mobile-landscape-stage)
+ :is(.gl-battlefield-hover-preview.open,.gl-sidebar-hover-preview.open) img{
+  width:var(--gl-field-preview-width,298px)!important;
+  height:var(--gl-field-preview-height,417.2px)!important;
+  left:var(--gl-field-preview-x,calc(100% - 306px))!important;
+  top:var(--gl-field-preview-y,150px)!important;
+  right:auto!important;bottom:auto!important;
+  max-width:none!important;max-height:none!important;
+  aspect-ratio:5/7!important;object-fit:contain!important;
+}
+html.gl-pvp-mobile-gameplay.gl-adaptive-stage:not(.gl-mobile-landscape-stage)
+ .gl-modal-hover-preview.open img{
+  width:var(--gl-popup-preview-width,248px)!important;
+  height:var(--gl-popup-preview-height,347px)!important;
+  max-width:none!important;max-height:none!important;
+  aspect-ratio:5/7!important;
+}
+/* #4 Place Attachment 1 counter on its outer top-left edge even when its
+ * artwork sits behind the Exhausted Hero; Attachment 2 stays on top-right. */
+html.gl-pvp-mobile-gameplay.gl-adaptive-stage:not(.gl-mobile-landscape-stage)
+ .attachment-card.left>.attachment-turn{
+  left:-4px!important;right:auto!important;top:-4px!important;bottom:auto!important;
+}
+html.gl-pvp-mobile-gameplay.gl-adaptive-stage:not(.gl-mobile-landscape-stage)
+ .attachment-card.right>.attachment-turn{
+  right:-4px!important;left:auto!important;top:-4px!important;bottom:auto!important;
+}
+/* Font-only +2px, with just enough space to prevent a two-digit count clipping.
+ * Includes Attachment, Status durations, deck, Mana, Hand and regen counts. */
+html.gl-pvp-mobile-gameplay.gl-adaptive-stage:not(.gl-mobile-landscape-stage) .attachment-turn{
+  font-size:10px!important;min-width:19px!important;height:19px!important;line-height:17px!important;
+}
+html.gl-pvp-mobile-gameplay.gl-adaptive-stage:not(.gl-mobile-landscape-stage)
+ .gl-negative-status>.gl-status small{
+  font-size:8px!important;min-width:12px!important;height:12px!important;
+  line-height:10px!important;display:grid!important;place-items:center!important;
+}
+html.gl-pvp-mobile-gameplay.gl-adaptive-stage:not(.gl-mobile-landscape-stage)
+ :is(.zone,.mana-pool,.hand)>.count{
+  font-size:11px!important;min-width:22px!important;height:22px!important;line-height:20px!important;
+}
+html.gl-pvp-mobile-gameplay.gl-adaptive-stage:not(.gl-mobile-landscape-stage)
+ .zone:is([data-zone-type="Main Deck"],[data-zone-type="Legacy Deck"],[data-zone-type="Shard Deck"])>.count{
+  font-size:15px!important;min-width:24px!important;height:20px!important;line-height:20px!important;
+}
+html.gl-pvp-mobile-gameplay.gl-adaptive-stage:not(.gl-mobile-landscape-stage)
+ .zone[data-zone-type="Shard Deck"]>.gl-regen-counter{
+  font-size:15px!important;min-width:28px!important;height:20px!important;min-height:20px!important;
+}
+
+/* Batch 2 precision: Return EXP / Scouting EXP reuse the existing DISCARD
+ * renderer, but they are ACTION selections, not Deck/Discard collections.
+ * Give their 1..12 cards identical dimensions to 1..12 PAY cards too. */
+html.gl-pvp-mobile-gameplay.gl-adaptive-stage:not(.gl-mobile-landscape-stage)
+ body.gl-center-discard .gl-center-choice-stage[data-gl-action-popup="1"] .gl-center-choice-cards{
+  box-sizing:border-box!important;
+  width:min(1500px,calc(var(--gl-stage-logical-w,1600px) - 44px))!important;
+  max-width:none!important;min-width:0!important;
+  flex-wrap:nowrap!important;justify-content:center!important;align-items:center!important;
+  gap:8px!important;padding:44px 12px 12px!important;overflow-x:hidden!important;
+}
+html.gl-pvp-mobile-gameplay.gl-adaptive-stage:not(.gl-mobile-landscape-stage)
+ body.gl-center-discard .gl-center-choice-stage[data-gl-action-popup="1"] .gl-center-choice-card{
+  box-sizing:border-box!important;
+  width:min(calc(var(--hero-base-w-logical,108px) * 1.02),
+    calc((100% - 48px - (var(--gl-choice-count,12) - 1) * 8px) / var(--gl-choice-count,12)))!important;
+  min-width:0!important;max-width:calc(var(--hero-base-w-logical,108px) * 1.02)!important;
+  flex:0 1 auto!important;aspect-ratio:5/7!important;height:auto!important;max-height:none!important;
+}
+
+/* Return EXP cards and all Action Prompt cards are 85% of CURRENT mobile Hero
+   (after follow-up's 5% Hero reduction); long rows shrink as Mana PAY does. */
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay:not(.gl-mobile-landscape-stage)
+ body.gl-center-choice-active:not(.gl-center-discard) .gl-center-choice-card,
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay:not(.gl-mobile-landscape-stage)
+ body.gl-center-discard .gl-center-choice-stage[data-gl-action-popup="1"] .gl-center-choice-card{
+  width:min(calc(var(--hero-w) * .85),
+    calc((100% - 48px - (var(--gl-choice-count,12) - 1) * 8px) / var(--gl-choice-count,12)))!important;
+  min-width:0!important;
+  max-width:calc(var(--hero-w) * .85)!important;
+  flex:0 1 auto!important;
+  aspect-ratio:5/7!important;
+  height:auto!important;
+}
+/* Contextual 120% previews: the UI adapter calculates the free position;
+   clicking or tapping anywhere else still dismisses without gameplay action. */
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay:not(.gl-mobile-landscape-stage)
+ :is(.gl-battlefield-hover-preview.open,.gl-sidebar-hover-preview.open,.gl-modal-hover-preview.open){
+  position:fixed!important;left:0!important;top:0!important;right:auto!important;bottom:auto!important;
+  width:var(--gl-stage-logical-w,1600px)!important;
+  height:var(--gl-stage-logical-h,747px)!important;
+  min-width:0!important;min-height:0!important;
+  max-width:none!important;max-height:none!important;
+  transform:none!important;pointer-events:none!important;
+}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay:not(.gl-mobile-landscape-stage)
+ :is(.gl-battlefield-hover-preview.open,.gl-sidebar-hover-preview.open) img{
+  position:absolute!important;
+  width:var(--gl-field-preview-width,298px)!important;
+  height:var(--gl-field-preview-height,417px)!important;
+  left:var(--gl-field-preview-x,calc(100% - 310px))!important;
+  top:var(--gl-field-preview-y,140px)!important;
+  right:auto!important;bottom:auto!important;
+  max-width:none!important;max-height:none!important;aspect-ratio:5/7!important;
+  object-fit:contain!important;transform:none!important;
+}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay:not(.gl-mobile-landscape-stage)
+ .gl-modal-hover-preview.open img{
+  position:absolute!important;
+  left:var(--gl-popup-preview-x,12px)!important;top:var(--gl-popup-preview-y,12px)!important;
+  right:auto!important;bottom:auto!important;
+  width:var(--gl-popup-preview-width,248px)!important;
+  height:var(--gl-popup-preview-height,347px)!important;
+  max-width:none!important;max-height:none!important;aspect-ratio:5/7!important;
+  object-fit:contain!important;transform:none!important;
+}
+/* Portrait touch-stage scroll is driven by the existing PvP axis adapter. */

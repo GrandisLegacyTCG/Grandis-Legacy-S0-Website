@@ -7,7 +7,14 @@
 const THUMBS=window.GL_PVP_CARD_THUMBNAILS||Object.create(null);
 const priorityOf=kind=>({hand:0,hero:0,review:0,attachment:1,public:1,background:3}[kind]??2);
 const jobs=new Map(),queue=[],ready=new Set(),retryOnOnline=new Map();
-const CAP=6,MAX_ATTEMPTS=3,MAX_READY=128;
+const MAX_ATTEMPTS=3,MAX_READY=128;
+function decodeCap(){
+  const nav=globalThis.navigator||{};
+  const mem=Number(nav.deviceMemory||0);
+  if(nav.connection?.saveData||(mem>0&&mem<=2))return 2;
+  if(Number(nav.maxTouchPoints||0)>0||globalThis.matchMedia?.('(pointer: coarse)')?.matches)return 3;
+  return 6;
+}
 let active=0,order=0;
 function markReady(src){
   ready.delete(src);ready.add(src);
@@ -17,7 +24,7 @@ function resolveUrl(src){
   try{return new URL(String(src||''),document.baseURI).href}catch{return ''}
 }
 function run(){
-  while(active<CAP&&queue.length){
+  while(active<decodeCap()&&queue.length){
     queue.sort((a,b)=>a.priority-b.priority||a.order-b.order);
     const job=queue.shift();if(job.state!=='queued')continue;
     job.state='loading';active++;
@@ -100,6 +107,7 @@ function bind(img,{cardId,src,priority='hand',canRevealFace=true}={}){
   return !!thumbnail;
 }
 function thumb(cardId){return THUMBS[String(cardId||'')]||''}
+window.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')run()});
 window.addEventListener('online',()=>{
   // Bind anew so that retried originals can actually replace live thumbnails.
   document.querySelectorAll('img[data-gl-pvp-art-stage="thumb"]').forEach(img=>{
@@ -109,6 +117,6 @@ window.addEventListener('online',()=>{
   retryOnOnline.clear();
 });
 window.GL_PVP_ARTWORK=Object.freeze({bind,load,thumb,hasThumbnail:id=>!!thumb(id),
-  diagnostics:()=>({queued:queue.filter(x=>x.state==='queued').length,active,
+  diagnostics:()=>({queued:queue.filter(x=>x.state==='queued').length,active,capacity:decodeCap(),
     ready:ready.size,failed:retryOnOnline.size,cardCount:Object.keys(THUMBS).length})});
 })();

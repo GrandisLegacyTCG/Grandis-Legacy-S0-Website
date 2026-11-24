@@ -59,5 +59,6 @@
     "unique_pvp_back_assets": "PRESERVED/USED",
     "unique_pvp_audio_assets": "PRESERVED/USED",
     "native_production_browser_test": "NOT RUN"
-  }
+  },
+  "archived_baseline": "HF2 - historical data only, not Step1 local QA or mobile acceptance"
 }

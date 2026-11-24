@@ -50,6 +50,11 @@ PvP's three unique backs and two unique P.Attack/P.Defense sound files are
 served from `/pvp/` to avoid accidentally using byte-different website assets.
 The browser-side gesture adapter uses the actual portrait-axis scale.
 
-The new release protocol build ID is `gl-s0-pvp-rc42-r398-r40-20261124-b`. Deploy the standalone
+The **current STEP 3 release** protocol build ID is `gl-s0-pvp-rc42-r398-r40-20261124-s3`. Deploy the standalone
 backend and website `/pvp/` folder as a matched pair. Live WSS and physical
 mobile acceptance remain required.
+
+
+## STEP 3 paired candidate / on-demand artwork
+
+The current tested candidate adds 250 **small thumbnails** under `/pvp/battle/assets/thumbnails/`, not card faces. These are identical to the previous inline base64 thumbnail bytes and are loaded lazily; keep them when merging. 250 original **full-resolution** card artworks remain only at the Website root `/card-art/`. The two pages and standalone backend must all advertise the same S3 Build ID. Do not declare this production Stable until Northflank/native-ws and real two-browser/mobile acceptance passes. Refer to `docs/STEP3_FINAL_RELEASE_QA_2026-11-24.md`.

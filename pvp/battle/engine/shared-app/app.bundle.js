@@ -2731,7 +2731,7 @@
   }
   function queueImmediateShardGainPresentation(state,side,drawn,reason){
     drawn=(drawn||[]).filter(Boolean);if(!drawn.length||state!==appState||!matchStarted||SUPPRESS_RENDER||!animationDocumentReady())return false;
-    drawn.forEach(function(sh){addHiddenManaDrawToken(side,sh.uid);});render();var index=0,back='/pvp/assets/ui/back-legacy.webp';
+    drawn.forEach(function(sh){addHiddenManaDrawToken(side,sh.uid);});render();var index=0,back='/pvp/assets/ui/back-shard.webp';
     function next(){if(index>=drawn.length)return;var sh=drawn[index++];nextVisualFrame(function(){var from=captureVisualRect('[data-zone-side="'+side+'"][data-zone-type="Shard Deck"] .zoneCard'),to=captureVisualRect('.gl-lab-mana-card[data-mana-side="'+side+'"][data-mana-uid="'+sh.uid+'"]');function done(){removeHiddenManaDrawToken(side,sh.uid,{suppressRender:true});if(appState&&matchStarted&&!SUPPRESS_RENDER)render();if(index<drawn.length)setTimeout(next,55);}if(from&&to)queueVisualCardMotion(back,from,[{rect:to}],390,{play_sound:true,eager_start:true,onFinish:done});else done();});}next();return true;
   }
   function drawManaCards(state,side,amount,reason){
@@ -2759,7 +2759,7 @@
   function queueOpeningManaDrawEvents(events,state,options){
     options=options||{};events=(events||[]).filter(function(e){return e&&e.type==='MANA_DRAWN';});if(!events.length){if(typeof options.onComplete==='function')options.onComplete();return false;}
     var groups=[];for(var i=0;i<GL_LAB_START_MANA_CARDS;i++){var g=events.filter(function(e){return Number(e.group_index)===i;});if(g.length)groups.push(g);}
-    var index=0,queued=false,back='/pvp/assets/ui/back-legacy.webp';
+    var index=0,queued=false,back='/pvp/assets/ui/back-shard.webp';
     function finish(){revealAllOpeningMana(events);if(typeof options.onComplete==='function')options.onComplete();}
     function runNext(){
       if(index>=groups.length){finish();return;}
@@ -2799,7 +2799,7 @@
     }
     if(!animationDocumentReady()){var immediate=commitReservedManaDraw(state,reservation);if(!SUPPRESS_RENDER)render();if(typeof options.onComplete==='function')options.onComplete(immediate);return false;}
     if(appState&&matchStarted&&!SUPPRESS_RENDER)render();var queued=false;
-    nextVisualFrame(function(){var from=captureVisualRect('[data-zone-side="'+reservation.side+'"][data-zone-type="Shard Deck"] .zoneCard'),to=captureVisualRect('.gl-lab-mana-card[data-mana-side="'+reservation.side+'"][data-mana-pending-id="'+reservation.id+'"]'),back='/pvp/assets/ui/back-legacy.webp';
+    nextVisualFrame(function(){var from=captureVisualRect('[data-zone-side="'+reservation.side+'"][data-zone-type="Shard Deck"] .zoneCard'),to=captureVisualRect('.gl-lab-mana-card[data-mana-side="'+reservation.side+'"][data-mana-pending-id="'+reservation.id+'"]'),back='/pvp/assets/ui/back-shard.webp';
       function done(){var shard=commitReservedManaDraw(state,reservation);syncCounts(state);if(appState&&matchStarted&&!SUPPRESS_RENDER)render();if(typeof options.onComplete==='function')options.onComplete(shard);}
       if(from&&to){queued=queueVisualCardMotion(back,from,[{rect:to}],390,{play_sound:true,eager_start:true,onFinish:done});}else done();});return queued;
   }
@@ -9296,7 +9296,7 @@
     if(!pvpLocalOwnsPending(appState.pending)){ pvpHideChoiceForNonOwner(); return; }
     if(SUPPRESS_RENDER || !$('choiceOverlay')) return;
     $('choiceTitle').textContent=p.title||'Choose Opponent Mana'; $('choiceConfirm').style.display=''; $('choiceConfirm').textContent=p.confirm_text||('Choose '+required+' Mana'); $('choiceConfirm').disabled=selected.length!==required;
-    var back='/pvp/assets/ui/back-legacy.webp';
+    var back='/pvp/assets/ui/back-shard.webp';
     $('choiceBody').innerHTML='<p class="choice-instruction">'+esc(p.instruction||('Choose '+required+' face-down Shard'+(required===1?'':'s')+' from the opponent Shard Pool. Mana identity stays hidden while choosing.'))+'</p><div class="choice-grid card-search-choice-grid">'+choices.map(function(x,idx){var sel=selected.indexOf(idx)!==-1;return '<article class="card-search-choice '+(sel?'selected':'')+'"><button class="discard-preview" type="button" tabindex="-1" aria-label="Face-down opponent Shard"><img src="'+esc(back)+'" alt="Face-down Shard"><span>Shard</span></button><button class="discard-select" type="button" data-opponent-mana-choice="'+idx+'">'+(sel?'Selected':'Select')+'</button></article>';}).join('')+'</div>';
     $('choiceOverlay').classList.add('open'); bringModalToFront($('choiceOverlay'));
   }
@@ -9313,7 +9313,7 @@
     var poolSelector=side==='AI'?'.opponent-mana-pool ':'.player-mana-pool ';
     shards.forEach(function(sh,idx){
       var safeUid=String(sh.uid||'').replace(/"/g,'\\"'),from=captureVisualRect(poolSelector+'.mana-card[data-uid="'+safeUid+'"]')||captureVisualRect('.gl-lab-mana-card[data-mana-side="'+side+'"][data-mana-uid="'+safeUid+'"]');
-      if(from)setTimeout(function(){queueVisualCardMotion('/pvp/assets/ui/back-legacy.webp',from,[{rect:target}],390,{play_sound:idx===0,eager_start:true});},idx*55);
+      if(from)setTimeout(function(){queueVisualCardMotion('/pvp/assets/ui/back-shard.webp',from,[{rect:target}],390,{play_sound:idx===0,eager_start:true});},idx*55);
     });return true;
   }
   function manaStealEffectiveCount(state,side,requested){

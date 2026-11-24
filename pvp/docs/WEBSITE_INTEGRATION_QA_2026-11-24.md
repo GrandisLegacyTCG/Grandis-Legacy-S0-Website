@@ -1,3 +1,5 @@
+> **HISTORICAL HF2 REPORT.** This report predates Step 1. Owner has since confirmed the mobile aspect ratio and Back-of-Card are broken; prior synthetic UI PASS claims do not establish playable mobile. Refer to STEP1_NETWORK_ENGINE_BOUNDARY_2026-11-24.md for current status.
+
 # Grandis Legacy PvP — Website Integration & QA
 
 Date: 24 November 2026.
