@@ -204,7 +204,7 @@ window.GL_S0_REVIEW_RENDER=function(card){
  document.getElementById('cardReviewDialog').dataset.reviewKind=card.family==='Hero'?'hero':card.family==='Skill'?'skill':card.family==='Item'?'item':card.family==='Event'?'event':card.family==='LegacyModeDefinition'?'legacy':'standard';
  $('reviewTitle').textContent=card.name;
  $('reviewEyebrow').textContent=reviewEyebrow(card);
- $('reviewArt').src=card.image;$('reviewArt').alt=card.name;
+ if(window.parent.GL_CARD_ART)window.parent.GL_CARD_ART.set($('reviewArt'),card.image);else $('reviewArt').src=card.image;$('reviewArt').alt=card.name;
  if(card.family==='Hero'){heroReviewHtml(card);window.GL_S0_REVIEW_CLARITY?.enhanceHero(card,$('reviewRows'))}
  else {standardReviewHtml(card);window.GL_S0_REVIEW_CLARITY?.enhance(card,$('reviewRows'))}
 };

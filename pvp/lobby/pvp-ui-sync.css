@@ -1,0 +1,38 @@
+/* PvP UI Sync / donor: VS AI RC42 Website 2026-11-25.
+ * Styling only. Native PvP import validation, socket and callbacks unchanged. */
+#pvpSetupOverlay.pvp-v260-lobby .pvp-v260-import-button,
+html.gl-pvp-mobile-desktop #pvpSetupOverlay.pvp-v260-lobby .pvp-v260-import-button {
+  color:#f4d87e!important;
+  border:1px solid #d0ad53!important;
+  border-radius:12px!important;
+  background:rgba(4,8,14,.58)!important;
+  box-shadow:none!important;
+  text-shadow:none!important;
+  text-transform:none!important;
+  letter-spacing:normal!important;
+  font-family:Noto,Arial,sans-serif!important;
+  font-size:13px!important;
+  font-weight:700!important;
+  line-height:1.1!important;
+  text-align:center!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  white-space:nowrap!important;
+  transition:filter .15s ease!important;
+}
+#pvpSetupOverlay.pvp-v260-lobby .pvp-v260-import-button:hover:not(:disabled){
+  filter:brightness(1.08)!important;transform:none!important;
+  background:rgba(4,8,14,.58)!important;
+  border-color:#d0ad53!important;
+}
+#pvpSetupOverlay.pvp-v260-lobby .pvp-v260-import-button:focus-visible{
+  outline:2px solid #f4d87e!important;outline-offset:3px!important;
+}
+#pvpSetupOverlay.pvp-v260-lobby .pvp-v260-import-button:disabled{opacity:.55!important;cursor:not-allowed!important;}
+@media(max-width:880px){
+  /* Center the deck preview within its panel, not outside the scrollable room. */
+  #pvpSetupOverlay .pvp-v260-formation-wrap{margin-inline:auto!important;}
+  #pvpSetupOverlay .pvp-v260-showcase{justify-content:center!important;align-items:safe center!important;}
+}
+html.gl-pvp-mobile-desktop #pvpSetupOverlay.pvp-v260-lobby .pvp-v260-import-button{font-size:12px!important;}

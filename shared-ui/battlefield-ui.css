@@ -2497,24 +2497,8 @@ html.gl-mobile-gameplay-stage:not(.gl-mobile-landscape-stage) .gl-counter-chain-
 }
 
 /* ========================================================================== */
-/* RC41 M01: SINGLE mobile Lobby top-right navigation. No per-deck hamburgers. */
-.gl-lobby-global-nav{display:none;position:relative;margin-left:auto;z-index:355}
-.gl-lobby-global-menu[hidden]{display:none!important}
+/* Mobile picker sizing is independent of Website header navigation. */
 @media (pointer:coarse) and (max-width:1350px){
-  html.gl-mobile-landscape-lobby .gl-lobby-global-nav{display:block!important}
-  html.gl-mobile-landscape-lobby .gl-lobby-global-toggle{
-    width:40px;height:36px;display:grid;place-items:center;border:1px solid #d0ad53;
-    background:#122638;color:#ffe091;border-radius:8px;font-size:23px;line-height:1;cursor:pointer;
-  }
-  html.gl-mobile-landscape-lobby .gl-lobby-global-menu:not([hidden]){
-    display:flex!important;position:absolute;right:0;top:43px;min-width:210px;
-    flex-direction:column;gap:6px;padding:10px;background:#091a2b;
-    border:1px solid #cfaa50;border-radius:10px;box-shadow:0 16px 30px #000a;z-index:356;
-  }
-  html.gl-mobile-landscape-lobby .gl-lobby-global-menu a{
-    display:block;text-decoration:none;white-space:nowrap;padding:10px 12px;
-    color:#ffdfa0;background:#152b40;border:1px solid #3e5667;border-radius:7px;font-size:13px;font-weight:800;
-  }
   html.gl-mobile-landscape-lobby .gl-lobby-picker{grid-template-columns:minmax(0,1fr) 122px!important}
   html.gl-mobile-landscape-lobby .gl-lobby-desktop-import{display:block!important}
 }
@@ -2551,12 +2535,7 @@ html.gl-mobile-gameplay-stage.gl-stage-portrait:not(.gl-mobile-landscape-stage) 
   rotate:90deg!important;transform-origin:center center!important;
 }
 
-/* RC41 artwork loading: only the local Player's visible face-up Hand cards.
-   A back replaces missing pixels until the face has been decoded. */
-.hand.bottom .hand-card.gl-hand-art-awaiting::before{
-  content:"";position:absolute;inset:0;z-index:2;pointer-events:none;
-  border-radius:5px;background:#07121f url("../assets/ui/back-main.webp") center/100% 100% no-repeat;
-}
+/* Face-up Hand uses the bundled true-art thumbnail; no back placeholder. */
 
 /* RC41 mobile popup/readability correction:
    - only the actual battlefield/sidebar preview docks at Surrender;
@@ -3357,3 +3336,14 @@ html.gl-mobile-gameplay-stage.gl-adaptive-stage:not(.gl-mobile-landscape-stage)
   min-width:0!important;max-width:calc(var(--hero-base-w-logical,108px) * 1.02)!important;
   flex:0 1 auto!important;aspect-ratio:5/7!important;height:auto!important;max-height:none!important;
 }
+
+/* RC42 follow-up: only the two approved mobile counter groups grow again. */
+html.gl-mobile-gameplay-stage.gl-adaptive-stage:not(.gl-mobile-landscape-stage) .attachment-turn{
+  font-size:12px!important;min-width:21px!important;height:21px!important;line-height:19px!important;
+}
+html.gl-mobile-gameplay-stage.gl-adaptive-stage:not(.gl-mobile-landscape-stage) .gl-negative-status>.gl-status small{
+  font-size:10px!important;min-width:14px!important;height:14px!important;line-height:12px!important;
+}
+/* Import Deck only: existing button geometry and colors, readable one-line text. */
+.gl-lobby-picker>button[data-lobby-import]{font-size:13px!important;white-space:nowrap!important;text-align:center!important;line-height:1.1!important;}
+html.gl-mobile-landscape-lobby .gl-lobby-picker>button[data-lobby-import]{font-size:12px!important;white-space:nowrap!important;}

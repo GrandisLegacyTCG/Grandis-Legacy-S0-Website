@@ -64,7 +64,7 @@ const counterBanner=document.createElement('div');counterBanner.className='gl-co
 const counterChainBanner=document.createElement('div');counterChainBanner.className='gl-counter-chain-banner';counterChainBanner.setAttribute('role','status');counterChainBanner.setAttribute('aria-live','polite');counterChainBanner.setAttribute('aria-atomic','true');document.body.appendChild(counterChainBanner);
 const shownCompletedCounterChains=new Set();let currentCounterChainId='',counterChainRenderedSig='',counterChainHoldTimer=null;
 const seenCounterMessages=new Set(),seenRacialMessages=new Set(),seenManaLossMessages=new Set(),seenDiscardMessages=new Set(),presentationNoticeQueue=[];let counterBannerTimer=null,presentationNoticeActive=false;
-const lobbyOverlay=document.createElement('div');lobbyOverlay.className='gl-lobby-overlay';lobbyOverlay.innerHTML='<section class="gl-lobby-panel" role="dialog" aria-modal="true" aria-labelledby="glLobbyTitle"><header class="gl-lobby-head"><img class="gl-lobby-logo gl-site-brand-img" src="/assets/site/web-s0/logo-transparent.webp" alt="Grandis Legacy"><h1 id="glLobbyTitle">VS AI LOBBY</h1><nav class="gl-lobby-global-nav" aria-label="Other games"><button type="button" id="glLobbyGlobalToggle" class="gl-lobby-global-toggle" aria-expanded="false" aria-controls="glLobbyGlobalMenu" aria-label="Open navigation menu">&#9776;</button><div id="glLobbyGlobalMenu" class="gl-lobby-global-menu" hidden><a href="../deck-builder/">Go to Deck Builder</a><a href="../pvp/">Go to PvP</a></div></nav></header><div class="gl-lobby-error" id="glLobbyError"></div><div class="gl-lobby-decks" id="glLobbyDecks"></div><footer class="gl-lobby-foot"><div class="gl-lobby-difficulties" role="group" aria-label="Opponent level"><button type="button" class="gl-lobby-difficulty" data-gl-ai-diff="beginner">Beginner</button><button type="button" class="gl-lobby-difficulty" data-gl-ai-diff="intermediate">Intermediate</button></div><button type="button" class="gl-lobby-start" id="glLobbyStart">Start Match</button></footer></section>';document.body.appendChild(lobbyOverlay);
+const lobbyOverlay=document.createElement('div');lobbyOverlay.className='gl-lobby-overlay';lobbyOverlay.innerHTML='<section class="gl-lobby-panel" role="dialog" aria-modal="true" aria-labelledby="glLobbyTitle"><header class="gl-lobby-head gl-site-app-header"><a class="gl-lobby-home gl-site-brand" href="/" aria-label="Grandis Legacy Home"><img class="gl-lobby-logo gl-site-brand-img" src="/assets/site/web-s0/logo-transparent.webp" alt="Grandis Legacy"></a><h1 id="glLobbyTitle">VS AI LOBBY</h1></header><div class="gl-lobby-error" id="glLobbyError"></div><div class="gl-lobby-decks" id="glLobbyDecks"></div><footer class="gl-lobby-foot"><div class="gl-lobby-difficulties" role="group" aria-label="Opponent level"><button type="button" class="gl-lobby-difficulty" data-gl-ai-diff="beginner">Beginner</button><button type="button" class="gl-lobby-difficulty" data-gl-ai-diff="intermediate">Intermediate</button></div><button type="button" class="gl-lobby-start" id="glLobbyStart">Start Match</button></footer></section>';document.body.appendChild(lobbyOverlay);
 const coinOverlay=document.createElement('div');coinOverlay.className='gl-coin-overlay';coinOverlay.innerHTML='<section class="gl-coin-card" role="dialog" aria-modal="true" aria-label="Coin flip"><div class="gl-coin-body"></div></section>';document.body.appendChild(coinOverlay);
 const progressionOverlay=document.createElement('div');progressionOverlay.className='gl-progression-overlay';progressionOverlay.innerHTML='<section class="gl-progression-card" role="dialog" aria-modal="true" aria-labelledby="glProgressionTitle"><header><div><span>HERO PROGRESSION</span><h2 id="glProgressionTitle">Hero Progression</h2></div><button type="button" class="gl-progression-close">Close</button></header><div class="gl-progression-row"></div><p>Select a Rank card to open Card Review.</p></section>';document.body.appendChild(progressionOverlay);
 const resultOverlay=document.createElement('div');resultOverlay.className='gl-result-overlay';resultOverlay.innerHTML='<section class="gl-result-card" role="dialog" aria-modal="true" aria-labelledby="glResultTitle"><header><span>GAME RESULT</span><h2 id="glResultTitle">Match Complete</h2></header><div class="gl-result-body"></div></section>';document.body.appendChild(resultOverlay);
@@ -110,48 +110,11 @@ const laneOrder=['LEFT','CENTER','RIGHT'];
 function st(){const snap=E()?.getSnapshot?.();return snap?.appState||snap?.state||snap||null;}
 function cv(id){return id?E().cardView(id):null;}
 function art(id){return id?'card-art/'+encodeURIComponent(id)+'.webp':'';}
-// RC41 artwork readiness: keep a bounded, decoded-image cache for cards the
-// Player is actually seeing/receiving. Never preload the opponent's hidden
-// Hand or alter the engine's Draw timing/identity.
-const glWarmArtCache=new Map();
-const glWarmArtLimit=window.matchMedia?.('(pointer:coarse)')?.matches?12:24;
-function cardArtSource(id){
-  const value=String(id||'');
-  return /^(?:card-art\/|\.\/card-art\/)/.test(value)?value.replace(/^\.\//,''):art(value);
-}
-function cardArtworkReady(id){return !!glWarmArtCache.get(cardArtSource(id))?.ready;}
-function warmCardArtwork(id){
-  if(!id)return Promise.resolve(false);
-  const src=cardArtSource(id),old=glWarmArtCache.get(src);
-  if(old){glWarmArtCache.delete(src);glWarmArtCache.set(src,old);return old.promise;}
-  const img=new Image();img.decoding='async';
-  const entry={img,ready:false,promise:null};
-  entry.promise=new Promise(resolve=>{
-    let done=false;
-    const settle=ok=>{if(done)return;done=true;entry.ready=!!ok;img.onload=null;img.onerror=null;resolve(!!ok);};
-    img.onload=()=>{
-      if(typeof img.decode==='function')img.decode().then(()=>settle(true),()=>settle(img.naturalWidth>0));
-      else settle(img.naturalWidth>0);
-    };
-    img.onerror=()=>settle(false);
-    img.src=src;
-    if(img.complete&&img.naturalWidth>0)img.onload();
-  });
-  glWarmArtCache.set(src,entry);
-  while(glWarmArtCache.size>glWarmArtLimit)glWarmArtCache.delete(glWarmArtCache.keys().next().value);
-  return entry.promise;
-}
-function guardPlayerHandArtwork(card,img,id){
-  // A decoded face replaces a card-back placeholder. The user never sees a
-  // blank/loading frame, even if the renderer rebuilds the Hand after a Draw.
-  if(cardArtworkReady(id))return;
-  card.classList.add('gl-hand-art-awaiting');
-  warmCardArtwork(id).then(ok=>{
-    if(!card.isConnected||card.dataset.glCardId!==id)return;
-    if(ok)card.classList.remove('gl-hand-art-awaiting');
-    else card.classList.add('gl-hand-art-unavailable');
-  });
-}
+// All face-up cards use the shared thumbnail-first loader. Only the already
+// authorized, visible draw identity is warmed; opponent hands remain face-down.
+const cardArtwork=window.GL_CARD_ART;
+function warmCardArtwork(id){return cardArtwork.warm(id);}
+function setCardArtwork(img,src){cardArtwork.set(img,src);}
 
 function shardArt(sh){const faces={Generic:'S0-MAN-001',Warrior:'S0-MAN-002',Mage:'S0-MAN-003',Cleric:'S0-MAN-004',Thief:'S0-MAN-005',Archer:'S0-MAN-006'};const name=sh&&sh.kind==='CLASS'?String(sh.class_name||'').trim():'Generic';return 'card-art/'+(faces[name]||faces.Generic)+'.webp';}
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
@@ -289,7 +252,7 @@ function backgroundPreviewSuppressed(anchor){return document.body.classList.cont
 function bindPreview(img){
   if(!img||img.dataset.glPreviewBound==='1')return;
   img.dataset.glPreviewBound='1';
-  img.addEventListener('mouseenter',()=>{if(backgroundPreviewSuppressed(img))return;preview.src=img.src;sharedBox.classList.add('previewing')});
+  img.addEventListener('mouseenter',()=>{if(backgroundPreviewSuppressed(img))return;setCardArtwork(preview,cardArtwork.original(img));sharedBox.classList.add('previewing')});
   img.addEventListener('mouseleave',()=>{sharedBox.classList.remove('previewing');preview.removeAttribute('src')});
 }
 /* Hover cards are temporary read-only previews: only the currently hovered
@@ -514,7 +477,7 @@ function placeBattlefieldHoverPreview(kind,anchor){
 }
 function bindBattlefieldPreview(img,kind,anchor){
   if(!img)return;const key='glBattlefieldPreview'+String(kind||'card');if(img.dataset[key]==='1')return;img.dataset[key]='1';
-  const show=()=>{if(backgroundPreviewSuppressed(anchor||img))return;promoteTemporaryCardPreview(battlefieldHoverPreview);battlefieldHoverSource=img;battlefieldHoverPreview.classList.toggle('is-hero',kind==='hero');battlefieldHoverImg.src=img.src;placeBattlefieldHoverPreview(kind,anchor||img);battlefieldHoverPreview.classList.add('open');battlefieldHoverPreview.setAttribute('aria-hidden','false')};
+  const show=()=>{if(backgroundPreviewSuppressed(anchor||img))return;promoteTemporaryCardPreview(battlefieldHoverPreview);battlefieldHoverSource=img;battlefieldHoverPreview.classList.toggle('is-hero',kind==='hero');setCardArtwork(battlefieldHoverImg,cardArtwork.original(img));placeBattlefieldHoverPreview(kind,anchor||img);battlefieldHoverPreview.classList.add('open');battlefieldHoverPreview.setAttribute('aria-hidden','false')};
   img.addEventListener('mouseenter',()=>{if(!hasUnifiedMobilePreviewStage())show()});
   img.addEventListener('mousemove',()=>{if(!hasUnifiedMobilePreviewStage()&&battlefieldHoverSource===img&&!backgroundPreviewSuppressed(anchor||img))placeBattlefieldHoverPreview(kind,anchor||img)});
   img.addEventListener('mouseleave',()=>{if(!hasUnifiedMobilePreviewStage()&&battlefieldHoverSource===img)hideBattlefieldHoverPreview()});
@@ -588,7 +551,7 @@ function placeSidebarHoverPreview(anchor){
 }
 function bindSidebarPreview(img){
   if(!img||img.dataset.glSidebarPreviewBound==='1')return;img.dataset.glSidebarPreviewBound='1';
-  const show=()=>{if(backgroundPreviewSuppressed(img))return;promoteTemporaryCardPreview(sidebarHoverPreview);sidebarHoverSource=img;sidebarHoverImg.src=img.src;placeSidebarHoverPreview(img);sidebarHoverPreview.classList.add('open');sidebarHoverPreview.setAttribute('aria-hidden','false')};
+  const show=()=>{if(backgroundPreviewSuppressed(img))return;promoteTemporaryCardPreview(sidebarHoverPreview);sidebarHoverSource=img;setCardArtwork(sidebarHoverImg,cardArtwork.original(img));placeSidebarHoverPreview(img);sidebarHoverPreview.classList.add('open');sidebarHoverPreview.setAttribute('aria-hidden','false')};
   img.addEventListener('mouseenter',()=>{if(!hasUnifiedMobilePreviewStage())show()});
   img.addEventListener('mousemove',()=>{if(!hasUnifiedMobilePreviewStage()&&!backgroundPreviewSuppressed(img))placeSidebarHoverPreview(img)});
   img.addEventListener('mouseleave',()=>{if(!hasUnifiedMobilePreviewStage())hideSidebarHoverPreview()});
@@ -629,7 +592,7 @@ function fixedChoicePreviewSlot(){return choiceOverlay.querySelector('.gl-choice
 function setFixedChoicePreview(src,alt){
   const slot=fixedChoicePreviewSlot();if(!slot)return false;
   const im=slot.querySelector('img');if(!im)return false;
-  im.src=src||'';im.alt=alt||'Card preview';slot.classList.toggle('has-card',!!src);return true;
+  setCardArtwork(im,src||'');im.alt=alt||'Card preview';slot.classList.toggle('has-card',!!src);return true;
 }
 function bindFixedChoicePreview(img,cardId){
   if(!img||img.dataset.glFixedChoicePreviewBound==='1')return;img.dataset.glFixedChoicePreviewBound='1';
@@ -658,7 +621,7 @@ function placeModalHoverPreview(anchor){
 }
 function bindModalPreview(img){
   if(!img||img.dataset.glModalPreviewBound==='1')return;img.dataset.glModalPreviewBound='1';
-  const show=()=>{if(backgroundPreviewSuppressed(img))return;modalHoverSource=img;modalHoverPreview.classList.remove('is-context-hero');modalHoverImg.src=img.src;placeModalHoverPreview(img);modalHoverPreview.classList.add('open');modalHoverPreview.setAttribute('aria-hidden','false')};
+  const show=()=>{if(backgroundPreviewSuppressed(img))return;modalHoverSource=img;modalHoverPreview.classList.remove('is-context-hero');setCardArtwork(modalHoverImg,cardArtwork.original(img));placeModalHoverPreview(img);modalHoverPreview.classList.add('open');modalHoverPreview.setAttribute('aria-hidden','false')};
   img.addEventListener('mouseenter',()=>{if(!hasUnifiedMobilePreviewStage())show()});
   img.addEventListener('mousemove',()=>{if(!hasUnifiedMobilePreviewStage()&&!backgroundPreviewSuppressed(img))placeModalHoverPreview(img)});
   img.addEventListener('mouseleave',()=>{if(!hasUnifiedMobilePreviewStage())hideModalHoverPreview()});
@@ -745,7 +708,7 @@ function bindClassChoiceHoverPreview(card,cardId,explicitArt=null){
     promoteTemporaryCardPreview(modalHoverPreview);
     modalHoverSource=card;
     modalHoverPreview.classList.remove('is-context-hero');
-    modalHoverImg.src=explicitArt||art(cardId);
+    setCardArtwork(modalHoverImg,explicitArt||art(cardId));
     placeClassChoiceHoverPreview(card);
     modalHoverPreview.classList.add('open');modalHoverPreview.setAttribute('aria-hidden','false');
   };
@@ -774,7 +737,7 @@ function bindClassChoiceHoverPreview(card,cardId,explicitArt=null){
 function bindContextualModalPreview(img,cardId){
   if(!img||img.dataset.glContextModalPreviewBound==='1')return;img.dataset.glContextModalPreviewBound='1';
   const v=cv(cardId),family=String(v?.family||v?.type||'').toLowerCase(),compactHero=/hero|legacy/.test(family)||/-(H\d{3}|L\d{3}|LEG)/i.test(String(cardId||''));
-  const show=()=>{if(backgroundPreviewSuppressed(img))return;promoteTemporaryCardPreview(modalHoverPreview);modalHoverSource=img;modalHoverImg.src=img.src;placeContextualModalHoverPreview(img,compactHero);modalHoverPreview.classList.add('open');modalHoverPreview.setAttribute('aria-hidden','false')};
+  const show=()=>{if(backgroundPreviewSuppressed(img))return;promoteTemporaryCardPreview(modalHoverPreview);modalHoverSource=img;setCardArtwork(modalHoverImg,cardArtwork.original(img));placeContextualModalHoverPreview(img,compactHero);modalHoverPreview.classList.add('open');modalHoverPreview.setAttribute('aria-hidden','false')};
   img.addEventListener('mouseenter',()=>{if(!hasUnifiedMobilePreviewStage())show()});
   img.addEventListener('mousemove',()=>{if(!hasUnifiedMobilePreviewStage()&&!backgroundPreviewSuppressed(img))placeContextualModalHoverPreview(img,compactHero)});
   img.addEventListener('mouseleave',()=>{if(!hasUnifiedMobilePreviewStage()){modalHoverPreview.classList.remove('is-context-hero');hideModalHoverPreview()}});
@@ -822,7 +785,7 @@ function openCardReview(cardId,options=null){
   body.dataset.glReviewKey=key;
   if(!window.GL_DB158_REVIEW?.mount?.(body,cardId,lobbyReviewProgressionIds)){
     let html='';try{html=window.GL_CARD_PREVIEW_QA?.html?.(cardId)||''}catch{}
-    body.innerHTML='<button type="button" class="gl-card-review-close" aria-label="Close card review">×</button>'+(html||('<img class="gl-card-review-image" src="'+esc(art(cardId))+'" alt="'+esc(v?.name||'Card Review')+'">'));
+    body.innerHTML='<button type="button" class="gl-card-review-close" aria-label="Close card review">×</button>'+(html||('<img class="gl-card-review-image" src="'+esc(cardArtwork.first(art(cardId)))+'" alt="'+esc(v?.name||'Card Review')+'">'));
     body.classList.add('gl-review-ready');
   }
   cardReviewOverlay.classList.add('open');
@@ -978,7 +941,7 @@ function renderInspectModal(){
   const title=choiceOverlay.querySelector('.gl-choice-title'),body=choiceOverlay.querySelector('.gl-choice-body'),confirm=choiceOverlay.querySelector('.gl-choice-confirm');
   title.textContent=inspectState.title;body.innerHTML='';
   if(inspectState.instruction){const p=document.createElement('p');p.className='choice-instruction';p.textContent=inspectState.instruction;body.appendChild(p)}
-  if(inspectState.ids.length){const grid=document.createElement('div');grid.className='choice-grid inspect-card-grid';inspectState.ids.forEach(id=>{const v=cv(id),b=document.createElement('button');b.type='button';b.className='gl-inspect-card';const im=document.createElement('img');im.src=art(id);im.alt=v?.name||id;im.draggable=false;const sp=document.createElement('span');sp.textContent=v?.name||id;b.append(im,sp);grid.appendChild(b);bindChoicePreview(im,id,inspectState.previewMode||'contextual')});body.appendChild(grid)}
+  if(inspectState.ids.length){const grid=document.createElement('div');grid.className='choice-grid inspect-card-grid';inspectState.ids.forEach(id=>{const v=cv(id),b=document.createElement('button');b.type='button';b.className='gl-inspect-card';const im=document.createElement('img');setCardArtwork(im,art(id));im.alt=v?.name||id;im.draggable=false;const sp=document.createElement('span');sp.textContent=v?.name||id;b.append(im,sp);grid.appendChild(b);bindChoicePreview(im,id,inspectState.previewMode||'contextual')});body.appendChild(grid)}
   else{const e=document.createElement('div');e.className='gl-inspect-empty';e.textContent='This pile is empty.';body.appendChild(e)}
   const cancel=choiceOverlay.querySelector('.gl-choice-cancel');
   if(cancel){cancel.hidden=true;cancel.onclick=null;}
@@ -1076,28 +1039,9 @@ function openLobbyHeroProgression(side,rankOneId){
 }
 function deckFormationHtml(side){
   const view=E()?.getLobbyFormationView?.(side)||{rank:1,lanes:{}},parts=[];
-  laneOrder.forEach((lane,index)=>{const row=view.lanes?.[lane]||{},id=row.previewId||row.rankOneId||'',v=cv(id),r1=row.rankOneId||id;parts.push('<article class="gl-lobby-hero"><button type="button" data-lobby-progression-side="'+esc(side)+'" data-lobby-progression="'+esc(r1)+'" aria-label="View '+esc(lane)+' Hero Progression">'+(id?'<img src="'+art(id)+'" alt="'+esc(v?.name||id)+'">':'<span class="gl-lobby-hero-empty">—</span>')+'</button><small>'+(lane.charAt(0)+lane.slice(1).toLowerCase())+'</small></article>');if(index<laneOrder.length-1){const next=laneOrder[index+1];parts.push('<button class="gl-lobby-swap" type="button" data-lobby-swap-side="'+esc(side)+'" data-lobby-swap-left="'+lane+'" data-lobby-swap-right="'+next+'" aria-label="Swap '+lane+' and '+next+'"><img src="engine/assets/lobby/Swap.png" alt="" aria-hidden="true"></button>')}});
+  laneOrder.forEach((lane,index)=>{const row=view.lanes?.[lane]||{},id=row.previewId||row.rankOneId||'',v=cv(id),r1=row.rankOneId||id;parts.push('<article class="gl-lobby-hero"><button type="button" data-lobby-progression-side="'+esc(side)+'" data-lobby-progression="'+esc(r1)+'" aria-label="View '+esc(lane)+' Hero Progression">'+(id?'<img src="'+cardArtwork.first(art(id))+'" alt="'+esc(v?.name||id)+'">':'<span class="gl-lobby-hero-empty">—</span>')+'</button><small>'+(lane.charAt(0)+lane.slice(1).toLowerCase())+'</small></article>');if(index<laneOrder.length-1){const next=laneOrder[index+1];parts.push('<button class="gl-lobby-swap" type="button" data-lobby-swap-side="'+esc(side)+'" data-lobby-swap-left="'+lane+'" data-lobby-swap-right="'+next+'" aria-label="Swap '+lane+' and '+next+'"><img src="engine/assets/lobby/Swap.png" alt="" aria-hidden="true"></button>')}});
   return '<div class="gl-lobby-formation">'+parts.join('')+'</div><div class="gl-lobby-rank-control" data-lobby-rank-side="'+esc(side)+'"><button type="button" data-lobby-rank-delta="-1" data-lobby-rank-side="'+esc(side)+'" aria-label="Previous rank">‹</button><strong>RANK '+['I','II','III'][Math.max(1,Math.min(3,Number(view.rank||1)))-1]+'</strong><button type="button" data-lobby-rank-delta="1" data-lobby-rank-side="'+esc(side)+'" aria-label="Next rank">›</button></div>';
 }
-// RC41 M01: one mobile Lobby navigation menu, not one menu per Deck.
-const lobbyGlobalToggle=document.getElementById('glLobbyGlobalToggle');
-const lobbyGlobalMenu=document.getElementById('glLobbyGlobalMenu');
-function closeGlobalLobbyMenu(){
-  if(lobbyGlobalMenu)lobbyGlobalMenu.hidden=true;
-  lobbyGlobalToggle?.setAttribute('aria-expanded','false');
-}
-lobbyGlobalToggle?.addEventListener('click',event=>{
-  event.stopPropagation();
-  const show=lobbyGlobalMenu.hidden;
-  lobbyGlobalMenu.hidden=!show;
-  lobbyGlobalToggle.setAttribute('aria-expanded',show?'true':'false');
-});
-lobbyOverlay.addEventListener('click',event=>{
-  if(!event.target.closest('.gl-lobby-global-nav'))closeGlobalLobbyMenu();
-});
-lobbyOverlay.addEventListener('keydown',event=>{
-  if(event.key==='Escape')closeGlobalLobbyMenu();
-});
 function renderLobby(){
   syncS0MusicForGameState();
   if(!lobbyIsOpen){lobbyOverlay.classList.remove('open');return}
@@ -1105,7 +1049,23 @@ function renderLobby(){
   const opts=B()?.getStarterDeckOptions?.()||{},state=E()?.getDeckSetupState?.()||{},difficulty=String(state.difficulty||E()?.getAIDifficulty?.()||'beginner'),keys=Object.keys(opts).slice(0,difficulty==='beginner'?3:5);
   const host=document.getElementById('glLobbyDecks'),err=document.getElementById('glLobbyError');if(!host||!err)return;err.textContent=lobbyErrorText||'';err.classList.toggle('show',!!lobbyErrorText);
   const sideBlock=(side,data)=>{const canImport=difficulty==='intermediate',selected=state.selectedDeckKey?.[side]||keys[0]||'',imported=canImport&&selected==='IMPORTED',optionHtml=keys.map(k=>'<option value="'+esc(k)+'" '+(selected===k?'selected':'')+'>'+esc(opts[k]?.label||k)+'</option>').join('')+(imported?'<option value="IMPORTED" selected>'+esc(data?.deck_name||'Imported Deck')+'</option>':'');const importControl=canImport?'<button class="gl-lobby-desktop-import" type="button" data-lobby-import="'+side+'">Import Deck</button><input type="file" data-lobby-file="'+side+'" accept="application/json,.json" hidden>':'';return '<section class="gl-lobby-deck" data-lobby-side="'+side+'"><header><h2>'+(side==='PLAYER'?'Player Deck':'AI Deck')+'</h2><span class="gl-lobby-valid">VALID</span></header><div class="gl-lobby-picker"><select aria-label="'+(side==='PLAYER'?'Player':'AI')+' deck selector" data-lobby-select="'+side+'">'+optionHtml+'</select>'+importControl+'</div>'+deckFormationHtml(side)+'</section>'};
-  host.innerHTML=sideBlock('PLAYER',state.player)+sideBlock('AI',state.ai);
+  // Cache the desired markup, not live HTML (the loader upgrades src in-place).
+  // Keep the opposite deck's DOM unchanged; keep same-side image nodes when
+  // their Hero identity has not changed, even during rank/formation changes.
+  for(const [side,data] of [['PLAYER',state.player],['AI',state.ai]]){
+    const html=sideBlock(side,data), prior=host.querySelector('[data-lobby-side="'+side+'"]');
+    if(prior?.__glLobbyMarkup===html)continue;
+    const template=document.createElement('template');template.innerHTML=html;
+    const next=template.content.firstElementChild;next.__glLobbyMarkup=html;
+    if(prior){
+      const available=new Map([...prior.querySelectorAll('.gl-lobby-hero img')].map(img=>[cardArtwork.id(cardArtwork.original(img)),img]));
+      next.querySelectorAll('.gl-lobby-hero img').forEach(img=>{
+        const key=cardArtwork.id(img.getAttribute('src')),reuse=available.get(key);
+        if(reuse){img.replaceWith(reuse);available.delete(key);}
+      });
+      prior.replaceWith(next);
+    }else host.appendChild(next);
+  }
   host.querySelectorAll('[data-lobby-select]').forEach(sel=>sel.onchange=()=>{const side=sel.dataset.lobbySelect,r=E().selectDeck?.(side,sel.value);if(!r?.ok)lobbyErrorText=r?.error||'Could not select deck.';else lobbyErrorText='';renderLobby()});
   host.querySelectorAll('[data-lobby-import]').forEach(btn=>btn.onclick=()=>{
     if(difficulty!=='intermediate')return;
@@ -1204,7 +1164,12 @@ function resetPresentationState(){
   for(const batch of [...glTrialReturnBatches])batch.cancel();
   glTrialReturnBatches.clear();animationLayer.querySelectorAll('.gl-trial-exp-flight').forEach(x=>x.remove());
   if(expInspectorLocation)closeExpInspector();glPresentationActive=0;glPresentationBusyUntil=0;glRankPresentationRunning=0;if(openingAiDecisionTimer!==null){clearTimeout(openingAiDecisionTimer);openingAiDecisionTimer=null;}openingCoinWinner=null;openingChosenOrder=null;cancelCompletedMatchRefresh();seenCounterMessages.clear();seenRacialMessages.clear();seenManaLossMessages.clear();seenDiscardMessages.clear();shownCompletedCounterChains.clear();currentCounterChainId='';counterChainRenderedSig='';clearTimeout(counterChainHoldTimer);counterChainHoldTimer=null;counterChainBanner.classList.remove('show');counterChainBanner.replaceChildren();presentationNoticeQueue.length=0;presentationNoticeActive=false;clearTimeout(counterBannerTimer);counterBanner.classList.remove('show','is-racial','is-mana','is-discard','is-card-art');counterBanner.style.removeProperty('--gl-notice-duration');presentationPrimed=false;previousVisualState=null;glDeferredTrialRankTransitions.length=0;glTrialHandFlightKeys.clear();glManualTrialReturnEventIds.clear();glPresentedTrialReturnEventIds.clear();seenPresentationEvents.clear();resolvedHistory=[];historyKnown.clear();activeCardHold=null;glPendingDrawReservations.PLAYER.length=0;glPendingDrawReservations.AI.length=0;glHiddenCommittedDrawSlots.PLAYER.clear();glHiddenCommittedDrawSlots.AI.clear();glOpeningHiddenShardUids.clear();glExternalDrawSequence=Promise.resolve();glExternalManaDrawSequence=Promise.resolve();glExternallyPresentedShardUids.clear();resultShown=false;resultOverlay.classList.remove('open');syncMatchActionButton(null);closeLobbyProgression();resetMatchTimer()}
-function startMatchFromLobby(){
+let glStartingLobby=false;
+async function startMatchFromLobby(){
+  if(glStartingLobby||!lobbyIsOpen)return;
+  glStartingLobby=true;const start=document.getElementById('glLobbyStart');if(start)start.disabled=true;
+  try{await cardArtwork.preloadAll();}finally{glStartingLobby=false;if(start)start.disabled=false;}
+  if(!lobbyIsOpen)return;
   lobbyErrorText='';syncS0MusicForGameState();const r=E().prepareLocalMatch?.();if(!r?.ok){lobbyErrorText=r?.error||'Could not start match.';renderLobby();return}
   resetPresentationState();lobbyIsOpen=false;lobbyOverlay.classList.remove('open');appRoot?.classList.add('gl-lobby-hidden');renderCoinChoice();syncS0MusicForGameState();
 }
@@ -1242,7 +1207,7 @@ function flyBetween(src,fromEl,toEl,duration=380,onFinish,playSound=true,ghost=f
   const reveal=!!(frontSrc&&!ghost),flyer=reveal?document.createElement('span'):document.createElement('img');
   flyer.className='gl-flying-card'+(ghost?' gl-return-ghost':'')+(reveal?' gl-draw-flip-flight':'');
   const im=reveal?document.createElement('img'):flyer;
-  im.src=src;im.alt='';if(reveal)flyer.appendChild(im);
+  setCardArtwork(im,src);im.alt='';if(reveal)flyer.appendChild(im);
   const start=mobileFlightRect(fr),end=mobileFlightRect(tr);
   if(ghost)flyer.style.opacity='.55';flyer.style.left=start.left+'px';flyer.style.top=start.top+'px';flyer.style.width=start.width+'px';flyer.style.height=start.height+'px';animationLayer.appendChild(flyer);
   if(playSound)E()?.playCardMotionSound?.();
@@ -1251,14 +1216,14 @@ function flyBetween(src,fromEl,toEl,duration=380,onFinish,playSound=true,ghost=f
     const half=Math.max(35,Math.min(65,Math.round(duration*.17))),start=Math.max(25,Math.round(duration*.38));
     const launchedAt=performance.now();
     setTimeout(()=>{
-      // Never flip a card to a face that has not loaded/decoded yet. If the
-      // network is slow, land as a back and let the Hand's decoded front appear.
+      // Only reveal after the bundled thumbnail has decoded. Full-size network
+      // loading must not delay a reveal, and landing Hand cards never use a back placeholder.
       artworkReady.then(ok=>{
         if(!ok||!flyer.isConnected||performance.now()-launchedAt>duration-2*half-16)return;
         im.style.transition='transform '+half+'ms ease-in';im.style.transform='rotateY(90deg)';
         setTimeout(()=>{
           if(!flyer.isConnected)return;
-          im.src=frontSrc;im.style.transition='none';im.style.transform='rotateY(-90deg)';void im.offsetWidth;
+          setCardArtwork(im,frontSrc);im.style.transition='none';im.style.transform='rotateY(-90deg)';void im.offsetWidth;
           im.style.transition='transform '+half+'ms ease-out';im.style.transform='rotateY(0deg)';
         },half);
       });
@@ -1280,7 +1245,7 @@ function flyPublicSelectedPickup(event,fromEl,toEl,onFinish){
   const hold=mobileFlightRect({left:visualLeft,top:visualTop,width:visualW,height:visualH});
   const origin=from&&from.width>=1?from:{left:target.left,top:target.top,width:target.width,height:target.height};
   glPresentationActive++;glPresentationBusyUntil=Math.max(glPresentationBusyUntil,Date.now()+3200);
-  const img=document.createElement('img');img.className='gl-flying-card gl-public-pickup-reveal';img.src=art(event.card_id);img.alt='';img.draggable=false;
+  const img=document.createElement('img');img.className='gl-flying-card gl-public-pickup-reveal';setCardArtwork(img,art(event.card_id));img.alt='';img.draggable=false;
   const launch=mobileFlightRect(origin);img.style.left=launch.left+'px';img.style.top=launch.top+'px';img.style.width=launch.width+'px';img.style.height=launch.height+'px';
   img.style.transform='rotateY(0deg)';animationLayer.appendChild(img);
   E()?.playCardMotionSound?.();
@@ -1328,7 +1293,7 @@ function flyToHeroOrientation(src,fromEl,toEl,side,lane,duration=390,onFinish,pl
   const targetLeft=tcx-targetW/2,targetTop=tcy-targetH/2,rot=exhausted?-90:0;
   glPresentationActive++;glPresentationBusyUntil=Math.max(glPresentationBusyUntil,Date.now()+60);
   const im=document.createElement('img');
-  const launch=mobileFlightRect(fr);im.className='gl-flying-card';im.src=src;im.style.left=launch.left+'px';im.style.top=launch.top+'px';im.style.width=launch.width+'px';im.style.height=launch.height+'px';im.style.transform='rotate(0deg)';im.style.transformOrigin='center center';
+  const launch=mobileFlightRect(fr);im.className='gl-flying-card';setCardArtwork(im,src);im.style.left=launch.left+'px';im.style.top=launch.top+'px';im.style.width=launch.width+'px';im.style.height=launch.height+'px';im.style.transform='rotate(0deg)';im.style.transformOrigin='center center';
   animationLayer.appendChild(im);if(playSound)E()?.playCardMotionSound?.();
   requestAnimationFrame(()=>requestAnimationFrame(()=>{
     im.style.transition='left '+duration+'ms cubic-bezier(.2,.75,.2,1),top '+duration+'ms cubic-bezier(.2,.75,.2,1),transform '+duration+'ms cubic-bezier(.2,.75,.2,1),opacity '+duration+'ms ease,width '+duration+'ms ease,height '+duration+'ms ease';
@@ -1453,7 +1418,7 @@ function runAtomicTrialReturnBatch(side,items,onComplete){
     const duration=440,fragment=document.createDocumentFragment();
     movements.forEach(m=>{
       const im=document.createElement('img');im.className='gl-flying-card gl-trial-exp-flight';
-      im.src=m.src;im.style.left=m.fr.left+'px';im.style.top=m.fr.top+'px';
+      setCardArtwork(im,m.src);im.style.left=m.fr.left+'px';im.style.top=m.fr.top+'px';
       im.style.width=m.fr.width+'px';im.style.height=m.fr.height+'px';
       im.style.translate='0px 0px';fragment.appendChild(im);clones.push(im);
     });
@@ -1559,8 +1524,7 @@ function runTributeLikeHeroAction(p,side,lane){
 // pending choices, or an inferred drop in the token count.
 function glPublicCardArtwork(cardId){
   const img=document.createElement('img');img.className='gl-public-card-art';img.draggable=false;
-  img.src=art(cardId);img.alt=cv(cardId)?.name||'Card';img.title=img.alt;
-  img.addEventListener('error',()=>{if(img.dataset.fallback==='1')return;img.dataset.fallback='1';img.src='assets/ui/back-main.webp'});
+  setCardArtwork(img,art(cardId));img.alt=cv(cardId)?.name||'Card';img.title=img.alt;
   return img;
 }
 function showNextPresentationNotice(){
@@ -1778,7 +1742,7 @@ function preparePresentationTargets(plan){
   (plan.heroTransitions||[]).concat(glDeferredTrialRankTransitions).filter(x=>x.kind==='rank').forEach(x=>{
     const hero=heroCardEl(x.side,x.lane),lane=uiLaneElement(x.side,x.lane),pack=hero?.closest('.gl-hero-physical-stack');
     hero?.classList.add('gl-presentation-hidden');lane?.classList.add('gl-rank-transitioning');
-    if(pack&&x.fromId&&!pack.querySelector(':scope > .gl-rank-old-hero')){const old=document.createElement('img');old.className='gl-rank-old-hero';old.src=art(x.fromId);old.alt='Previous Hero Rank';old.draggable=false;pack.appendChild(old)}
+    if(pack&&x.fromId&&!pack.querySelector(':scope > .gl-rank-old-hero')){const old=document.createElement('img');old.className='gl-rank-old-hero';setCardArtwork(old,art(x.fromId));old.alt='Previous Hero Rank';old.draggable=false;pack.appendChild(old)}
   });
 }
 function runPresentationPlan(plan,s){
@@ -2196,7 +2160,7 @@ function renderPool(host,countEl,pool,side){
     wrap.dataset.uid=sh.uid||'';wrap.dataset.shardKind=sh?.kind||'';
     const im=wrap.querySelector(':scope > img')||document.createElement('img');
     const src=(blindOpponent&&!blindInCenter)?'assets/ui/back-shard.webp':shardArt(sh);
-    if(im.getAttribute('src')!==src)im.src=src;
+    setCardArtwork(im,src);
     im.alt=(blindOpponent&&!blindInCenter)?'Face-down opponent Shard':((sh.class_name||'Mana')+' Shard');
     if(im.parentElement!==wrap)wrap.appendChild(im);
     // Retain the same image node (and its long-press listener), including when
@@ -2340,7 +2304,7 @@ function centerChoiceDestinationForZone(side,type){
 function centerChoiceCardHtml({key,front,back,faceUp=false,selected=false,clickable=false,concealed=false,label='',idx=-1,uid=''}) {
   // Concealed opponent Hand choices are single-sided: a hidden Card ID must
   // never generate or load a front-face image, even on selection/hover.
-  const frontHtml=concealed?'':'<span class="gl-center-choice-face gl-center-choice-front"><img src="'+esc(front||back||'assets/ui/back-main.webp')+'" alt="'+esc(label||'Card')+'"></span>';
+  const frontHtml=concealed?'':'<span class="gl-center-choice-face gl-center-choice-front"><img src="'+esc(cardArtwork.first(front||back||'assets/ui/back-main.webp'))+'" alt="'+esc(label||'Card')+'"></span>';
   return '<button type="button" class="gl-center-choice-card'+(faceUp?' is-face-up':'')+(selected?' is-selected':'')+(clickable?' is-clickable':'')+(concealed?' is-concealed':'')+'" data-choice-key="'+esc(key)+'" data-choice-index="'+idx+'" data-choice-uid="'+esc(uid)+'" '+(clickable?'':'tabindex="-1"')+' aria-label="'+esc(label||'Card')+'"><span class="gl-center-choice-flip"><span class="gl-center-choice-face gl-center-choice-back"><img src="'+esc(back||'assets/ui/back-main.webp')+'" alt=""></span>'+frontHtml+'</span></button>';
 }
 function animateCenterChoiceEntrance(origin,mode='',p=null){
@@ -2858,7 +2822,7 @@ function renderExpInspector(){
   data.forEach(({id,view},index)=>{
     const ultimate=!!view?.isUltimate,card=document.createElement('button');card.type='button';card.className='gl-exp-inspector-card';
     card.dataset.expCardId=id;card.dataset.expIndex=String(index);
-    const img=document.createElement('img');img.src=art(id);img.alt=view?.name||id;img.draggable=false;
+    const img=document.createElement('img');setCardArtwork(img,art(id));img.alt=view?.name||id;img.draggable=false;
     const name=document.createElement('strong');name.textContent=view?.name||id;
     const sub=document.createElement('span');sub.textContent=(ultimate?'ULTIMATE - 200 EXP (cannot return)':'SKILL - 100 EXP');
     card.append(img,name,sub);card.addEventListener('click',ev=>{ev.preventDefault();ev.stopPropagation();closeExpInspector();openCardReview(id)});
@@ -2907,14 +2871,14 @@ function renderHero(side,lane,h,s){
      !hc.classList.contains('gl-presentation-hidden'))
     laneEl.classList.remove('gl-rank-transitioning');
   const id=heroImageId(h),v=cv(id);let img=hc.querySelector(':scope > img');if(!img){img=document.createElement('img');hc.prepend(img)}
-  if(id&&img.getAttribute('src')!==art(id))img.src=art(id);img.alt=v?.name||'Hero';img.classList.add('heroImg');bindBattlefieldPreview(img,'hero',hc);
+  if(id)setCardArtwork(img,art(id));img.alt=v?.name||'Hero';img.classList.add('heroImg');bindBattlefieldPreview(img,'hero',hc);
   // HP/state UI belongs to the lane overlay and never rotates with the physical Hero package.
   // Legacy is not a Hero and has no HP. Match the VS AI renderer: never show an HP bar / 0/0 in Legacy Mode.
   hc.querySelector(':scope > .hp')?.remove();
   const legacyMode=!!h?.legacy_mode;
   laneEl.classList.toggle('gl-legacy-slot',legacyMode);
   laneEl.querySelector(':scope > .gl-legacy-under-hero')?.remove();
-  if(legacyMode){const under=h?.defeated_hero_snapshot?.card_id||h?.original_hero_card_id;if(under){const info=document.createElement('button');info.type='button';info.className='gl-legacy-under-hero';info.textContent='!';info.title='Hover to view Hero under this Legacy';info.setAttribute('aria-label','Hover to view Hero under this Legacy');const showUnder=()=>{img.src=art(under);img.alt=cv(under)?.name||'Hero under Legacy';laneEl.classList.add('gl-legacy-peek')};const restoreLegacy=()=>{img.src=art(id);img.alt=v?.name||'Legacy';laneEl.classList.remove('gl-legacy-peek')};info.addEventListener('mouseenter',showUnder);info.addEventListener('mouseleave',restoreLegacy);info.addEventListener('focus',showUnder);info.addEventListener('blur',restoreLegacy);info.onclick=e=>{e.preventDefault();e.stopPropagation()};laneEl.appendChild(info)}}
+  if(legacyMode){const under=h?.defeated_hero_snapshot?.card_id||h?.original_hero_card_id;if(under){const info=document.createElement('button');info.type='button';info.className='gl-legacy-under-hero';info.textContent='!';info.title='Hover to view Hero under this Legacy';info.setAttribute('aria-label','Hover to view Hero under this Legacy');const showUnder=()=>{setCardArtwork(img,art(under));img.alt=cv(under)?.name||'Hero under Legacy';laneEl.classList.add('gl-legacy-peek')};const restoreLegacy=()=>{setCardArtwork(img,art(id));img.alt=v?.name||'Legacy';laneEl.classList.remove('gl-legacy-peek')};info.addEventListener('mouseenter',showUnder);info.addEventListener('mouseleave',restoreLegacy);info.addEventListener('focus',showUnder);info.addEventListener('blur',restoreLegacy);info.onclick=e=>{e.preventDefault();e.stopPropagation()};laneEl.appendChild(info)}}
   let hp=laneEl.querySelector(':scope > .gl-hp-overlay');
   if(legacyMode){ if(hp)hp.remove(); hp=null; }
   else{
@@ -3021,7 +2985,27 @@ function attachmentCounterValue(h,id,side,lane,slot,s){
   const status=(h?.statuses||[]).find(x=>x&&(x.card_id===id||x.source_card_id===id||x.source===id||(Array.isArray(x.sources)&&x.sources.includes(id))));
   v=first(status,['counters','remaining_count','remaining_turns','turns_remaining','duration','remaining'],false);return v==null?0:Math.min(6,v);
 }
-function renderAttachments(laneEl,h,side,lane,s){laneEl.querySelectorAll('.attachment-card').forEach(x=>x.remove());const at=h?.attachments||[];at.slice(0,2).forEach((entry,slot)=>{const id=typeof entry==='string'?entry:entry?.card_id;if(!id)return;const v=cv(id),d=document.createElement('div');d.className='attachment-card '+(slot===0?'left':'right');d.dataset.glCardId=id;d.dataset.glAttachmentSide=side;d.dataset.glAttachmentLane=lane;d.dataset.glAttachmentSlot=String(slot);const activeCasting=castingForAttachment(s,h,id,side,lane,slot);if(activeCasting){d.classList.add('gl-casting-active');d.dataset.glCastingHue=castingAttachmentColor(s,activeCasting);}if(activeSelfHostAttachment(s,h,side,lane)?.card_id===id)d.classList.add('gl-self-attachment-active');const im=document.createElement('img');im.src=art(id);im.alt=v?.name||'Attachment';d.appendChild(im);const counter=attachmentCounterValue(h,id,side,lane,slot,s);const timed=(s?.activeAttachments||[]).some(a=>a&&a.card_id===id&&a.side===side&&Number(a.slot)===slot&&(a.lane===lane||!a.lane)&&a.counter_mode!=='progress'&&Number(a.initial_count)>0&&a.remaining_count!=null);if(counter>0||timed||!!castingForAttachment(s,h,id,side,lane,slot)){const c=document.createElement('span');c.className='attachment-turn';c.textContent=counter;c.setAttribute('aria-label',(v?.name||'Attachment')+' counter '+counter);d.appendChild(c)}laneEl.appendChild(d);bindBattlefieldPreview(im,'attachment',d)});}
+function renderAttachments(laneEl,h,side,lane,s){
+  const rows=(h?.attachments||[]).slice(0,2).map((entry,slot)=>{
+    const id=typeof entry==='string'?entry:entry?.card_id;if(!id)return null;
+    const activeCasting=castingForAttachment(s,h,id,side,lane,slot);
+    const counter=attachmentCounterValue(h,id,side,lane,slot,s);
+    const timed=(s?.activeAttachments||[]).some(a=>a&&a.card_id===id&&a.side===side&&Number(a.slot)===slot&&(a.lane===lane||!a.lane)&&a.counter_mode!=='progress'&&Number(a.initial_count)>0&&a.remaining_count!=null);
+    return {id,slot,counter,show:counter>0||timed||!!activeCasting,casting:!!activeCasting,hue:activeCasting?castingAttachmentColor(s,activeCasting):'',self:activeSelfHostAttachment(s,h,side,lane)?.card_id===id};
+  }).filter(Boolean);
+  const prior=new Map([...laneEl.querySelectorAll(':scope > .attachment-card')].map(d=>[d.dataset.glAttachmentSlot,d]));
+  rows.forEach(row=>{
+    const {id,slot,counter,show,casting,hue,self}=row,key=String(slot),v=cv(id);
+    let d=prior.get(key);prior.delete(key);
+    if(d&&d.dataset.glCardId!==id){if(battlefieldHoverSource&&d.contains(battlefieldHoverSource))hideBattlefieldHoverPreview();d.remove();d=null;}
+    if(!d){d=document.createElement('div');d.className='attachment-card '+(slot===0?'left':'right');d.dataset.glCardId=id;d.dataset.glAttachmentSide=side;d.dataset.glAttachmentLane=lane;d.dataset.glAttachmentSlot=key;const im=document.createElement('img');setCardArtwork(im,art(id));im.alt=v?.name||'Attachment';d.appendChild(im);laneEl.appendChild(d);bindBattlefieldPreview(im,'attachment',d);}
+    d.classList.toggle('gl-casting-active',casting);if(casting)d.dataset.glCastingHue=hue;else delete d.dataset.glCastingHue;
+    d.classList.toggle('gl-self-attachment-active',self);
+    let c=d.querySelector(':scope > .attachment-turn');
+    if(show){if(!c){c=document.createElement('span');c.className='attachment-turn';d.appendChild(c);}c.textContent=counter;c.setAttribute('aria-label',(v?.name||'Attachment')+' counter '+counter);}else c?.remove();
+  });
+  prior.forEach(d=>{if(battlefieldHoverSource&&d.contains(battlefieldHoverSource))hideBattlefieldHoverPreview();d.remove();});
+}
 function renderStatuses(laneEl,h,s,side,lane,delayExhaust){
   laneEl.querySelector('.gl-status-stack')?.remove();
   const statuses=h?.statuses||[],negative=statuses.map((x,idx)=>({x,idx,name:getStatusName(x)})).filter(o=>negativeStatusName(o.name));
@@ -3307,7 +3291,7 @@ function renderCombatStacks(s){
     arr.forEach((a,i)=>{
       const v=cv(a.card_id);if(!v)return;
       const c=document.createElement('div');c.className='gl-combat-card';c.style.setProperty('--gl-stack-y',(i*13)+'px');c.style.setProperty('--gl-stack-i',String(i));
-      const im=document.createElement('img');im.src=art(a.card_id);im.alt=v.name;c.appendChild(im);c.addEventListener('dblclick',e=>{e.preventDefault();e.stopPropagation();openCardReview(a.card_id)});stack.appendChild(c);bindPreview(im);
+      const im=document.createElement('img');setCardArtwork(im,art(a.card_id));im.alt=v.name;c.appendChild(im);c.addEventListener('dblclick',e=>{e.preventDefault();e.stopPropagation();openCardReview(a.card_id)});stack.appendChild(c);bindPreview(im);
     });
     host.appendChild(stack);
   });
@@ -3518,9 +3502,9 @@ function renderHand(s){
     }
     if(actionCount)card.classList.add('gl-has-action');
     card.appendChild(actions);card.dataset.glCardId=id;
-    const im=document.createElement('img');im.className='hand-art';im.decoding='async';im.loading='eager';im.src=art(id);im.alt=v?.name||'Card';im.draggable=false;
+    const im=document.createElement('img');im.className='hand-art';im.decoding='async';im.loading='eager';setCardArtwork(im,art(id));im.alt=v?.name||'Card';im.draggable=false;
     card.appendChild(im);bindBattlefieldPreview(im,'hand',card);bindBattlefieldHandHover(card);card.ondblclick=e=>{e.preventDefault();e.stopPropagation();if(!choiceOverlay.classList.contains('gl-choice-to-hand'))openCardReview(id)};
-    playerHandTrack.appendChild(card);guardPlayerHandArtwork(card,im,id);
+    playerHandTrack.appendChild(card);
   });
   pendingDraws.forEach((r,i)=>{
     const idx=(s.playerHand||[]).length+i,slot=document.createElement('div');slot.className='hand-card gl-draw-reservation-slot gl-presentation-hidden';slot.dataset.handIndex=idx;slot.dataset.drawReservationId=String(r.id||'');
@@ -3574,15 +3558,14 @@ function renderOpponentHand(s){
     // Player Hand already displays its card fronts; expose AI Hand only now.
     (s.aiHand||[]).forEach((id,i)=>{
       const card=document.createElement('div');card.className='hand-card';card.dataset.handIndex=i;
-      const im=document.createElement('img');im.className='hand-art';im.src=art(id);im.alt=cv(id)?.name||'AI Hand card';im.draggable=false;
-      im.addEventListener('error',()=>{if(im.dataset.fallback==='1')return;im.dataset.fallback='1';im.src='assets/ui/back-main.webp'});
+      const im=document.createElement('img');im.className='hand-art';setCardArtwork(im,art(id));im.alt=cv(id)?.name||'AI Hand card';im.draggable=false;
       card.appendChild(im);card.ondblclick=e=>{e.preventDefault();e.stopPropagation();openCardReview(id)};
       oppHandTrack.appendChild(card);bindPreview(im);
     });
   }else if(choice){
-    (p.candidates||[]).forEach((x,i)=>{const card=document.createElement('div');card.className='hand-card';card.dataset.handIndex=i;const im=document.createElement('img');im.className='hand-art';im.src=reveal?art(x.card_id):'assets/ui/back-main.webp';card.appendChild(im);card.style.cursor='pointer';card.onclick=e=>{if(e.detail>1)return;intent('selectOpponentHandChoice',[i])};if(reveal)card.ondblclick=e=>{e.preventDefault();e.stopPropagation();openCardReview(x.card_id)};oppHandTrack.appendChild(card);if(reveal)bindPreview(im)});
+    (p.candidates||[]).forEach((x,i)=>{const card=document.createElement('div');card.className='hand-card';card.dataset.handIndex=i;const im=document.createElement('img');im.className='hand-art';setCardArtwork(im,reveal?art(x.card_id):'assets/ui/back-main.webp');card.appendChild(im);card.style.cursor='pointer';card.onclick=e=>{if(e.detail>1)return;intent('selectOpponentHandChoice',[i])};if(reveal)card.ondblclick=e=>{e.preventDefault();e.stopPropagation();openCardReview(x.card_id)};oppHandTrack.appendChild(card);if(reveal)bindPreview(im)});
   }else if(scopeReveal){
-    (p.revealed_cards||[]).forEach((id,i)=>{const card=document.createElement('div');card.className='hand-card';card.dataset.handIndex=i;const im=document.createElement('img');im.className='hand-art';im.src=art(id);card.appendChild(im);card.ondblclick=e=>{e.preventDefault();e.stopPropagation();openCardReview(id)};oppHandTrack.appendChild(card);bindPreview(im)});
+    (p.revealed_cards||[]).forEach((id,i)=>{const card=document.createElement('div');card.className='hand-card';card.dataset.handIndex=i;const im=document.createElement('img');im.className='hand-art';setCardArtwork(im,art(id));card.appendChild(im);card.ondblclick=e=>{e.preventDefault();e.stopPropagation();openCardReview(id)};oppHandTrack.appendChild(card);bindPreview(im)});
   }else{
     // Normal Draw and all other non-reveal states still show card backs only.
     (s.aiHand||[]).forEach((_,i)=>{const card=document.createElement('div');card.className='hand-card';card.dataset.handIndex=i;if(glHiddenCommittedDrawSlots.AI.has(i))card.classList.add('gl-presentation-hidden');const im=document.createElement('img');im.className='hand-art';im.src='assets/ui/back-main.webp';im.alt='Hidden card';card.appendChild(im);oppHandTrack.appendChild(card)});
@@ -3698,7 +3681,7 @@ function renderSidebar(s,chain){
   const active=live||activeCardHold,activeKey=active?[active.card_id,active.side].join('|'):'empty';
   if(activeStage.dataset.activeKey!==activeKey){
     hideSidebarHoverPreview();activeStage.dataset.activeKey=activeKey;activeStage.innerHTML='';
-    if(active?.card_id){const v=cv(active.card_id),d=document.createElement('div');d.className='active-card-visual';const im=document.createElement('img');im.src=art(active.card_id);im.alt=v?.name||'Active card';d.appendChild(im);const owner=document.createElement('span');owner.className='active-owner';owner.textContent=active.side==='PLAYER'?'YOU':'OPPONENT';d.appendChild(owner);activeStage.appendChild(d);bindSidebarPreview(im)}
+    if(active?.card_id){const v=cv(active.card_id),d=document.createElement('div');d.className='active-card-visual';const im=document.createElement('img');setCardArtwork(im,art(active.card_id));im.alt=v?.name||'Active card';d.appendChild(im);const owner=document.createElement('span');owner.className='active-owner';owner.textContent=active.side==='PLAYER'?'YOU':'OPPONENT';d.appendChild(owner);activeStage.appendChild(d);bindSidebarPreview(im)}
     else activeStage.innerHTML='<div class="gl-active-empty">No active card</div>';
   }
   renderHistory(s,chain);renderLog(s);
@@ -3728,7 +3711,7 @@ function renderHistory(s,chain){
   const draw=(host,arr,keepSix=false)=>{
     const sig=JSON.stringify(arr.map(e=>[e.id||'',e.side||'',e.card_id||'',Number(e.timestamp||0),e.resolution_state||'',e.card_movement_only?'DISCARDED':'']))+'|six:'+String(!!keepSix);
     if(host.dataset.glHistorySig===sig)return false;hideSidebarHoverPreview();host.dataset.glHistorySig=sig;host.innerHTML='';
-    arr.forEach(e=>{const v=cv(e.card_id);if(!v)return;const d=document.createElement('button');d.type='button';d.className='played-card gl-played-clickable'+(e.card_movement_only?' gl-played-discarded':'');d.title=e.card_movement_only?'View discarded card':'View Card Played detail';const im=document.createElement('img');im.src=art(e.card_id);im.alt=v.name;im.draggable=false;d.appendChild(im);const badge=document.createElement('span');badge.className='gl-played-result-badge '+(e.side==='PLAYER'?'is-you':'is-opponent');badge.textContent=e.side==='PLAYER'?'YOU':'OPPONENT';d.appendChild(badge);if(e.card_movement_only){const label=document.createElement('span');label.className='gl-played-discard-label';label.textContent='DISCARDED';d.appendChild(label);}d.addEventListener('click',ev=>{ev.preventDefault();ev.stopPropagation();hideSidebarHoverPreview();openPlayedDetail(e.side,e.id)});host.appendChild(d);bindSidebarPreview(im)});
+    arr.forEach(e=>{const v=cv(e.card_id);if(!v)return;const d=document.createElement('button');d.type='button';d.className='played-card gl-played-clickable'+(e.card_movement_only?' gl-played-discarded':'');d.title=e.card_movement_only?'View discarded card':'View Card Played detail';const im=document.createElement('img');setCardArtwork(im,art(e.card_id));im.alt=v.name;im.draggable=false;d.appendChild(im);const badge=document.createElement('span');badge.className='gl-played-result-badge '+(e.side==='PLAYER'?'is-you':'is-opponent');badge.textContent=e.side==='PLAYER'?'YOU':'OPPONENT';d.appendChild(badge);if(e.card_movement_only){const label=document.createElement('span');label.className='gl-played-discard-label';label.textContent='DISCARDED';d.appendChild(label);}d.addEventListener('click',ev=>{ev.preventDefault();ev.stopPropagation();hideSidebarHoverPreview();openPlayedDetail(e.side,e.id)});host.appendChild(d);bindSidebarPreview(im)});
     if(keepSix){for(let i=host.children.length;i<6;i++){const ph=document.createElement('div');ph.className='played-card gl-played-placeholder';host.appendChild(ph)}}
     return true;
   };
@@ -3755,7 +3738,7 @@ function renderLog(s){
 function choiceCardTile(id,idx,selected,selectHandler,previewMode='contextual'){
   const v=cv(id),article=document.createElement('article');article.className='card-search-choice'+(selected?' selected':'');
   const previewBtn=document.createElement('button');previewBtn.type='button';previewBtn.className='discard-preview';
-  const im=document.createElement('img');im.src=v?.thumb||art(id);im.alt=(v?.name||id)+' thumbnail';previewBtn.appendChild(im);
+  const im=document.createElement('img');setCardArtwork(im,v?.thumb||art(id));im.alt=(v?.name||id)+' thumbnail';previewBtn.appendChild(im);
   const name=document.createElement('span');name.textContent=v?.name||id;previewBtn.appendChild(name);bindChoicePreview(im,id,previewMode);
   const select=document.createElement('button');select.type='button';select.className='discard-select';select.textContent=selected?'Selected':'Select';select.onclick=selectHandler;
   article.append(previewBtn,select);return article;
@@ -4005,7 +3988,7 @@ function renderAllowedModal(s){
         back.loading='eager';frame.appendChild(back);
         frame.classList.add('is-legacy-back');
       }else if(id){
-        const im=document.createElement('img');im.src=art(id);
+        const im=document.createElement('img');setCardArtwork(im,art(id));
         im.alt=(cv(id)?.name||id)+(swapPreviewIsLegacy(hero)?' Legacy':' Hero')+' at '+actualLane;
         im.loading='eager';frame.appendChild(im);
       }else{
@@ -4073,7 +4056,7 @@ function renderAllowedModal(s){
     confirm.textContent='Confirm Legacy Choice';confirm.disabled=(p.selected_indices||[]).length!==req && !(req===1&&typeof p.selected_index==='number');
   }else{
     (p.selected_order||[]).forEach((raw,i)=>{const id=typeof raw==='string'?raw:raw.card_id,v=cv(id),article=document.createElement('article');article.className='discard-choice';
-      const pb=document.createElement('button');pb.type='button';pb.className='discard-preview';const im=document.createElement('img');im.src=v?.thumb||art(id);im.alt=(v?.name||id)+' thumbnail';pb.appendChild(im);const sp=document.createElement('span');sp.textContent='#'+(i+1)+' '+(v?.name||id);pb.appendChild(sp);bindChoicePreview(im,id,'fixed');
+      const pb=document.createElement('button');pb.type='button';pb.className='discard-preview';const im=document.createElement('img');setCardArtwork(im,v?.thumb||art(id));im.alt=(v?.name||id)+' thumbnail';pb.appendChild(im);const sp=document.createElement('span');sp.textContent='#'+(i+1)+' '+(v?.name||id);pb.appendChild(sp);bindChoicePreview(im,id,'fixed');
       const buttons=document.createElement('div');buttons.className='choice-footer-buttons';
       const up=document.createElement('button');up.type='button';up.textContent='Up';up.disabled=i===0;up.onclick=()=>intent('moveCrystalBallOrder',[i+':up']);
       const down=document.createElement('button');down.type='button';down.textContent='Down';down.disabled=i===(p.selected_order||[]).length-1;down.onclick=()=>intent('moveCrystalBallOrder',[i+':down']);
@@ -4128,7 +4111,7 @@ function renderRails(s){
   if(oppZones[1])oppZones[1].querySelector('.count').textContent=(s.aiDiscard||[]).length;
   if(document.querySelector('.opponent-right-rail .zone:nth-child(1) .count'))document.querySelector('.opponent-right-rail .zone:nth-child(1) .count').textContent=(s.aiManaDeck||[]).length;
   if(document.querySelector('.opponent-right-rail .zone:nth-child(2) .count'))document.querySelector('.opponent-right-rail .zone:nth-child(2) .count').textContent=(s.aiLegacy||[]).length;
-  const setTop=(selector,arr,back,{emptyBlank=false}={})=>{const zone=document.querySelector(selector),im=zone?.querySelector('img.zoneCard, img');if(!im)return;const id=arr?.[arr.length-1];if(!id&&emptyBlank){im.removeAttribute('src');im.style.visibility='hidden';zone?.classList.add('gl-empty-discard');return}im.style.visibility='';zone?.classList.remove('gl-empty-discard');im.src=id?art(id):back;};
+  const setTop=(selector,arr,back,{emptyBlank=false}={})=>{const zone=document.querySelector(selector),im=zone?.querySelector('img.zoneCard, img');if(!im)return;const id=arr?.[arr.length-1];if(!id&&emptyBlank){im.removeAttribute('src');im.style.visibility='hidden';zone?.classList.add('gl-empty-discard');return}im.style.visibility='';zone?.classList.remove('gl-empty-discard');setCardArtwork(im,id?art(id):back);};
   setTop('.player-right-rail .zone:nth-child(1)',s.playerDiscard,'assets/ui/back-main.webp',{emptyBlank:true});
   setTop('.opponent-left-rail .zone:nth-child(3)',s.aiDiscard,'assets/ui/back-main.webp',{emptyBlank:true});
   renderRegenCounter('PLAYER',s.manaRegen);renderRegenCounter('AI',s.aiManaRegen);renderRacialTokens(s);

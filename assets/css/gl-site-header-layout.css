@@ -1,0 +1,108 @@
+/* Grandis Legacy S0 | Shared application-header geometry.
+ * Opt in with .gl-site-app-header and direct .gl-site-brand, .gl-site-app-title,
+ * .gl-site-app-nav children. Button colors and hover belong to gl-site-navigation.css.
+ * For a scaled/rotated landscape lobby, set .gl-site-app-header-logical on the header.
+ * VS AI currently opts in; PvP can adopt these classes in its own release.
+ * Deck Builder and existing Homepage/Rulebook-specific controls are not altered.
+ */
+.gl-site-app-header {
+  --gl-app-header-h:var(--gl-brand-header-height,90px);
+  --gl-app-header-left:var(--gl-brand-left-gutter,24px);
+  --gl-app-header-right:29px;
+  --gl-app-header-gap:16px;
+  --gl-app-header-logo:var(--gl-brand-width,170px);
+  box-sizing:border-box!important;
+  display:grid!important;
+  grid-template-columns:var(--gl-app-header-logo) minmax(0,1fr) max-content!important;
+  align-items:center!important;
+  gap:var(--gl-app-header-gap)!important;
+  min-height:var(--gl-app-header-h)!important;
+  height:var(--gl-app-header-h)!important;
+  padding:0 var(--gl-app-header-right) 0 var(--gl-app-header-left)!important;
+  background:var(--gl-brand-header-bg,#1e1e27)!important;
+  border:0!important;box-shadow:none!important;
+}
+.gl-site-app-header > .gl-site-brand {
+  display:flex!important;align-items:center!important;justify-content:flex-start!important;
+  width:var(--gl-app-header-logo)!important;min-width:var(--gl-app-header-logo)!important;
+  max-width:var(--gl-app-header-logo)!important;
+  height:var(--gl-app-header-h)!important;min-height:0!important;
+  padding:0!important;margin:0!important;border:0!important;line-height:0!important;
+  text-decoration:none!important;transform:none!important;
+}
+.gl-site-app-header > .gl-site-brand > .gl-site-brand-img {
+  display:block!important;width:100%!important;min-width:0!important;max-width:100%!important;
+  height:auto!important;min-height:0!important;max-height:none!important;
+  margin:0!important;padding:0!important;border:0!important;
+  object-fit:contain!important;object-position:left center!important;
+  filter:none!important;opacity:1!important;mix-blend-mode:normal!important;transform:none!important;
+}
+.gl-site-app-header > .gl-site-app-title {min-width:0!important;margin:0!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;}
+.gl-site-app-header > .gl-site-app-nav {
+  display:flex!important;flex-wrap:nowrap!important;align-items:center!important;
+  justify-content:flex-end!important;justify-self:end!important;
+  gap:10px!important;min-width:0!important;width:max-content!important;margin:0!important;
+}
+/* Real narrow unrotated viewport: keep the links visible on their own row. */
+@media(max-width:800px){
+  .gl-site-app-header:not(.gl-site-app-header-logical){
+    grid-template-columns:var(--gl-app-header-logo) minmax(0,1fr)!important;
+    grid-template-rows:minmax(44px,1fr) auto!important;
+    height:auto!important;gap:4px 10px!important;padding-bottom:8px!important;
+  }
+  .gl-site-app-header:not(.gl-site-app-header-logical) > .gl-site-brand {height:48px!important;}
+  .gl-site-app-header:not(.gl-site-app-header-logical) > .gl-site-app-nav {
+    grid-column:1/-1!important;width:100%!important;justify-content:stretch!important;gap:8px!important;
+  }
+  .gl-site-app-header:not(.gl-site-app-header-logical) > .gl-site-app-nav > a {flex:1 1 0!important;min-width:0!important;}
+}
+/* PvP logical desktop-header reference: 64px row, 26px inset, 12px gap.
+ * Physical handset media queries must not shrink or wrap logical-stage buttons.
+ */
+.gl-site-app-header.gl-site-app-header-logical {
+  --gl-app-header-h:64px;
+  --gl-app-header-left:26px;--gl-app-header-right:26px;--gl-app-header-gap:12px;
+  grid-template-columns:var(--gl-app-header-logo) minmax(0,1fr) max-content!important;
+  grid-template-rows:auto!important;
+}
+.gl-site-app-header.gl-site-app-header-logical > .gl-site-app-nav {gap:8px!important;}
+.gl-site-app-header.gl-site-app-header-logical > .gl-site-app-nav > a.gl-site-nav-btn {
+  height:38px!important;min-height:38px!important;max-height:38px!important;
+  padding:0 18px!important;font-size:11px!important;flex:0 0 auto!important;
+}
+.gl-site-app-header.gl-site-app-header-logical > .gl-site-app-nav > a.gl-site-nav-btn--primary {min-width:132px!important;}
+/* VS AI integration geometry only; the shared class owns the header itself.
+ * Keep the approved desktop full-width placement and mobile deck/footer grid.
+ */
+html body .gl-lobby-panel > .gl-lobby-head.gl-site-app-header {
+  display:grid!important;
+  gap:var(--gl-app-header-gap)!important;
+  height:var(--gl-app-header-h)!important;min-height:var(--gl-app-header-h)!important;
+  padding:0 var(--gl-app-header-right) 0 var(--gl-app-header-left)!important;
+  border:0!important;box-shadow:none!important;background:var(--gl-brand-header-bg,#1e1e27)!important;
+}
+html body .gl-lobby-panel > .gl-lobby-head.gl-site-app-header > .gl-site-brand {
+  width:var(--gl-app-header-logo)!important;min-width:var(--gl-app-header-logo)!important;max-width:var(--gl-app-header-logo)!important;
+  height:var(--gl-app-header-h)!important;min-height:0!important;
+}
+html body .gl-lobby-panel > .gl-lobby-head.gl-site-app-header > .gl-site-brand > .gl-site-brand-img {
+  width:100%!important;min-width:0!important;max-width:100%!important;height:auto!important;
+  max-height:none!important;filter:none!important;mix-blend-mode:normal!important;
+}
+html.gl-mobile-landscape-lobby .gl-lobby-panel:has(> .gl-site-app-header) {
+  grid-template-rows:56px minmax(0,1fr) 54px!important;
+}
+/* A 64px full-width header fits the existing 56px content row: the panel's
+ * 12px top padding is used instead of taking space from the Deck Selection.
+ */
+html.gl-mobile-landscape-lobby body .gl-lobby-panel > .gl-lobby-head.gl-site-app-header {
+  width:calc(100% + 46px)!important;max-width:none!important;
+  margin:-12px -23px 0!important;
+  align-self:start!important;
+}
+@media(max-width:800px){
+  html:not(.gl-mobile-landscape-lobby) body .gl-lobby-panel > .gl-lobby-head.gl-site-app-header {
+    height:auto!important;min-height:var(--gl-app-header-h)!important;padding-bottom:8px!important;
+  }
+  html:not(.gl-mobile-landscape-lobby) body .gl-lobby-panel > .gl-lobby-head.gl-site-app-header > .gl-site-brand {height:48px!important;}
+}
