@@ -27,3 +27,8 @@ img.gl-image-pending{color:transparent!important;background:#0b1118!important}
 /* Desktop hover expansion must never intercept tablet/mobile taps on PLAY/Response actions. */
 html.gl-adaptive-stage .hand.bottom .hand-card::after{pointer-events:none!important}
 html.gl-adaptive-stage .hand.bottom .card-actions button{touch-action:manipulation}
+
+/* Server-confirmed custom deck import status. This never changes gameplay UI. */
+#pvpLoadedDeckStatus[data-import-status="pending"]{color:#e8c978!important;}
+#pvpLoadedDeckStatus[data-import-status="success"]{color:#9fe9b1!important;}
+#pvpLoadedDeckStatus[data-import-status="error"]{color:#ffaaa8!important;}

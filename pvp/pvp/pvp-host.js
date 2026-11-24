@@ -38,7 +38,7 @@ function offerBattleRecovery(frame){
   const message=document.createElement('span');message.textContent='Battlefield loading is taking longer than expected. ';
   const button=document.createElement('button');button.type='button';button.textContent='OPEN DIRECTLY';
   button.style.cssText='padding:6px 9px;background:#e6bb57;color:#061422;border:0;border-radius:5px;font-weight:bold;cursor:pointer;';
-  button.onclick=()=>location.assign('/pvp/battle/'+(new URLSearchParams(location.search).has('pvpPerf')?'?pvpPerf=1':''));
+  button.onclick=()=>location.assign((String(location.pathname||'').startsWith('/pvp/')?'/pvp/battle/':'/battle/')+(new URLSearchParams(location.search).has('pvpPerf')?'?pvpPerf=1':''));
   bar.appendChild(message);bar.appendChild(button);document.body.appendChild(bar);
 }
 
@@ -71,7 +71,7 @@ function ensureBattleFrame({warm=false}={}){
   startupPerf.prewarmed=!!warm;
   startupPerf.frameCreatedAt=perfNow();
   // No other-origin content or cross-window socket control is permitted.
-  frame.src='/pvp/battle/?embedded=1'+(new URLSearchParams(location.search).has('pvpPerf')?'&pvpPerf=1':'');
+  frame.src=(String(location.pathname||'').startsWith('/pvp/')?'/pvp/battle/':'/battle/')+'?embedded=1'+(new URLSearchParams(location.search).has('pvpPerf')?'&pvpPerf=1':'');
   battleReady=false;battleFrame=frame;document.body.appendChild(frame);
   if(!warm)revealBattleFrame();
 }
@@ -153,7 +153,7 @@ function formationValid(deck,f){const lanes=['LEFT','CENTER','RIGHT'],a=lanes.ma
 function currentFormation(){const d=currentDeck();return state.formation&&formationValid(d,state.formation)?clone(state.formation):baseFormation(d)}
 function cardDef(id){const d=window.GL_S0_LOBBY_CARD_DEFINITIONS||{};if(!cardDef.m)cardDef.m=new Map((d.cards||[]).filter(Boolean).map(c=>[String(c.card_id),c]));return cardDef.m.get(String(id))||null}
 function cardName(id){const c=cardDef(id);return c?.name||c?.card_name||id||'Unknown'}
-function localCardArt(id){return window.GL_PVP_CARD_ART_URL(id)}
+function localCardArt(id){const raw=String(id||'').trim();return typeof window.GL_PVP_CARD_ART_URL==='function'?window.GL_PVP_CARD_ART_URL(raw):(/^S0-[A-Z0-9-]+$/.test(raw)?('/card-art/'+encodeURIComponent(raw)+'.webp'):'')}
 function localManaArt(sh){const key=sh?.kind==='CLASS'?String(sh.class_name||'').trim():'Generic';return 'assets/shards/'+encodeURIComponent(key||'Generic')+'.webp'}
 function cardSrc(id){return localCardArt(id)}
 const imagePreloadCache=new Map();
@@ -166,7 +166,7 @@ function deckAssetUrls(deck){const ids=new Set();(deck?.legacy_deck_expanded||[]
 function visibleBoardAssetUrls(snap){const s=snap?.match?.board?.appState||snap?.appState||null;if(!s)return[];const ids=new Set(),walk=v=>{if(typeof v==='string'){if(/^S0-[A-Z0-9-]+$/i.test(v)&&v!=='__GL_HIDDEN_CARD__')ids.add(v);return}if(Array.isArray(v)){v.forEach(walk);return}if(v&&typeof v==='object')Object.values(v).forEach(walk)};for(const k of ['playerHand','playerDiscard','aiDiscard','playerHeroes','aiHeroes','activeAttachments','presentationEvents'])walk(s[k]);return [...ids].map(localCardArt)}
 function preloadDeckAssets(deck){return preloadImages([...deckAssetUrls(deck),'assets/ui/back-main.webp','assets/ui/back-legacy.webp','assets/ui/back-shard.webp','assets/shards/Generic.webp','assets/shards/Warrior.webp','assets/shards/Mage.webp','assets/shards/Archer.webp','assets/shards/Cleric.webp','assets/shards/Thief.webp'])}
 const BATTLE_VFX_ASSETS=['/engine/assets/battle/P.Attack.png','/engine/assets/battle/M.Attack.png','/engine/assets/battle/P.Defense.png','/engine/assets/battle/M.Defense.png','/engine/assets/battle/Heal.png','/engine/assets/battle/Blade.png'];
-const BATTLE_AUDIO_ASSETS=['/engine/assets/audio/battle/P.Atk.mp3','/engine/assets/audio/battle/M.Atk.mp3','/engine/assets/audio/battle/P.Def.mp3','/engine/assets/audio/battle/M.Def.mp3','/engine/assets/audio/battle/Dodge.mp3','/engine/assets/audio/battle/Heal.mp3'];
+const BATTLE_AUDIO_ASSETS=['/pvp/engine/assets/audio/battle/P.Atk.mp3','/engine/assets/audio/battle/M.Atk.mp3','/pvp/engine/assets/audio/battle/P.Def.mp3','/engine/assets/audio/battle/M.Def.mp3','/engine/assets/audio/battle/Dodge.mp3','/engine/assets/audio/battle/Heal.mp3'];
 const battleAudioPrime=new Map();
 const earlyBattleEventIds=new Set();
 window.GL_PVP_EARLY_BATTLE_EVENT_IDS=earlyBattleEventIds;
@@ -178,8 +178,8 @@ function battleAudioSpec(evt){
   if(!evt||evt.play_sound===false)return null;
   if(evt.kind==='heal')return['/engine/assets/audio/battle/Heal.mp3',.52];
   if(evt.outcome==='dodge')return['/engine/assets/audio/battle/Dodge.mp3',.62];
-  if(evt.outcome==='block')return[(evt.defense_kind||'P')==='M'?'/engine/assets/audio/battle/M.Def.mp3':'/engine/assets/audio/battle/P.Def.mp3',.60];
-  return[(evt.attack_kind||'P')==='M'?'/engine/assets/audio/battle/M.Atk.mp3':'/engine/assets/audio/battle/P.Atk.mp3',.60];
+  if(evt.outcome==='block')return[(evt.defense_kind||'P')==='M'?'/engine/assets/audio/battle/M.Def.mp3':'/pvp/engine/assets/audio/battle/P.Def.mp3',.60];
+  return[(evt.attack_kind||'P')==='M'?'/engine/assets/audio/battle/M.Atk.mp3':'/pvp/engine/assets/audio/battle/P.Atk.mp3',.60];
 }
 function playEarlyBattleAudio(evt){
   if(nativeEngine()?.getSoundEnabled?.()===false)return false;
@@ -226,6 +226,76 @@ let lastActivitySentAt=0;
 function reportUserActivity(){const now=Date.now();if(now-lastActivitySentAt<4000)return;lastActivitySentAt=now;send('activity',{at:now})}
 function installActivityTracking(){const mark=e=>{if(e&&e.isTrusted===false)return;reportUserActivity()};['pointerdown','keydown','touchstart','wheel'].forEach(type=>window.addEventListener(type,mark,{passive:true,capture:true}));window.addEventListener('pointermove',mark,{passive:true,capture:true})}
 function matchClock(){const m=match()||{},start=Date.parse(m.startedAt||''),finish=Date.parse(m.finishedAt||'');if(!Number.isFinite(start))return{active:false,elapsedMs:0};return{active:['coin-flip','coin-result','started'].includes(m.status),elapsedMs:Math.max(0,(Number.isFinite(finish)?finish:Date.now())-start)}}
+// Deck imports are not committed locally until an authoritative setup snapshot
+// confirms the exact JSON payload. "File loaded" is not "server changed deck".
+let pendingDeckImport=null;
+let importRequestEpoch=0;
+function reportDeckImportStatus(kind,message){
+  const el=document.getElementById('pvpLoadedDeckStatus');if(!el)return;
+  el.dataset.importStatus=String(kind||'');el.textContent=String(message||'');
+}
+function cancelPendingDeckImport(){
+  ++importRequestEpoch;
+  if(pendingDeckImport?.timer)clearTimeout(pendingDeckImport.timer);
+  pendingDeckImport=null;
+}
+function confirmImportedDeckFromSnapshot(msg){
+  const job=pendingDeckImport;
+  if(!job||msg?.match?.status!=='setup')return;
+  const got=msg?.local?.customDeck;
+  // JSON stringify is safe here: server sends the unchanged clone of the same
+  // validated custom export; title alone and card counts cannot prove identity.
+  if(!got||JSON.stringify(got)!==job.payloadKey)return;
+  if(job.timer)clearTimeout(job.timer);
+  pendingDeckImport=null;
+  state.customDeck=clone(got);
+  state.customDeckName=msg.local.deckName||job.name;
+  state.deckKey='';
+  state.formation=msg.local.formation||clone(job.formation);
+  persist('custom',JSON.stringify(got));
+  persist('customName',state.customDeckName);
+  persist('deck','');
+  reportDeckImportStatus('success','DECK UPDATED — '+state.customDeckName);
+}
+function commitImportedDeckFromFile(raw,fileName){
+  const normalized=validateImportedSeason0Deck(raw);
+  // The current server verifies its authoritative three-Hero formation from
+  // the export's top-level default_formation. Reject malformed/unsupported
+  // wrappers BEFORE sending so an invalid server transition is never started.
+  // Official current Deck Builder exports already provide this field.
+  const officialFormation=baseFormation(normalized);
+  if(!formationValid(raw,officialFormation)){
+    reportDeckImportStatus('error','Import not applied: the JSON has no valid top-level three-Hero formation. Re-export with the latest Deck Builder.');
+    return false;
+  }
+  const name=safeName(raw.display_name||raw.deck_name||raw.name||String(fileName).replace(/\.json$/i,''))||'Imported Deck';
+  if(!state.connected||!state.ws||state.ws.readyState!==WebSocket.OPEN){
+    reportDeckImportStatus('error','Import not applied: connect to the PvP server and retry.');return false;
+  }
+  if(local()?.role!=='player'||match()?.status!=='setup'){
+    reportDeckImportStatus('error','Import not applied: only a player in Lobby can change decks.');return false;
+  }
+  cancelPendingDeckImport();
+  const job={payloadKey:JSON.stringify(raw),name,formation:baseFormation(normalized),timer:null};
+  pendingDeckImport=job;
+  reportDeckImportStatus('pending','IMPORTING — waiting for server confirmation…');
+  if(!send('set-deck',{customDeck:raw,deckName:name,formation:job.formation})){
+    pendingDeckImport=null;
+    reportDeckImportStatus('error','Import failed: WebSocket is unavailable.');return false;
+  }
+  // If an intermediary loses a snapshot, request a fresh server view. Do not
+  // claim success or alter the saved deck without the authoritative response.
+  job.timer=setTimeout(()=>{
+    if(pendingDeckImport!==job)return;
+    send('resync');
+    job.timer=setTimeout(()=>{
+      if(pendingDeckImport!==job)return;
+      pendingDeckImport=null;
+      reportDeckImportStatus('error','Server did not confirm the import. Reconnect and try again.');
+    },9000);
+  },4500);
+  return true;
+}
 function syncSetupSelection(){
   const me=local(),m=match();if(!state.connected||m?.status!=='setup'||me?.role!=='player')return;
   // Never overwrite a server-retained deck on refresh/reconnect. This is critical for
@@ -280,6 +350,7 @@ function syncPresentation(prevStatus,opts={}){
 }
 function onSnapshot(msg,opts={}){
   const previousSnapshot=state.snapshot,prevStatus=match()?.status||'setup',prevRev=Number(match()?.revision||0);if(msg?.match?.status==='setup')primeEarlyBattleFeedback(previousSnapshot,msg);state.snapshot=msg;state.connected=true;if(msg.local?.role==='player')state.idleNotice='';
+  confirmImportedDeckFromSnapshot(msg);
   if(msg.local?.seatToken){state.seatToken=msg.local.seatToken;persistSession('seat',state.seatToken)}
   if(msg.local?.role){state.role=msg.local.role;window.GL_PVP_LOCAL_ROLE=state.role;persistSession('role',state.role)}
   if(msg.local?.customDeck){state.customDeck=clone(msg.local.customDeck);state.customDeckName=msg.local.deckName||state.customDeck?.display_name||state.customDeck?.deck_name||'Imported Deck';state.deckKey='';state.formation=msg.local.formation||baseFormation(state.customDeck);persist('custom',JSON.stringify(state.customDeck));persist('customName',state.customDeckName);persist('deck','')}
@@ -330,7 +401,7 @@ function connect(force=false){
       if(!result.matched&&m.ok===false)intentError(m.message||'Authoritative PvP request failed.');
     }
     else if(m.type==='intent-ack'){/* Legacy rolling-deploy compatibility only. v3.80.16 completes actions with intent-result + snapshot. */}
-    else if(m.type==='error'){if(battleFrame&&!battleFrameWarm){if(m.snapshot)state.snapshot=m.snapshot;toBattle(m);return}const message=String(m.message||'Authoritative PvP request failed.');if(m.code==='CLIENT_BUILD_MISMATCH'||/CLIENT_BUILD_MISMATCH/.test(message)){recoverBuildMismatch();return}if(m.code==='SEAT_TOKEN_MISMATCH'){/* close code 4004 will fork this tab into a fresh session */state.connectionError='Seat session changed. Opening a fresh tab session…'}clearIntent(message);console.warn('[PvP]',m.code,message);if(m.snapshot)onSnapshot(m.snapshot,{force:true});else{renderLobby();window.GL_GAME_UI?.render?.()}}
+    else if(m.type==='error'){if(pendingDeckImport&&['REQUEST_REJECTED','DECK_INVALID','CLIENT_BUILD_MISMATCH'].includes(String(m.code||''))){cancelPendingDeckImport();reportDeckImportStatus('error','Import rejected by server: '+String(m.message||'Unknown error'));}if(battleFrame&&!battleFrameWarm){if(m.snapshot)state.snapshot=m.snapshot;toBattle(m);return}const message=String(m.message||'Authoritative PvP request failed.');if(m.code==='CLIENT_BUILD_MISMATCH'||/CLIENT_BUILD_MISMATCH/.test(message)){recoverBuildMismatch();return}if(m.code==='SEAT_TOKEN_MISMATCH'){/* close code 4004 will fork this tab into a fresh session */state.connectionError='Seat session changed. Opening a fresh tab session…'}clearIntent(message);console.warn('[PvP]',m.code,message);if(m.snapshot)onSnapshot(m.snapshot,{force:true});else{renderLobby();window.GL_GAME_UI?.render?.()}}
     else if(m.type==='idle-timeout'){if(battleFrame)toBattle(m);state.idleNotice=String(m.message||'');if(m.scope==='lobby'){state.role='spectator';state.seatToken='';persistSession('role','spectator');persistSession('seat','')}renderLobby();}
     else if(m.type==='pong'){if(battleFrame)toBattle(m);const sent=Number(m.clientTime||state.pingSentAt||0);if(sent>0){const rtt=Math.max(0,Date.now()-sent);state.rttMs=state.rttMs==null?rtt:Math.round(state.rttMs*.65+rtt*.35)}state.peerConnections.clear();for(const row of (m.connections||[])){if(Number.isFinite(Number(row?.seat)))state.peerConnections.set(Number(row.seat),{connected:!!row.connected,rttMs:Number.isFinite(Number(row.rttMs))?Number(row.rttMs):null})}publishConnection()}
     else console.warn('[PvP] Unknown server message',m)
@@ -351,7 +422,7 @@ function returnToLobby(){return send('return-to-lobby')?{ok:true,pending:true}:{
 
 // Lobby-only boundary: never load or execute a Season 1/0 gameplay engine in the
 // room. The authoritative RC34 battle is loaded only after /battle/ navigation.
-function setDeck(key){state.customDeck=null;state.customDeckName='';state.deckKey=key;state.rank=1;state.formation=baseFormation(starterDeck(key));persist('deck',key);persist('custom','');persist('customName','');if(state.connected&&local()?.role!=='spectator')send('set-deck',{deckKey:key,formation:currentFormation()});renderLobby()}
+function setDeck(key){cancelPendingDeckImport();reportDeckImportStatus('', '');state.customDeck=null;state.customDeckName='';state.deckKey=key;state.rank=1;state.formation=baseFormation(starterDeck(key));persist('deck',key);persist('custom','');persist('customName','');if(state.connected&&local()?.role!=='spectator')send('set-deck',{deckKey:key,formation:currentFormation()});renderLobby()}
 // VS AI RC36 Deck Builder v1.58 Card Review, including HERO LINEAGES footer.
 // The lobby uses a read-only 55-card source-authoritative catalog: no AI/game engine.
 let lobbyReviewProgressionIds=[];
@@ -417,14 +488,29 @@ function formationHtml(){
 function seatHtml(n){const p=(state.snapshot?.players||[]).find(x=>Number(x.seat)===n),online=!!p?.connected,me=local(),canKick=n===2&&p&&Number(me?.seat)===1&&match()?.status==='setup';return'<article class="pvp-v260-seat"><div><span>Player '+n+'</span><strong>'+esc(p?.name||'Empty')+'</strong></div><p class="'+(online?'online':'')+'"><i></i>'+esc(p?(online?'online':'offline'):'offline')+(p?.ready?' · READY':'')+'</p>'+(canKick?'<button class="pvp-seat-kick" type="button" data-kick-seat="2" aria-label="Kick Player 2"><img src="assets/lobby/exit.png" alt=""></button>':'')+'</article>'}
 function ensureLobby(){
   if($('pvpSetupOverlay'))return;const wrap=document.createElement('div');wrap.id='pvpSetupOverlay';wrap.className='pvp-v260-lobby open';
-  wrap.innerHTML='<div class="pvp-v260-page"><header class="pvp-v260-topbar"><a id="pvpHomeLogo" class="pvp-v260-logo gl-site-brand" href="/" aria-label="Back to Grandis Legacy home"><img class="gl-site-brand-img" src="/assets/site/web-s0/logo-transparent.webp" alt="Grandis Legacy"></a><div class="pvp-v260-heading"><h1>PVP LOBBY</h1><p>Choose your deck, then ready up or spectate.</p></div><nav class="pvp-v260-app-links gl-site-app-nav gl-lobby-website-links" aria-label="Other Grandis Legacy games"><a class="pvp-v260-app-link pvp-v260-app-link--deck gl-site-nav-btn gl-site-nav-btn--outline" href="/deck-builder/">GO TO DECK BUILDER</a><a class="pvp-v260-app-link pvp-v260-app-link--vsai gl-site-nav-btn gl-site-nav-btn--primary" href="/vs-ai/">GO TO VS AI</a></nav></header><main class="pvp-v260-layout"><section class="pvp-v260-panel pvp-v260-deck-panel"><div class="pvp-v260-picker"><label for="pvpSetupDeck">Choose a Deck</label><div class="pvp-v260-select"><select id="pvpSetupDeck"></select></div><div class="pvp-v260-import-area"><input id="pvpImportDeckInput" type="file" accept="application/json,.json" hidden><button id="pvpImportDeckButton" class="pvp-v260-btn pvp-v260-gold pvp-v260-import-button" type="button">IMPORT DECK</button></div></div><div id="pvpLoadedDeckStatus" class="pvp-v260-status pvp-v260-import-status"></div><div class="pvp-v260-title"><h2 id="pvpDeckTitle">Starter Deck</h2><p id="pvpDeckClassLine"></p></div><div class="pvp-v260-showcase"><div class="pvp-v260-formation-wrap"><div id="pvpFormationPreview" class="vsai-v643-formation-grid clean-hero-preview"></div><div class="vsai-v643-rank-control"><button id="pvpRankPrev" type="button">‹</button><strong id="pvpRankLabel">RANK I</strong><button id="pvpRankNext" type="button">›</button></div></div><aside class="pvp-v260-summary"><h3>YOUR DECK</h3><dl id="pvpDeckStats"></dl></aside></div></section><aside class="pvp-v260-panel pvp-v260-room-panel"><h2>MATCH PANEL</h2><label class="pvp-v260-label" for="pvpSetupName">PLAYER NAME</label><div class="pvp-v260-name"><input id="pvpSetupName" maxlength="25" placeholder="Your player name" autocomplete="off"><span id="pvpNameStateIcon" class="pvp-v260-name-icon"></span></div><div class="pvp-v260-actions"><button id="pvpSetupSpectatorButton" class="pvp-v260-btn pvp-v260-outline pvp-v260-gold-outline" type="button">SPECTATE</button><button id="pvpSetupReadyButton" class="pvp-v260-btn pvp-v260-gold" type="button">READY</button></div><div class="pvp-v260-divider"></div><div id="pvpSetupPeople" class="pvp-v260-seats"></div><div id="pvpSetupHint" class="pvp-v260-message"></div><div class="pvp-v260-room-footer"><button id="pvpSetupStartButton" class="pvp-v260-btn pvp-v260-gold" type="button" disabled>START MATCH</button><button id="pvpSetupReconnectButton" class="pvp-v260-btn pvp-v260-outline pvp-v260-gold-outline" type="button">RECONNECT</button></div></aside></main></div>';
+  wrap.innerHTML='<div class="pvp-v260-page"><header class="pvp-v260-topbar"><a id="pvpHomeLogo" class="pvp-v260-logo gl-site-brand" href="/" aria-label="Back to Grandis Legacy home"><img class="gl-site-brand-img" src="/assets/site/web-s0/logo-transparent.webp" alt="Grandis Legacy"></a><div class="pvp-v260-heading"><h1>PVP LOBBY</h1><p>Choose your deck, then ready up or spectate.</p></div><nav class="pvp-v260-app-links gl-site-app-nav gl-lobby-website-links" aria-label="Other Grandis Legacy games"><a class="gl-site-nav-btn gl-site-nav-btn--outline" href="/deck-builder/">GO TO DECK BUILDER</a><a class="gl-site-nav-btn gl-site-nav-btn--primary" href="/vs-ai/">GO TO VS AI</a></nav></header><main class="pvp-v260-layout"><section class="pvp-v260-panel pvp-v260-deck-panel"><div class="pvp-v260-picker"><label for="pvpSetupDeck">Choose a Deck</label><div class="pvp-v260-select"><select id="pvpSetupDeck"></select></div><div class="pvp-v260-import-area"><input id="pvpImportDeckInput" type="file" accept="application/json,.json" hidden><button id="pvpImportDeckButton" class="pvp-v260-btn pvp-v260-gold pvp-v260-import-button" type="button">IMPORT DECK</button></div></div><div id="pvpLoadedDeckStatus" class="pvp-v260-status pvp-v260-import-status"></div><div class="pvp-v260-title"><h2 id="pvpDeckTitle">Starter Deck</h2><p id="pvpDeckClassLine"></p></div><div class="pvp-v260-showcase"><div class="pvp-v260-formation-wrap"><div id="pvpFormationPreview" class="vsai-v643-formation-grid clean-hero-preview"></div><div class="vsai-v643-rank-control"><button id="pvpRankPrev" type="button">‹</button><strong id="pvpRankLabel">RANK I</strong><button id="pvpRankNext" type="button">›</button></div></div><aside class="pvp-v260-summary"><h3>YOUR DECK</h3><dl id="pvpDeckStats"></dl></aside></div></section><aside class="pvp-v260-panel pvp-v260-room-panel"><h2>MATCH PANEL</h2><label class="pvp-v260-label" for="pvpSetupName">PLAYER NAME</label><div class="pvp-v260-name"><input id="pvpSetupName" maxlength="25" placeholder="Your player name" autocomplete="off"><span id="pvpNameStateIcon" class="pvp-v260-name-icon"></span></div><div class="pvp-v260-actions"><button id="pvpSetupSpectatorButton" class="pvp-v260-btn pvp-v260-outline pvp-v260-gold-outline" type="button">SPECTATE</button><button id="pvpSetupReadyButton" class="pvp-v260-btn pvp-v260-gold" type="button">READY</button></div><div class="pvp-v260-divider"></div><div id="pvpSetupPeople" class="pvp-v260-seats"></div><div id="pvpSetupHint" class="pvp-v260-message"></div><div class="pvp-v260-room-footer"><button id="pvpSetupStartButton" class="pvp-v260-btn pvp-v260-gold" type="button" disabled>START MATCH</button><button id="pvpSetupReconnectButton" class="pvp-v260-btn pvp-v260-outline pvp-v260-gold-outline" type="button">RECONNECT</button></div></aside></main></div>';
   document.body.appendChild(wrap);$('pvpHomeLogo').href=CFG.homeUrl||'https://grandislegacytcg.web.id/';wrap.onclick=e=>{const k=e.target.closest?.('[data-kick-seat="2"]');if(k){send('kick-seat-2');return}const p=e.target.closest?.('[data-pvp-progression]');if(p)openProgression(p.dataset.pvpProgression)};
   // VS AI RC40 M01, adapted to PvP's native single-deck lobby. Desktop
   // import/select remain untouched; handset hamburger is presentation-only.
   $('pvpSetupName').onblur=()=>{const n=safeName($('pvpSetupName').value);if(n){state.name=n;try{localStorage.setItem(STORE.name,n)}catch{};send('rename',{name:n});renderLobby()}};
   $('pvpSetupDeck').onchange=e=>setDeck(e.target.value);$('pvpRankPrev').onclick=()=>{state.rank=Math.max(1,state.rank-1);renderLobby()};$('pvpRankNext').onclick=()=>{state.rank=Math.min(3,state.rank+1);renderLobby()};
   $('pvpSetupReadyButton').onclick=()=>send('ready',{ready:!local()?.ready});$('pvpSetupSpectatorButton').onclick=()=>{state.role=local()?.role==='spectator'?'player':'spectator';persistSession('role',state.role);send('switch-role',{role:state.role})};$('pvpSetupStartButton').onclick=startMatch;$('pvpSetupReconnectButton').onclick=()=>connect(true);$('pvpImportDeckButton').onclick=()=>$('pvpImportDeckInput').click();
-  $('pvpImportDeckInput').onchange=e=>{const f=e.target.files?.[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(String(r.result||''));validateImportedSeason0Deck(d);state.customDeck=d;state.customDeckName=d.display_name||d.deck_name||f.name.replace(/\.json$/i,'');state.deckKey='';state.formation=baseFormation(normalizeS0LobbyDeck(d));persist('custom',JSON.stringify(d));persist('customName',state.customDeckName);persist('deck','');send('set-deck',{customDeck:d,deckName:state.customDeckName,formation:state.formation});renderLobby()}catch(err){$('pvpLoadedDeckStatus').textContent=String(err.message||err)}};r.readAsText(f)};
+  $('pvpImportDeckInput').onchange=e=>{
+    const input=e.target,f=input.files?.[0];
+    // Reset BEFORE FileReader finishes so selecting the same filename twice
+    // always emits a new change event (including a newly exported JSON file).
+    input.value='';if(!f)return;
+    const epoch=++importRequestEpoch;
+    reportDeckImportStatus('pending','READING DECK…');
+    const reader=new FileReader();
+    reader.onload=()=>{
+      if(epoch!==importRequestEpoch)return;
+      try{commitImportedDeckFromFile(JSON.parse(String(reader.result||'')),f.name)}
+      catch(err){reportDeckImportStatus('error','Import failed: '+String(err.message||err))}
+    };
+    reader.onerror=()=>{if(epoch===importRequestEpoch)reportDeckImportStatus('error','Could not read the selected JSON file.')};
+    reader.readAsText(f);
+  };
 }
 function syncLobbyScale(){const wrap=$('pvpSetupOverlay');wrap?.style.removeProperty('--pvp-lobby-scale')}
 const BATTLE_PREFETCH=[

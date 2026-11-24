@@ -1,3 +1,16 @@
+# GRANDIS LEGACY — WEBSITE NON-PVP UPDATE (24 NOVEMBER 2026)
+
+**New update:** VS AI RC42 Mobile All 5 + touch-preview dismissal from latest 24 Nov standalone source; **P3 Shared Favicon Optimization completed for all non-PvP pages.** Gameplay/AI card logic from previously deployed RC42 (AI Conservation + Fire Flask, Main R3.98, Legacy R4.0) is preserved.
+
+- **Shared favicon:** `/assets/site/web-s0/favicon.png` (120x120 PNG), referenced directly by Homepage, Rulebook, VS AI, Deck Builder Style 1 & 2. The root `favicon.ico` and duplicate `deck-builder/assets/favicon.png` are REMOVED from this full ZIP. When overlaying existing GitHub, delete these two files manually; ZIP overlay alone does not remove tracked files.
+- **PvP safety:** `/engine/assets/favicon.png` remains as an exact same-image compatibility alias because current `/pvp/index.html` and `/pvp/battle/index.html` still reference it. PvP must migrate those two links to the canonical favicon via its separate development chat before this final alias can be deleted. **No `/pvp/` file exists in this delivery.**
+- **VS AI mobile All 5:** (1) compact phase bar and adaptive battlefield sizing, (2) Magic Compass touch scrolling, (3) five-card popup grid with fixed header/footer, (4) foreground action card sizing at 85% of Battlefield Hero, (5) hand preview clearance and outside-tap dismissal. Portrait scroll bridge is included. Desktop layout and website shared headers/buttons remain unchanged.
+- **No other scope:** Homepage v2.3.17, Rulebook v3.5, Deck Builder v1.68, R3.98/R4.0 data, artwork, shared brand/navigation and Analytics unchanged except the five favicon HTML references.
+- **Baseline:** `GrandisLegacyTCG/Grandis-Legacy-S0-Website` main commit `c2b4aad1e145d35c60611fbf3fd90a1ceef9cecf`; the prior FULL NO-PVP ZIP matched all 606 non-PvP files in that commit. GitHub remains READ ONLY; owner uploads and manually deletes obsolete tracked assets.
+- **QA:** 43/43 JS syntax PASS, 35/35 AI Fire Flask PASS, 27/27 R3.98 rules PASS, 37/37 general rules PASS, 13/13 Starter/Casting PASS, 25/25 match smoke completed, 0 engine errors. Five favicon links and local references PASS; in-memory Chromium Desktop/Phone/Tablet Start Match → Coin Flip PASS. Native URL browser navigation blocked (`ERR_BLOCKED_BY_ADMINISTRATOR`); physical devices and production deployment NOT verified.
+
+---
+
 # GRANDIS LEGACY — SEASON 0 WEBSITE (24 NOVEMBER 2026)
 
 **Current non-PvP website:** Homepage v2.3.17 **unchanged**; Rulebook v3.5 **unchanged**; VS AI **RC42 (24 Nov AI Conservation + Fire Flask)**; Deck Builder **v1.68 (23 Nov toaster/status updates)**; Main Deck **R3.98**; Legacy Deck **R4.0**; 250 shared artworks including **61 updated card fronts**.

@@ -9,7 +9,7 @@ html body .app img.gl-decode-pending{
 }
 html body .app .hand.bottom img.hand-art.gl-decode-pending,
 html body .app .hand.top img.hand-art.gl-decode-pending{
-  background-image:url('/assets/ui/back-main.webp');
+  background-image:url('/pvp/assets/ui/back-main.webp');
   background-position:center;background-repeat:no-repeat;background-size:cover;
 }
 html body .app .hero-card img.gl-decode-pending,

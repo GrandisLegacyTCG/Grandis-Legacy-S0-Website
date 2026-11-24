@@ -2328,7 +2328,7 @@ body.gl-center-legacy .gl-center-choice-card{width:min(clamp(68px,10vw,144px),ca
 .gl-review-loading-art{position:absolute;inset:10px 0 auto;margin:auto;max-width:min(280px,75vw);max-height:72vh;object-fit:contain;border-radius:8px;pointer-events:none;z-index:3}
 .gl-review-loading-art[hidden]{display:none!important}
 .gl-card-review-outer-close{position:absolute;right:9px;top:8px;z-index:30;border:1px solid #a68d58;border-radius:8px;padding:6px 12px;cursor:pointer;background:#121c2a;color:#fff;font-weight:800;box-shadow:0 2px 15px #0008}
-.gl-card-review-body:has(.gl-review-emergency-art) .gl-db158-review-frame{display:none!important}
+.gl-card-review-body:has(.gl-review-emergency-art) .gl-db158-review-frame{display:none!important;}
 .gl-review-emergency-art{display:block;position:relative;z-index:2;width:min(350px,80vw);max-height:75vh;object-fit:contain;margin:15px auto;border-radius:9px}
 .gl-review-emergency-close{display:block!important;position:absolute;right:12px;top:12px;z-index:5;cursor:pointer}
 

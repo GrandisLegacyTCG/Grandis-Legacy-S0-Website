@@ -300,10 +300,13 @@ function promoteTemporaryCardPreview(active){
     if(layer===active)return;
     layer.classList.remove('open','is-hero','is-context-hero');
     layer.setAttribute('aria-hidden','true');
+    if(layer===battlefieldHoverPreview)battlefieldHoverSource=null;
+    if(layer===sidebarHoverPreview)sidebarHoverSource=null;
+    if(layer===modalHoverPreview)modalHoverSource=null;
   });
   if(active&&active.parentElement===document.body)document.body.appendChild(active);
 }
-let battlefieldHoverSource=null;
+let battlefieldHoverSource=null,sidebarHoverSource=null,modalHoverSource=null;
 function hideBattlefieldHoverPreview(){battlefieldHoverSource=null;battlefieldHoverPreview.classList.remove('open','is-hero');battlefieldHoverPreview.style.removeProperty('width');battlefieldHoverPreview.style.removeProperty('height');battlefieldHoverPreview.setAttribute('aria-hidden','true');battlefieldHoverImg.removeAttribute('src')}
 function hasUnifiedMobilePreviewStage(){
   const c=document.documentElement.classList;
@@ -341,13 +344,15 @@ function placeMobilePopupPreview(anchor){
       ||choiceOverlay.querySelector('.choice-panel')||anchor;
   const ar=mobilePopupLogicalRect(anchor),pr=mobilePopupLogicalRect(panel);
   if(!pr||!ar)return false;
+  const logicalW=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--gl-stage-logical-w'))||1600;
+  const logicalH=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--gl-stage-logical-h'))||747;
   const w=248,h=347,g=10,mid=pr.left+pr.width/2;
   const preferRight=ar.left+ar.width/2>=mid;
   const rightX=pr.right+g,leftX=pr.left-g-w;
-  const fitsRight=rightX+w<=1600-g,fitsLeft=leftX>=g;
+  const fitsRight=rightX+w<=logicalW-g,fitsLeft=leftX>=g;
   const useRight=preferRight?(fitsRight||!fitsLeft):(!fitsLeft&&fitsRight);
-  const x=Math.min(1600-w-g,Math.max(g,useRight?rightX:leftX));
-  const y=Math.min(747-h-g,Math.max(g,ar.top+(ar.height-h)/2));
+  const x=Math.min(logicalW-w-g,Math.max(g,useRight?rightX:leftX));
+  const y=Math.min(logicalH-h-g,Math.max(g,ar.top+(ar.height-h)/2));
   modalHoverPreview.style.setProperty('--gl-popup-preview-x',Math.round(x)+'px');
   modalHoverPreview.style.setProperty('--gl-popup-preview-y',Math.round(y)+'px');
   return true;
@@ -473,7 +478,7 @@ function renderInteractionFocus(s){
     if(el){el.classList.remove('gl-attention-enter');void el.offsetWidth;el.classList.add('gl-attention-enter');setTimeout(()=>el.classList.remove('gl-attention-enter'),520)}
   }
 }
-function hideSidebarHoverPreview(){sidebarHoverPreview.classList.remove('open');sidebarHoverPreview.setAttribute('aria-hidden','true');sidebarHoverImg.removeAttribute('src')}
+function hideSidebarHoverPreview(){sidebarHoverSource=null;sidebarHoverPreview.classList.remove('open');sidebarHoverPreview.setAttribute('aria-hidden','true');sidebarHoverImg.removeAttribute('src')}
 function placeSidebarHoverPreview(anchor){
   if(!anchor||!sidebarHoverPreview||!sidebar)return;
   if(normalizeRotatedMobilePreview(sidebarHoverPreview))return;
@@ -487,11 +492,34 @@ function placeSidebarHoverPreview(anchor){
 }
 function bindSidebarPreview(img){
   if(!img||img.dataset.glSidebarPreviewBound==='1')return;img.dataset.glSidebarPreviewBound='1';
-  img.addEventListener('mouseenter',()=>{if(backgroundPreviewSuppressed(img))return;promoteTemporaryCardPreview(sidebarHoverPreview);sidebarHoverImg.src=img.src;placeSidebarHoverPreview(img);sidebarHoverPreview.classList.add('open');sidebarHoverPreview.setAttribute('aria-hidden','false')});
+  img.addEventListener('mouseenter',()=>{if(backgroundPreviewSuppressed(img))return;promoteTemporaryCardPreview(sidebarHoverPreview);sidebarHoverSource=img;sidebarHoverImg.src=img.src;placeSidebarHoverPreview(img);sidebarHoverPreview.classList.add('open');sidebarHoverPreview.setAttribute('aria-hidden','false')});
   img.addEventListener('mousemove',()=>{if(!backgroundPreviewSuppressed(img))placeSidebarHoverPreview(img)});
   img.addEventListener('mouseleave',hideSidebarHoverPreview);
 }
-function hideModalHoverPreview(){modalHoverPreview.style.removeProperty('width');modalHoverPreview.style.removeProperty('height');modalHoverPreview.classList.remove('open');modalHoverPreview.setAttribute('aria-hidden','true');modalHoverImg.removeAttribute('src')}
+function hideModalHoverPreview(){modalHoverSource=null;modalHoverPreview.style.removeProperty('width');modalHoverPreview.style.removeProperty('height');modalHoverPreview.classList.remove('open');modalHoverPreview.setAttribute('aria-hidden','true');modalHoverImg.removeAttribute('src')}
+// On touch screens a blank-area tap is the explicit dismiss gesture for every
+// enlarged preview. Hover exit is not dependable on mobile browsers, especially
+// when the game stage is rotated into landscape inside a portrait viewport.
+let mobileOutsidePreviewDismissBound=false;
+function mobilePreviewSourceContains(source,target){
+  const el=target?.nodeType===1?target:target?.parentElement;
+  return !!(source&&el&&(source===el||source.contains?.(el)));
+}
+function bindMobileOutsidePreviewDismiss(){
+  if(mobileOutsidePreviewDismissBound)return;
+  mobileOutsidePreviewDismissBound=true;
+  document.addEventListener('pointerdown',event=>{
+    if(!event||event.pointerType==='mouse'||!(event.pointerType==='touch'||event.pointerType==='pen'||Number(navigator.maxTouchPoints||0)>0))return;
+    const target=event.target;
+    if(mobilePreviewSourceContains(battlefieldHoverSource,target)||
+       mobilePreviewSourceContains(sidebarHoverSource,target)||
+       mobilePreviewSourceContains(modalHoverSource,target))return;
+    hideBattlefieldHoverPreview();
+    hideSidebarHoverPreview();
+    hideModalHoverPreview();
+  },true);
+}
+bindMobileOutsidePreviewDismiss();
 function fixedChoicePreviewSlot(){return choiceOverlay.querySelector('.gl-choice-fixed-preview-slot')}
 function setFixedChoicePreview(src,alt){
   const slot=fixedChoicePreviewSlot();if(!slot)return false;
@@ -525,7 +553,7 @@ function placeModalHoverPreview(anchor){
 }
 function bindModalPreview(img){
   if(!img||img.dataset.glModalPreviewBound==='1')return;img.dataset.glModalPreviewBound='1';
-  const show=()=>{if(backgroundPreviewSuppressed(img))return;modalHoverPreview.classList.remove('is-context-hero');modalHoverImg.src=img.src;placeModalHoverPreview(img);modalHoverPreview.classList.add('open');modalHoverPreview.setAttribute('aria-hidden','false')};
+  const show=()=>{if(backgroundPreviewSuppressed(img))return;modalHoverSource=img;modalHoverPreview.classList.remove('is-context-hero');modalHoverImg.src=img.src;placeModalHoverPreview(img);modalHoverPreview.classList.add('open');modalHoverPreview.setAttribute('aria-hidden','false')};
   img.addEventListener('mouseenter',show);
   img.addEventListener('pointerdown',e=>{if(e.pointerType==='touch'){show();keepMobilePopupPreviewBriefly()}});
   img.addEventListener('mousemove',()=>{if(!backgroundPreviewSuppressed(img))placeModalHoverPreview(img)});
@@ -610,6 +638,7 @@ function bindClassChoiceHoverPreview(card,cardId){
     if(backgroundPreviewSuppressed(card)||!card.isConnected)return;
     classChoiceHoverOwner=card;
     promoteTemporaryCardPreview(modalHoverPreview);
+    modalHoverSource=card;
     modalHoverPreview.classList.remove('is-context-hero');
     modalHoverImg.src=art(cardId);
     placeClassChoiceHoverPreview(card);
@@ -639,7 +668,7 @@ function bindClassChoiceHoverPreview(card,cardId){
 function bindContextualModalPreview(img,cardId){
   if(!img||img.dataset.glContextModalPreviewBound==='1')return;img.dataset.glContextModalPreviewBound='1';
   const v=cv(cardId),family=String(v?.family||v?.type||'').toLowerCase(),compactHero=/hero|legacy/.test(family)||/-(H\d{3}|L\d{3}|LEG)/i.test(String(cardId||''));
-  const show=()=>{if(backgroundPreviewSuppressed(img))return;promoteTemporaryCardPreview(modalHoverPreview);modalHoverImg.src=img.src;placeContextualModalHoverPreview(img,compactHero);modalHoverPreview.classList.add('open');modalHoverPreview.setAttribute('aria-hidden','false')};
+  const show=()=>{if(backgroundPreviewSuppressed(img))return;promoteTemporaryCardPreview(modalHoverPreview);modalHoverSource=img;modalHoverImg.src=img.src;placeContextualModalHoverPreview(img,compactHero);modalHoverPreview.classList.add('open');modalHoverPreview.setAttribute('aria-hidden','false')};
   img.addEventListener('mouseenter',show);
   img.addEventListener('pointerdown',e=>{if(e.pointerType==='touch'){show();keepMobilePopupPreviewBriefly()}});
   img.addEventListener('mousemove',()=>{if(!backgroundPreviewSuppressed(img))placeContextualModalHoverPreview(img,compactHero)});
@@ -3626,7 +3655,9 @@ function resetReturnToHandSearchDisplay(){
 function positionReturnToHandSearch(){
   if(!choiceOverlay.classList.contains('gl-choice-to-hand'))return;
   const mobile=adaptiveStageActive(),r=mobile?uiLayoutRect(playerHandTrack):uiRect(playerHandTrack);
-  const sceneW=mobile?1600:Math.max(1,window.innerWidth||1),sceneH=mobile?747:Math.max(1,window.innerHeight||1);
+  const style=mobile?getComputedStyle(document.documentElement):null;
+  const sceneW=mobile?(parseFloat(style.getPropertyValue('--gl-stage-logical-w'))||1600):Math.max(1,window.innerWidth||1);
+  const sceneH=mobile?(parseFloat(style.getPropertyValue('--gl-stage-logical-h'))||747):Math.max(1,window.innerHeight||1);
   // Existing Hand is never moved or resized. Spotlight follows its true track.
   const left=Math.max(0,Math.round((r?.left??sceneW*.38)-12));
   const right=Math.min(sceneW,Math.round((r?.right??sceneW*.70)+12));
@@ -3697,6 +3728,9 @@ function liveTargetSwapDestinations(s,p){
     (swapPreviewIsActive(heroes[lane])||swapPreviewIsLegacy(heroes[lane]))&&
     !swapPreviewStatus(heroes[lane]));
 }
+// Only in mobile mode, selection changes must not jump a scrolled card-list
+// back to its first row. Hand-return searches retain their separate F24 key.
+let glMobileListScrollSession='';
 function renderAllowedModal(s){
   // Defeat Legacy choices use the center stage; only source-zone searches
   // (Main Deck / Discard Pile) retain the standard card-list popup.
@@ -3754,6 +3788,17 @@ function renderAllowedModal(s){
   choiceOverlay.classList.toggle('gl-choice-to-hand',handSearch);
   document.body.classList.toggle('gl-choice-to-hand-active',handSearch);
   if(handSearch)positionReturnToHandSearch();
+  // For mobile list selectors, preserve the scroll row when a selection
+  // triggers a fresh engine snapshot. This is not applied to desktop, Swap,
+  // or the Hand-return picker (which already owns the grid scroll session).
+  const mobileListSession=hasUnifiedMobilePreviewStage()&&!handSearch&&!swapChoice?
+    JSON.stringify([glPresentationEpoch,s?.round||0,s?.turn||'',s?.phase||'',p.type,
+      p.choice_id||'',p.source_card_id||'',p.commit_token||'',p.title||'',candidateZone,
+      (p.candidates||[]).map(x=>typeof x==='string'?x:(x.card_id||x.id||''))]):'';
+  const oldListBody=choiceOverlay.querySelector('.gl-choice-body');
+  const listScrollY=mobileListSession&&mobileListSession===glMobileListScrollSession?
+    (oldListBody?.scrollTop||0):0;
+  glMobileListScrollSession=mobileListSession;
   // Polling renders used to destroy/recreate the modal buttons every 120 ms, which could eat
   // ordinary mouse clicks. Rebuild only when the choice state actually changes.
   if(modalRenderKey===modalSig)return;
@@ -3898,6 +3943,13 @@ function renderAllowedModal(s){
     });confirm.textContent='Confirm Order';confirm.disabled=false;
   }
   confirm.onclick=()=>intent('handleChoiceConfirm',[]);
+  if(mobileListSession){
+    body.scrollTop=listScrollY;
+    requestAnimationFrame(()=>{
+      if(glMobileListScrollSession===mobileListSession&&body.isConnected)
+        body.scrollTop=listScrollY;
+    });
+  }
   if(handSearch){
     limitReturnToHandSearchRows();
     // The candidate grid is the only scroll owner (F16). Restore its exact

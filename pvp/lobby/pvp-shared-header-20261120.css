@@ -39,32 +39,8 @@
   justify-content:flex-end!important;gap:10px!important;min-width:0!important;
   grid-column:auto!important;width:auto!important;margin:0!important;
 }
-/* A scoped specificity bridge: legacy PvP .pvp-v260-app-link CSS may load
- * before the shared sheet and otherwise wins its hover border/background. */
-#pvpSetupOverlay .pvp-v260-app-links .gl-site-nav-btn{
-  display:inline-flex!important;box-sizing:border-box!important;
-  height:38px!important;min-height:38px!important;max-height:38px!important;
-  border-radius:10px!important;border:1px solid rgba(236,240,248,.40)!important;
-  padding:0 15px!important;text-decoration:none!important;
-  color:#f3f6fa!important;white-space:nowrap!important;
-  font:900 11px/1.15 "Noto Sans",Noto,Arial,sans-serif!important;
-  letter-spacing:.03em!important;
-  box-shadow:none!important;transform:none!important;
-  transition:filter .15s ease!important;
-}
-#pvpSetupOverlay .pvp-v260-app-links .gl-site-nav-btn--outline{
-  background:rgba(4,9,16,.6)!important;border-color:rgba(236,240,248,.40)!important;
-}
-#pvpSetupOverlay .pvp-v260-app-links .gl-site-nav-btn--primary{
-  background:#075b86!important;border-color:#075b86!important;color:white!important;
-}
-#pvpSetupOverlay .pvp-v260-app-links .gl-site-nav-btn:hover{
-  filter:brightness(1.08)!important;transform:none!important;
-  border-color:inherit; /* no old gold/blue hover stroke */
-}
-#pvpSetupOverlay .pvp-v260-app-links .gl-site-nav-btn:focus-visible{
-  outline:2px solid #9ecde8!important;outline-offset:3px!important;
-}
+/* Navigation button styling is owned exclusively by the shared website
+ * /assets/css/gl-site-navigation.css. PvP controls only placement/layout. */
 @media(max-width:900px){
   #pvpSetupOverlay .pvp-v260-topbar{grid-template-columns:var(--gl-brand-width,152px) minmax(0,1fr)!important;gap:8px 14px!important;padding-top:4px!important;padding-bottom:7px!important}
   #pvpSetupOverlay .pvp-v260-app-links.gl-site-app-nav{grid-column:1 / -1!important;justify-content:flex-end!important;gap:8px!important}
@@ -75,10 +51,7 @@
   #pvpSetupOverlay .pvp-v260-heading h1{font-size:15px!important}
   #pvpSetupOverlay .pvp-v260-heading p{font-size:11px!important}
   #pvpSetupOverlay .pvp-v260-app-links.gl-site-app-nav{grid-column:1 / -1!important;justify-content:stretch!important;width:100%!important}
-  #pvpSetupOverlay .pvp-v260-app-links .gl-site-nav-btn{flex:1 1 0!important;min-width:0!important;padding:0 7px!important;font-size:10px!important}
-}
-@media(prefers-reduced-motion:reduce){
-  #pvpSetupOverlay .pvp-v260-app-links .gl-site-nav-btn{transition:none!important}
+  #pvpSetupOverlay .pvp-v260-app-links > a{flex:1 1 0!important;min-width:0!important}
 }
 
 /* Touch phones use a scaled 1180x590 LOGICAL desktop lobby. Do not apply
@@ -106,10 +79,11 @@ html.gl-pvp-mobile-desktop #pvpSetupOverlay .pvp-v260-app-links.gl-site-app-nav{
   grid-column:auto!important;width:auto!important;
   flex-wrap:nowrap!important;justify-content:flex-end!important;gap:8px!important;
 }
-html.gl-pvp-mobile-desktop #pvpSetupOverlay .pvp-v260-app-links .gl-site-nav-btn{
+html.gl-pvp-mobile-desktop #pvpSetupOverlay .pvp-v260-app-links > a{
   flex:0 0 auto!important;width:auto!important;
-  padding:0 12px!important;font-size:11px!important;
+  /* A rotated logical desktop stage must retain 38px desktop nav size. */
   height:38px!important;min-height:38px!important;max-height:38px!important;
+  padding:0 18px!important;font-size:11px!important;
 }
 
 /* The header keeps the canonical Homepage logo position, while the lobby

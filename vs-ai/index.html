@@ -7,7 +7,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
 <title>Grandis Legacy — VS AI Season 0 RC42 · Main Deck R3.98 / Legacy Deck R4.0 · Rulebook v3.5</title>
-<link rel="icon" type="image/png" sizes="120x120" href="engine/assets/favicon.png">
+<link rel="icon" type="image/png" sizes="120x120" href="/assets/site/web-s0/favicon.png?v=20261124-shared-v1">
 <style>
 @font-face{font-family:Noto;src:url('assets/fonts/NotoSans-Variable.woff2') format('woff2');font-weight:100 900;font-style:normal;font-display:swap}
 :root{
@@ -293,7 +293,7 @@ html.gl-adaptive-stage .played{column-gap:5px;row-gap:5px}
 .opponent-field .zone>.count,.opponent-field .opponent-mana-pool>.count{left:-4px;right:auto;top:auto;bottom:-4px}
 </style>
 
-<link rel="stylesheet" href="shared-ui/battlefield-ui.css?v=rc42-r398-r40-20261124">
+<link rel="stylesheet" href="shared-ui/battlefield-ui.css?v=rc42-mobile-all5-20261124-v2">
 <link rel="stylesheet" href="assets/css/gl-header-parity.css?v=20261119-header-clean-v2">
 <link rel="stylesheet" href="assets/css/gl-site-brand.css?v=20261120-v3">
 <link rel="stylesheet" href="assets/css/gl-site-navigation.css?v=20261120-v1">
@@ -421,35 +421,52 @@ html.gl-adaptive-stage .played{column-gap:5px;row-gap:5px}
     const touch=touchDevice();
     // M02: all standalone gameplay popups use the same logical landscape
     // canvas and transform as the battlefield on touch handsets.
-    root.classList.toggle('gl-mobile-gameplay-stage',touch&&Math.min(cssW,cssH)<=680&&Math.max(cssW,cssH)<=1350);
+    root.classList.toggle('gl-mobile-gameplay-stage',touch&&Math.min(cssW,cssH)<=900&&Math.max(cssW,cssH)<=2000);
     if(touch){
       root.classList.add('gl-adaptive-stage');
       const portrait=cssH>cssW;
       root.classList.toggle('gl-stage-portrait',portrait);
       root.classList.toggle('gl-stage-landscape',!portrait);
-      // R3.98 mobile aspect restoration: ONE uniform scale for both axes.
-      // Extend the logical canvas to the actual viewport; excess vertical
-      // space is allocated to the Phase container instead of stretching cards.
-      // Works for CSS-rotated portrait without requiring physical rotation.
+      // Mobile Point 1: uniform stage scaling, never X/Y stretch. The Phase
+      // tracker gets exactly 120% of its canonical 39px row. Remaining height
+      // belongs to both Hero fields and the Hand/Mana footprint, NOT to a
+      // tall empty Phase container. Desktop uses its untouched branch below.
       const stageW=portrait?cssH:cssW;
       const stageH=portrait?cssW:cssH;
       const scale=Math.min(stageW/REF_W,stageH/REF_H);
       const logicalW=stageW/scale;
       const logicalH=stageH/scale;
+      const phaseH=46.8;
+
+      // Grow all battlefield card families from their existing shared base
+      // (Hero, Mana/Deck, Hand). Cap growth at +20%, but lower it on tighter
+      // viewports so two Hero lanes, the deck/pile borders, and the Mana Pool
+      // still fit. CSS artwork keeps its existing intrinsic aspect ratio.
+      const standardBase=108, zonePerBase=.65/.68, handPerBase=(.75*.85)/.68;
+      const laneFit=(logicalH-phaseH-66)/(2*handPerBase+4*zonePerBase);
+      const manaFit=((logicalH-phaseH)/2-40)/(3*zonePerBase);
+      const mobileBaseW=Math.max(standardBase,
+        Math.floor(Math.min(standardBase*1.20,laneFit,manaFit)*10)/10);
       root.style.setProperty('--gl-stage-logical-w',logicalW+'px');
       root.style.setProperty('--gl-stage-logical-h',logicalH+'px');
-      root.style.setProperty('--gl-stage-phase-height',(39+Math.max(0,logicalH-REF_H))+'px');
+      root.style.setProperty('--gl-stage-phase-height',phaseH+'px');
       if(portrait){
         root.style.setProperty('--gl-stage-transform',`translate(${cssW}px,0px) rotate(90deg) scale(${scale})`);
       }else{
         root.style.setProperty('--gl-stage-transform',`translate(0px,0px) scale(${scale})`);
       }
       publish(scale,logicalW,logicalH);
+      // publish() is also used by the unchanged desktop path. Apply this
+      // adaptive card base on touch stages only, after publish() has run.
+      root.style.setProperty('--hero-base-w-logical',mobileBaseW+'px');
       refreshDependentGeometry();
       return;
     }
     root.classList.remove('gl-adaptive-stage','gl-stage-portrait','gl-stage-landscape');
     root.style.setProperty('--gl-stage-transform','none');
+    root.style.removeProperty('--gl-stage-logical-w');
+    root.style.removeProperty('--gl-stage-logical-h');
+    root.style.removeProperty('--gl-stage-phase-height');
     body.style.removeProperty('transform');
     const dpr=Math.max(1,window.devicePixelRatio||1),physicalW=cssW*dpr,physicalH=cssH*dpr;
     let scale=clamp(snapNearest(physicalW/REF_W),NORMAL_MIN,NORMAL_MAX);
@@ -484,11 +501,12 @@ html.gl-adaptive-stage .played{column-gap:5px;row-gap:5px}
   <script src="assets/review-db158/js/db166-view-model.js?v=rc41-r39-20261118"></script>
   <script src="shared-app/db158-card-review.js?v=rc41-review-cache-20261120"></script>
   <script src="runtime/season0-generated/rc42-main-deck-r398-overlay.js?v=rc42-r398-r40-20261124"></script>
-  <script src="engine/shared-app/app.bundle.js?v=rc42-r398-r40-ai-20261124"></script>
+  <script src="engine/shared-app/app.bundle.js?v=rc42-mobile-preview-dismiss-20261124-v2"></script>
   <script src="vs-ai/route-asset-compat.js?v=rc42-r398-r40-20261124"></script>
   <script src="runtime/adapters/authority-adapter.js"></script>
   <script src="runtime/adapters/local-ai-adapter.js"></script>
-  <script src="shared-app/app-runtime.js?v=rc42-r398-r40-20261124"></script>
+  <script src="shared-app/app-runtime.js?v=rc42-mobile-all5-preview-dismiss-20261124-v2"></script>
+  <script src="shared-ui/mobile-card-list-scroll.js?v=rc42-mobile-all5-20261124-v2"></script>
   <script src="shared-ui/mobile-landscape-lobby.js?v=rc42-uniform-20261124"></script>
   <script src="vs-ai/route-nav-compat.js?v=rc41-shared-nav-20261120"></script>
 

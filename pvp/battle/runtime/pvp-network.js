@@ -436,7 +436,7 @@ function update(snap,{force=false,receivedAt=null}={}){
  const m=snap?.match||{},me=snap?.local||{};
  state.status=m.status||'setup';state.role=me.role||'spectator';state.seat=me.seat||null;
  window.GL_PVP_IDENTITY={playerName:String(me.name||'PLAYER'),opponentName:String((snap.players||[]).find(p=>Number(p.seat)!==Number(me.seat))?.name||'OPPONENT'),playerDeck:String(me.deckName||'Player Deck'),opponentDeck:String((snap.players||[]).find(p=>Number(p.seat)!==Number(me.seat))?.deckName||'Opponent Deck')};
- if(state.status==='setup'){localChoiceDraft=null;cardSearchDraft=null;updateOpponentResponseNotice(null);window.GL_PVP_MANA_DRAFT?.clear?.();if(!EMBEDDED)location.replace('/');return}
+ if(state.status==='setup'){localChoiceDraft=null;cardSearchDraft=null;updateOpponentResponseNotice(null);window.GL_PVP_MANA_DRAFT?.clear?.();if(!EMBEDDED)location.replace(location.pathname.startsWith('/pvp/')?'/pvp/':'/');return}
  const coin=window.GL_S0_RC32_PVP_COIN;
  if(m.status==='coin-flip'){localChoiceDraft=null;updateOpponentResponseNotice(null);window.GL_PVP_MANA_DRAFT?.clear?.();
    const key=String(m.chooserSeat)+'|'+String(me.seat||'spectator');
@@ -580,11 +580,14 @@ function connect(){
  if(EMBEDDED){connectEmbedded();return}
 
  const clientId=session('client'),seatToken=session('seat');state.clientId=clientId;
- if(!clientId){location.replace('/');return}
+ if(!clientId){location.replace(location.pathname.startsWith('/pvp/')?'/pvp/':'/');return}
  const role=session('role')||'player';state.role=role;
  state.name=localStorage.getItem('grandis_legacy_pvp_s0_v380_name')||localStorage.getItem('grandis_legacy_pvp_v380_name')||'Player';
  const qs=new URLSearchParams({client:clientId,name:state.name,role,buildId:BUILD_ID});if(seatToken)qs.set('seatToken',seatToken);
- const ws=new WebSocket((location.protocol==='https:'?'wss:':'ws:')+'//'+location.host+'/ws?'+qs);
+ const cfg=window.GL_PVP_CONFIG||{};
+ const wsBase=String(cfg.wsBase||((location.protocol==='https:'?'wss:':'ws:')+'//'+location.host)).replace(/\/$/,'');
+ const wsPath=String(cfg.wsPath||'/ws');
+ const ws=new WebSocket(wsBase+wsPath+'?'+qs);
  state.ws=ws;
  // Server immediately supplies one forceImport snapshot on every handshake.
  // Do not ask for a redundant second full state on a healthy connection.

@@ -1,0 +1,63 @@
+{
+  "qa_date": "2026-11-24",
+  "source_website": "Grandis_Legacy_Website_FULL_NO_PVP_VSAI_RC42_Mobile_All5_Shared_Favicon_2026-11-24.zip",
+  "source_pvp": "Grandis_Legacy_S0_PvP_Website_PVP_ONLY_RC42_R398_R40_SHARED_2026-11-24.zip",
+  "backend_reference": "Grandis_Legacy_S0_PvP_Standalone_Backend_RC42_R398_R40_CLEAN_ROOT_2026-11-24.zip",
+  "backend_build_id": "gl-s0-pvp-rc42-r398-r40-20261124-b",
+  "website_artworks_verified_sha256": 250,
+  "shared_other_binary_assets_verified_sha256": 109,
+  "app_protocol_files_unchanged": [
+    "pvp/battle/engine/shared-app/app.bundle.js",
+    "pvp/battle/engine/js/static-data.js",
+    "pvp/battle/runtime/pvp-mana-draft.js",
+    "pvp/config.js"
+  ],
+  "intentional_unique_files": [
+    "pvp/assets/ui/back-main.webp",
+    "pvp/assets/ui/back-legacy.webp",
+    "pvp/assets/ui/back-shard.webp"
+  ],
+  "native_full_website_http_browser_test": "BLOCKED_BY_ADMINISTRATOR environment; not verified",
+  "offline_websocket_backend_deck_import": "PASS: native server.js using offline ws-lite, official Blue-Red > Yellow-Blue > Blue-Red exports, authoritative snapshot confirms content and formation",
+  "backend_known_limitation": "Resolved in paired RC42-B standalone: setDeckFast validates all fields before atomic assignment.",
+  "production_websocket": "NOT TESTED; no remote backend access",
+  "full_pvp_two_browser_match": "NOT TESTED; existing stage3 evidence retained",
+  "synthetic_chromium_browser": "PASS: lobby 1600/1333/1024/393; import A/B/A+server rejection; mobile 393x850 and 720x393; card list scroll and phase geometry",
+  "new_css_missing_urls": [],
+  "historical_css_unresolved": [],
+  "changed_from_pvp_base": [
+    "pvp/battle/index.html",
+    "pvp/battle/shared-app/app-runtime.js",
+    "pvp/docs/SHARED_ASSETS_DEPLOYMENT.json",
+    "pvp/docs/WEBSITE_PVP_DEPLOYMENT.md",
+    "pvp/index.html",
+    "pvp/lobby/pvp-shared-header-20261120.css",
+    "pvp/pvp/pvp-host.js",
+    "pvp/pvp/pvp-integration.css"
+  ],
+  "added_from_pvp_base": [
+    "pvp/battle/runtime/pvp-mobile-all5.css",
+    "pvp/battle/shared-ui/pvp-mobile-card-list-scroll.js",
+    "pvp/docs/ARCHIVED_BATTLE_README.md",
+    "pvp/docs/WEBSITE_FILES_MANIFEST.json",
+    "pvp/docs/WEBSITE_INTEGRATION_QA_2026-11-24.md",
+    "pvp/docs/WEBSITE_INTEGRATION_QA_RESULTS.json"
+  ],
+  "removed_from_pvp_base": [
+    "pvp/battle/README.md",
+    "pvp/battle/assets/lobby/exit.png",
+    "pvp/battle/engine/assets/audio/Tavern Quest.mp3"
+  ],
+  "errors": [],
+  "source_website_note": "Existing latest uploaded source, not GitHub repository.",
+  "paired_release_replaces": "RC42-A; build ID updated across backend and Website.",
+  "paired_package_fix": {
+    "source": "Uploaded Part 6 PvP Website All5/Import/SharedFavicon 2026-11-24",
+    "buildId": "gl-s0-pvp-rc42-r398-r40-20261124-b",
+    "direct_battle_ws_config": "FIXED",
+    "portrait_touch_axis_scaling": "FIXED",
+    "unique_pvp_back_assets": "PRESERVED/USED",
+    "unique_pvp_audio_assets": "PRESERVED/USED",
+    "native_production_browser_test": "NOT RUN"
+  }
+}

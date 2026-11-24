@@ -12892,6 +12892,23 @@ function getActivatedHeroAbilities(state, side, lane){
   }
 
   function v94HoverZoomHide(){var box=$('hoverCardZoom');if(!box)return;box.classList.remove('is-visible','is-modal-zoom','is-click-zoom','is-hand-hover','is-card-played-hover','is-v642-right-preview','is-v253-readable-preview','is-v253-contextual-preview','is-tablet-portrait-shard-preview','is-phone-shard-preview');box.hidden=true;box._glAnchor=null;if(typeof GL_TABLET_BATTLEFIELD_TAP_STATE!=='undefined')GL_TABLET_BATTLEFIELD_TAP_STATE.anchor=null;if(typeof document!=='undefined')Array.prototype.forEach.call(document.querySelectorAll('.gl-lab-hand .hand-card.hand-hover-active'),function(cardEl){cardEl.classList.remove('hand-hover-active');});if(box.dataset)delete box.dataset.previewPlacement;box.style.transform='translate3d(-9999px,-9999px,0)';if(box.style&&typeof box.style.removeProperty==='function'){box.style.removeProperty('--gl-tablet-preview-w');box.style.removeProperty('--gl-tablet-preview-h');}box.setAttribute('aria-hidden','true');}
+  // Mobile enlarged previews must dismiss when the player taps outside the
+  // source card. Touch devices do not reliably emit mouseleave/pointerleave
+  // after a tap, so relying on hover exit leaves #hoverCardZoom stuck open.
+  var GL_MOBILE_OUTSIDE_PREVIEW_DISMISS_BOUND=false;
+  function v94BindMobileOutsidePreviewDismiss(){
+    if(GL_MOBILE_OUTSIDE_PREVIEW_DISMISS_BOUND||typeof document==='undefined')return;
+    GL_MOBILE_OUTSIDE_PREVIEW_DISMISS_BOUND=true;
+    document.addEventListener('pointerdown',function(ev){
+      if(!ev||ev.pointerType==='mouse'||!isTouchFirstViewport())return;
+      var box=$('hoverCardZoom');if(!box||box.hidden)return;
+      var target=ev.target&&ev.target.nodeType===1?ev.target:(ev.target&&ev.target.parentElement);
+      if(target&&target.closest&&target.closest('#hoverCardZoom'))return;
+      var anchor=box._glAnchor;
+      if(anchor&&target&&(anchor===target||anchor.contains(target)))return;
+      v94HoverZoomHide();
+    },true);
+  }
   function v59HandHoverZoomShow(cardId,anchor){
     /* Hand hover order is fixed: raise the physical Hand card, keep Play/Tribute above it,
        then place the large review above that action strip. The review is positioned before
@@ -14039,6 +14056,7 @@ var desktopMarkup='<div class="gl-lab-authority '+(state.turn==='AI'?'turn-ai':'
   }
   function bind(){
     syncResponsiveInputMode();
+    v94BindMobileOutsidePreviewDismiss();
     if(typeof window!=='undefined'&&!window._glResponsiveModeBound){window._glResponsiveModeBound=true;var lastMobile=isMobileViewport();window.addEventListener('resize',function(){var before=lastMobile;syncResponsiveInputMode();lastMobile=isMobileViewport();if(before!==lastMobile){v94HoverZoomHide();if(matchStarted)render();}},{passive:true});window.addEventListener('orientationchange',function(){v94HoverZoomHide();setTimeout(function(){var before=lastMobile;syncResponsiveInputMode();lastMobile=isMobileViewport();if(matchStarted&&before!==lastMobile)render();},80);},{passive:true});}
     bindModalStackManager();
     v253BindDelegatedReadablePreview();
