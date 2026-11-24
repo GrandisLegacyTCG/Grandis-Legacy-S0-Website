@@ -371,15 +371,20 @@ function promoteTemporaryCardPreview(active){
   if(active&&active.parentElement===document.body)document.body.appendChild(active);
 }
 let battlefieldHoverSource=null;
+function isPvpMobilePreviewStage(){
+  const c=document.documentElement.classList;
+  return c.contains('gl-adaptive-stage')&&c.contains('gl-pvp-mobile-gameplay')&&!c.contains('gl-mobile-landscape-stage');
+}
+function registerPvpMobileCardHold(element,show){window.GL_MOBILE_PREVIEW_HOLD?.bind(element,show)}
 function normalizePvpPortraitCardPreview(layer){
   const cls=document.documentElement.classList;
-  if(!cls.contains('gl-pvp-mobile-gameplay')||!cls.contains('gl-stage-portrait')||cls.contains('gl-mobile-landscape-stage')||!layer)return false;
+  if(!isPvpMobilePreviewStage()||!layer)return false;
   for(const prop of ['width','height','left','top','right','bottom'])layer.style.removeProperty(prop);
   return true;
 }
 function pvpPlaceMobilePopupPreview(anchor){
   if(!anchor||!normalizePvpPortraitCardPreview(modalHoverPreview))return false;
-  const panel=anchor.closest?.('.choice-panel,.gl-exp-inspector-panel,.gl-progression-card,.gl-center-choice-stage')||
+  const panel=anchor.closest?.('.gl-center-choice-cards,.choice-panel,.gl-exp-inspector-panel,.gl-progression-card,.gl-center-choice-stage')||
     choiceOverlay.querySelector('.choice-panel')||anchor;
   // uiRect already maps the transformed PvP BODY (including translation,
   // rotation and nonuniform scales) back to the logical 1600x747 stage.
@@ -388,21 +393,17 @@ function pvpPlaceMobilePopupPreview(anchor){
   const w=248,h=347,g=10,mid=pr.left+pr.width/2;
   const preferRight=ar.left+ar.width/2>=mid;
   const rightX=pr.right+g,leftX=pr.left-g-w;
-  const fitsRight=rightX+w<=1600-g,fitsLeft=leftX>=g;
+  const stageW=Math.min(1600,parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--gl-stage-logical-w'))||1600);
+  const stageH=Math.min(747,parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--gl-stage-logical-h'))||747);
+  const fitsRight=rightX+w<=stageW-g,fitsLeft=leftX>=g;
   const useRight=preferRight?(fitsRight||!fitsLeft):(!fitsLeft&&fitsRight);
-  const x=Math.min(1600-w-g,Math.max(g,useRight?rightX:leftX));
-  const y=Math.min(747-h-g,Math.max(g,ar.top+(ar.height-h)/2));
+  const x=Math.min(stageW-w-g,Math.max(g,useRight?rightX:leftX));
+  const y=Math.min(stageH-h-g,Math.max(g,ar.top+(ar.height-h)/2));
   modalHoverPreview.style.setProperty('--gl-popup-preview-x',Math.round(x)+'px');
   modalHoverPreview.style.setProperty('--gl-popup-preview-y',Math.round(y)+'px');
   return true;
 }
-let pvpPopupTouchTimer=null;
 let pvpSidebarPreviewSource=null, pvpModalPreviewSource=null;
-function pvpTouchPreviewBriefly(anchor,show){
-  if(!document.documentElement.classList.contains('gl-pvp-mobile-gameplay'))return;
-  show();clearTimeout(pvpPopupTouchTimer);
-  pvpPopupTouchTimer=setTimeout(hideModalHoverPreview,1400);
-}
 function hideBattlefieldHoverPreview(){battlefieldHoverSource=null;battlefieldHoverPreview.classList.remove('open','is-hero');battlefieldHoverPreview.style.removeProperty('width');battlefieldHoverPreview.style.removeProperty('height');battlefieldHoverPreview.setAttribute('aria-hidden','true');battlefieldHoverImg.removeAttribute('src')}
 function placeBattlefieldHoverPreview(kind,anchor){
   if(!anchor||!battlefieldHoverPreview)return;
@@ -438,14 +439,12 @@ function placeBattlefieldHoverPreview(kind,anchor){
 function bindBattlefieldPreview(img,kind,anchor){
   if(!img)return;const key='glBattlefieldPreview'+String(kind||'card');if(img.dataset[key]==='1')return;img.dataset[key]='1';
   const show=()=>{if(anchor?.dataset?.glBlind==='1'||backgroundPreviewSuppressed(anchor||img))return;promoteTemporaryCardPreview(battlefieldHoverPreview);battlefieldHoverSource=img;battlefieldHoverPreview.classList.toggle('is-hero',kind==='hero');battlefieldHoverImg.src=img.src;placeBattlefieldHoverPreview(kind,anchor||img);battlefieldHoverPreview.classList.add('open');battlefieldHoverPreview.setAttribute('aria-hidden','false')};
-  img.addEventListener('mouseenter',show);img.addEventListener('mousemove',()=>{if(battlefieldHoverSource===img&&!backgroundPreviewSuppressed(anchor||img))placeBattlefieldHoverPreview(kind,anchor||img)});img.addEventListener('mouseleave',()=>{if(battlefieldHoverSource===img)hideBattlefieldHoverPreview()});
-  // Touchscreens have no reliable hover. A tap can preview a legally visible
-  // player's Hand card. The outside-tap handler dismisses it automatically.
-  if(kind==='hand')img.addEventListener('pointerdown',event=>{
-    if(event.pointerType!=='touch'&&event.pointerType!=='pen')return;
-    if(anchor?.dataset?.glBlind==='1'||backgroundPreviewSuppressed(anchor||img))return;
-    show();
-  },{passive:true});
+  img.addEventListener('mouseenter',()=>{if(!isPvpMobilePreviewStage())show()});
+  img.addEventListener('mousemove',()=>{if(!isPvpMobilePreviewStage()&&battlefieldHoverSource===img&&!backgroundPreviewSuppressed(anchor||img))placeBattlefieldHoverPreview(kind,anchor||img)});
+  img.addEventListener('mouseleave',()=>{if(!isPvpMobilePreviewStage()&&battlefieldHoverSource===img)hideBattlefieldHoverPreview()});
+  // A touch tap still selects normally. Only a 400ms hold can inspect a
+  // visible card; the donor controller prevents a hold from firing its click.
+  registerPvpMobileCardHold(img,show);
 }
 function formatMatchTime(ms){const total=Math.max(0,Math.floor(Number(ms||0)/1000)),m=Math.floor(total/60),sec=total%60;return String(m).padStart(2,'0')+':'+String(sec).padStart(2,'0')}
 function updateMatchTimer(){if(!matchTimer)return;const elapsed=matchStartedAt?(matchStoppedElapsed||Date.now()-matchStartedAt):0;matchTimer.textContent=formatMatchTime(elapsed);matchTimer.setAttribute('aria-label','Match time '+matchTimer.textContent)}
@@ -515,9 +514,11 @@ function placeSidebarHoverPreview(anchor){
 }
 function bindSidebarPreview(img){
   if(!img||img.dataset.glSidebarPreviewBound==='1')return;img.dataset.glSidebarPreviewBound='1';
-  img.addEventListener('mouseenter',()=>{if(backgroundPreviewSuppressed(img))return;pvpSidebarPreviewSource=img;promoteTemporaryCardPreview(sidebarHoverPreview);sidebarHoverImg.src=img.src;placeSidebarHoverPreview(img);sidebarHoverPreview.classList.add('open');sidebarHoverPreview.setAttribute('aria-hidden','false')});
-  img.addEventListener('mousemove',()=>{if(!backgroundPreviewSuppressed(img))placeSidebarHoverPreview(img)});
-  img.addEventListener('mouseleave',hideSidebarHoverPreview);
+  const show=()=>{if(backgroundPreviewSuppressed(img))return;pvpSidebarPreviewSource=img;promoteTemporaryCardPreview(sidebarHoverPreview);sidebarHoverImg.src=img.src;placeSidebarHoverPreview(img);sidebarHoverPreview.classList.add('open');sidebarHoverPreview.setAttribute('aria-hidden','false')};
+  img.addEventListener('mouseenter',()=>{if(!isPvpMobilePreviewStage())show()});
+  img.addEventListener('mousemove',()=>{if(!isPvpMobilePreviewStage()&&!backgroundPreviewSuppressed(img))placeSidebarHoverPreview(img)});
+  img.addEventListener('mouseleave',()=>{if(!isPvpMobilePreviewStage())hideSidebarHoverPreview()});
+  registerPvpMobileCardHold(img,show);
 }
 function hideModalHoverPreview(){pvpModalPreviewSource=null;modalHoverPreview.style.removeProperty('width');modalHoverPreview.style.removeProperty('height');modalHoverPreview.classList.remove('open');modalHoverPreview.setAttribute('aria-hidden','true');modalHoverImg.removeAttribute('src')}
 function fixedChoicePreviewSlot(){return choiceOverlay.querySelector('.gl-choice-fixed-preview-slot')}
@@ -529,7 +530,8 @@ function setFixedChoicePreview(src,alt){
 function bindFixedChoicePreview(img,cardId){
   if(!img||img.dataset.glFixedChoicePreviewBound==='1')return;img.dataset.glFixedChoicePreviewBound='1';
   const show=()=>{if(backgroundPreviewSuppressed(img))return;hideModalHoverPreview();const v=cv(cardId);setFixedChoicePreview(art(cardId),v?.name||img.alt)};
-  img.addEventListener('mouseenter',show);img.addEventListener('focus',show);
+  img.addEventListener('mouseenter',()=>{if(!isPvpMobilePreviewStage())show()});img.addEventListener('focus',()=>{if(!isPvpMobilePreviewStage())show()});
+  registerPvpMobileCardHold(img,show);
 }
 function placeModalHoverPreview(anchor){
   if(pvpPlaceMobilePopupPreview(anchor))return;
@@ -554,10 +556,10 @@ function placeModalHoverPreview(anchor){
 function bindModalPreview(img){
   if(!img||img.dataset.glModalPreviewBound==='1')return;img.dataset.glModalPreviewBound='1';
   const show=()=>{if(backgroundPreviewSuppressed(img))return;pvpModalPreviewSource=img;promoteTemporaryCardPreview(modalHoverPreview);modalHoverPreview.classList.remove('is-context-hero');modalHoverImg.src=img.src;placeModalHoverPreview(img);modalHoverPreview.classList.add('open');modalHoverPreview.setAttribute('aria-hidden','false')};
-  img.addEventListener('mouseenter',show);
-  img.addEventListener('touchstart',()=>pvpTouchPreviewBriefly(img,show),{passive:true});
-  img.addEventListener('mousemove',()=>{if(!backgroundPreviewSuppressed(img))placeModalHoverPreview(img)});
-  img.addEventListener('mouseleave',hideModalHoverPreview);
+  img.addEventListener('mouseenter',()=>{if(!isPvpMobilePreviewStage())show()});
+  img.addEventListener('mousemove',()=>{if(!isPvpMobilePreviewStage()&&!backgroundPreviewSuppressed(img))placeModalHoverPreview(img)});
+  img.addEventListener('mouseleave',()=>{if(!isPvpMobilePreviewStage())hideModalHoverPreview()});
+  registerPvpMobileCardHold(img,show);
 }
 function placeContextualModalHoverPreview(anchor,compactHero){
   if(!anchor||!modalHoverPreview)return;
@@ -645,30 +647,41 @@ function bindClassChoiceHoverPreview(card,cardId){
   };
   // The stable BUTTON is the hover anchor. Binding to its 3D-flipped IMG used
   // to fire pointerleave when the image/hover transform changed under Firefox.
-  card.addEventListener('pointerenter',e=>{if(e.pointerType!=='touch')show()});
+  card.addEventListener('pointerenter',e=>{if(!isPvpMobilePreviewStage()&&e.pointerType!=='touch')show()});
   card.addEventListener('pointermove',e=>{
-    if(e.pointerType==='touch')return;
+    if(isPvpMobilePreviewStage()||e.pointerType==='touch')return;
     if(classChoiceHoverOwner!==card||!modalHoverPreview.classList.contains('open'))show();
     else placeClassChoiceHoverPreview(card);
   });
   card.addEventListener('pointerleave',()=>{
     clearTimeout(leaveTimer);
+    // A touch release must not auto-dismiss the preview from a successful hold.
+    if(isPvpMobilePreviewStage())return;
     leaveTimer=setTimeout(()=>{
       if(classChoiceHoverOwner===card&&!card.matches(':hover')){classChoiceHoverOwner=null;hideModalHoverPreview()}
     },85);
   });
-  card.addEventListener('focus',show);
+  card.addEventListener('focus',()=>{if(!isPvpMobilePreviewStage())show()});
   card.addEventListener('blur',()=>{
     clearTimeout(leaveTimer);
-    if(classChoiceHoverOwner===card){classChoiceHoverOwner=null;hideModalHoverPreview()}
+    if(classChoiceHoverOwner===card&&!isPvpMobilePreviewStage()){classChoiceHoverOwner=null;hideModalHoverPreview()}
+  });
+  registerPvpMobileCardHold(card,()=>{
+    // Never reveal a face-down opponent choice during inspection.
+    if(!card.classList.contains('is-face-up'))return;
+    show();
   });
 }
 function bindContextualModalPreview(img,cardId){
   if(!img||img.dataset.glContextModalPreviewBound==='1')return;img.dataset.glContextModalPreviewBound='1';
   const v=cv(cardId),family=String(v?.family||v?.type||'').toLowerCase(),compactHero=/hero|legacy/.test(family)||/-(H\d{3}|L\d{3}|LEG)/i.test(String(cardId||''));
   const show=()=>{if(backgroundPreviewSuppressed(img))return;pvpModalPreviewSource=img;promoteTemporaryCardPreview(modalHoverPreview);modalHoverImg.src=img.src;placeContextualModalHoverPreview(img,compactHero);modalHoverPreview.classList.add('open');modalHoverPreview.setAttribute('aria-hidden','false')};
-  img.addEventListener('mouseenter',show);img.addEventListener('mousemove',()=>{if(!backgroundPreviewSuppressed(img))placeContextualModalHoverPreview(img,compactHero)});img.addEventListener('mouseleave',()=>{modalHoverPreview.classList.remove('is-context-hero');hideModalHoverPreview()});
-  img.addEventListener('touchstart',()=>pvpTouchPreviewBriefly(img,show),{passive:true});
+  img.addEventListener('mouseenter',()=>{if(!isPvpMobilePreviewStage())show()});
+  img.addEventListener('mousemove',()=>{if(!isPvpMobilePreviewStage()&&!backgroundPreviewSuppressed(img))placeContextualModalHoverPreview(img,compactHero)});
+  img.addEventListener('mouseleave',()=>{if(!isPvpMobilePreviewStage()){modalHoverPreview.classList.remove('is-context-hero');hideModalHoverPreview()}});
+  // Center-choice buttons own their gesture. List images and other inspectable
+  // cards use the same donor hold controller with no click-side effects.
+  if(!img.closest('.gl-center-choice-card'))registerPvpMobileCardHold(img,show);
 }
 function bindChoicePreview(img,cardId,mode){
   // Preview behavior follows the candidate zone, never the action/caller type.
@@ -2903,6 +2916,24 @@ function renderCenterChoiceStage(s){
   cardsHost.innerHTML='';actions.innerHTML='';
   cardsHost.style.setProperty('--gl-choice-count',String(Math.max(1,cards.length)));
   cardsHost.innerHTML=cards.map(centerChoiceCardHtml).join('');
+  // Donor RC42 points #7/#9: every legally face-up central prompt can be
+  // inspected with a 400ms hold, including Read-only Stoneblood/Draw,
+  // Rank Up EXP, mana payments, and class/legacy choices. Hidden opposing
+  // Shards/Hand cannot reveal until the authoritative view marks them face-up.
+  // Specialized preview binders below may replace this generic handler.
+  cardsHost.querySelectorAll('.gl-center-choice-card').forEach((card,i)=>{
+    const front=card.querySelector('.gl-center-choice-front img');
+    if(!front)return;
+    registerPvpMobileCardHold(card,()=>{
+      if(!card.classList.contains('is-face-up')||!card.isConnected||backgroundPreviewSuppressed(card))return;
+      classChoiceHoverOwner=card;pvpModalPreviewSource=card;
+      promoteTemporaryCardPreview(modalHoverPreview);
+      modalHoverPreview.classList.remove('is-context-hero');
+      modalHoverImg.src=front.currentSrc||front.src;
+      placeClassChoiceHoverPreview(card);
+      modalHoverPreview.classList.add('open');modalHoverPreview.setAttribute('aria-hidden','false');
+    });
+  });
   if(mode==='opponent-hand'&&p.reveal_cards){
     cardsHost.querySelectorAll('.gl-center-choice-card').forEach((c,i)=>{const id=p.candidates?.[i]?.card_id,front=c.querySelector('.gl-center-choice-front img');if(front&&id)bindContextualModalPreview(front,id)});
   }
@@ -4757,6 +4788,13 @@ function initPvpMobilePreviewDismiss(){
       src.closest?.('.hand-card,.hero-card,.attachment-card,.gl-center-choice-card,.gl-inspect-card,.card-search-choice')?.contains?.(target));
     const touchesCurrentSource=previewSources.some(ownsTarget);
     const touchesPreview=!!target?.closest?.('.gl-battlefield-hover-preview,.gl-sidebar-hover-preview,.gl-modal-hover-preview,#hoverCardZoom');
+    if(touchesPreview&&isPvpMobilePreviewStage()){
+      // An opened preview is a dismiss control on touch, not a gameplay card.
+      event.preventDefault();event.stopImmediatePropagation();
+      hideBattlefieldHoverPreview();hideSidebarHoverPreview();hideModalHoverPreview();
+      const legacy=document.getElementById('hoverCardZoom');if(legacy)legacy.hidden=true;
+      return;
+    }
     if(!touchesCurrentSource&&!touchesPreview){
       if(battlefieldHoverPreview.classList.contains('open'))hideBattlefieldHoverPreview();
       if(sidebarHoverPreview.classList.contains('open'))hideSidebarHoverPreview();

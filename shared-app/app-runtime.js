@@ -312,6 +312,9 @@ function hasUnifiedMobilePreviewStage(){
   const c=document.documentElement.classList;
   return c.contains('gl-mobile-gameplay-stage')&&!c.contains('gl-mobile-landscape-stage');
 }
+// A single touch gesture is shared by Battlefield, Hand, Mana, and card choices.
+// Desktop mouse hover and double-click behavior is deliberately untouched.
+function registerMobileCardHold(el,show){window.GL_MOBILE_PREVIEW_HOLD?.bind(el,show)}
 function isRotatedMobileGameplay(){
   return hasUnifiedMobilePreviewStage()&&document.documentElement.classList.contains('gl-stage-portrait');
 }
@@ -340,7 +343,7 @@ function mobilePopupLogicalRect(el){
 function placeMobilePopupPreview(anchor){
   if(!hasUnifiedMobilePreviewStage()||!anchor)return false;
   normalizeRotatedMobilePreview(modalHoverPreview);
-  const panel=anchor.closest?.('.choice-panel,.gl-exp-inspector-panel,.gl-progression-card')
+  const panel=anchor.closest?.('.gl-center-choice-cards,.choice-panel,.gl-exp-inspector-panel,.gl-progression-card')
       ||choiceOverlay.querySelector('.choice-panel')||anchor;
   const ar=mobilePopupLogicalRect(anchor),pr=mobilePopupLogicalRect(panel);
   if(!pr||!ar)return false;
@@ -417,12 +420,10 @@ function placeBattlefieldHoverPreview(kind,anchor){
 function bindBattlefieldPreview(img,kind,anchor){
   if(!img)return;const key='glBattlefieldPreview'+String(kind||'card');if(img.dataset[key]==='1')return;img.dataset[key]='1';
   const show=()=>{if(backgroundPreviewSuppressed(anchor||img))return;promoteTemporaryCardPreview(battlefieldHoverPreview);battlefieldHoverSource=img;battlefieldHoverPreview.classList.toggle('is-hero',kind==='hero');battlefieldHoverImg.src=img.src;placeBattlefieldHoverPreview(kind,anchor||img);battlefieldHoverPreview.classList.add('open');battlefieldHoverPreview.setAttribute('aria-hidden','false')};
-  img.addEventListener('mouseenter',show);img.addEventListener('mousemove',()=>{if(battlefieldHoverSource===img&&!backgroundPreviewSuppressed(anchor||img))placeBattlefieldHoverPreview(kind,anchor||img)});img.addEventListener('mouseleave',()=>{if(battlefieldHoverSource===img)hideBattlefieldHoverPreview()});
-  // On touch devices, a Hand card remains inspectable during the search
-  // without triggering PLAY, Tribute, or another modal.
-  if(kind==='hand')img.addEventListener('pointerdown',e=>{if(e.pointerType==='touch'&&choiceOverlay.classList.contains('gl-choice-to-hand')){
-    show();setTimeout(()=>{if(battlefieldHoverSource===img)hideBattlefieldHoverPreview()},1700);
-  }});
+  img.addEventListener('mouseenter',()=>{if(!hasUnifiedMobilePreviewStage())show()});
+  img.addEventListener('mousemove',()=>{if(!hasUnifiedMobilePreviewStage()&&battlefieldHoverSource===img&&!backgroundPreviewSuppressed(anchor||img))placeBattlefieldHoverPreview(kind,anchor||img)});
+  img.addEventListener('mouseleave',()=>{if(!hasUnifiedMobilePreviewStage()&&battlefieldHoverSource===img)hideBattlefieldHoverPreview()});
+  registerMobileCardHold(img,show);
 }
 function formatMatchTime(ms){const total=Math.max(0,Math.floor(Number(ms||0)/1000)),m=Math.floor(total/60),sec=total%60;return String(m).padStart(2,'0')+':'+String(sec).padStart(2,'0')}
 function updateMatchTimer(){if(!matchTimer)return;const elapsed=matchStartedAt?(matchStoppedElapsed||Date.now()-matchStartedAt):0;matchTimer.textContent=formatMatchTime(elapsed);matchTimer.setAttribute('aria-label','Match time '+matchTimer.textContent)}
@@ -492,9 +493,11 @@ function placeSidebarHoverPreview(anchor){
 }
 function bindSidebarPreview(img){
   if(!img||img.dataset.glSidebarPreviewBound==='1')return;img.dataset.glSidebarPreviewBound='1';
-  img.addEventListener('mouseenter',()=>{if(backgroundPreviewSuppressed(img))return;promoteTemporaryCardPreview(sidebarHoverPreview);sidebarHoverSource=img;sidebarHoverImg.src=img.src;placeSidebarHoverPreview(img);sidebarHoverPreview.classList.add('open');sidebarHoverPreview.setAttribute('aria-hidden','false')});
-  img.addEventListener('mousemove',()=>{if(!backgroundPreviewSuppressed(img))placeSidebarHoverPreview(img)});
-  img.addEventListener('mouseleave',hideSidebarHoverPreview);
+  const show=()=>{if(backgroundPreviewSuppressed(img))return;promoteTemporaryCardPreview(sidebarHoverPreview);sidebarHoverSource=img;sidebarHoverImg.src=img.src;placeSidebarHoverPreview(img);sidebarHoverPreview.classList.add('open');sidebarHoverPreview.setAttribute('aria-hidden','false')};
+  img.addEventListener('mouseenter',()=>{if(!hasUnifiedMobilePreviewStage())show()});
+  img.addEventListener('mousemove',()=>{if(!hasUnifiedMobilePreviewStage()&&!backgroundPreviewSuppressed(img))placeSidebarHoverPreview(img)});
+  img.addEventListener('mouseleave',()=>{if(!hasUnifiedMobilePreviewStage())hideSidebarHoverPreview()});
+  registerMobileCardHold(img,show);
 }
 function hideModalHoverPreview(){modalHoverSource=null;modalHoverPreview.style.removeProperty('width');modalHoverPreview.style.removeProperty('height');modalHoverPreview.classList.remove('open');modalHoverPreview.setAttribute('aria-hidden','true');modalHoverImg.removeAttribute('src')}
 // On touch screens a blank-area tap is the explicit dismiss gesture for every
@@ -520,6 +523,13 @@ function bindMobileOutsidePreviewDismiss(){
   },true);
 }
 bindMobileOutsidePreviewDismiss();
+[battlefieldHoverImg,sidebarHoverImg,modalHoverImg].forEach(im=>{
+  im.addEventListener('pointerdown',event=>{
+    if(!hasUnifiedMobilePreviewStage())return;
+    event.preventDefault();event.stopImmediatePropagation();
+    hideBattlefieldHoverPreview();hideSidebarHoverPreview();hideModalHoverPreview();
+  });
+});
 function fixedChoicePreviewSlot(){return choiceOverlay.querySelector('.gl-choice-fixed-preview-slot')}
 function setFixedChoicePreview(src,alt){
   const slot=fixedChoicePreviewSlot();if(!slot)return false;
@@ -554,10 +564,10 @@ function placeModalHoverPreview(anchor){
 function bindModalPreview(img){
   if(!img||img.dataset.glModalPreviewBound==='1')return;img.dataset.glModalPreviewBound='1';
   const show=()=>{if(backgroundPreviewSuppressed(img))return;modalHoverSource=img;modalHoverPreview.classList.remove('is-context-hero');modalHoverImg.src=img.src;placeModalHoverPreview(img);modalHoverPreview.classList.add('open');modalHoverPreview.setAttribute('aria-hidden','false')};
-  img.addEventListener('mouseenter',show);
-  img.addEventListener('pointerdown',e=>{if(e.pointerType==='touch'){show();keepMobilePopupPreviewBriefly()}});
-  img.addEventListener('mousemove',()=>{if(!backgroundPreviewSuppressed(img))placeModalHoverPreview(img)});
+  img.addEventListener('mouseenter',()=>{if(!hasUnifiedMobilePreviewStage())show()});
+  img.addEventListener('mousemove',()=>{if(!hasUnifiedMobilePreviewStage()&&!backgroundPreviewSuppressed(img))placeModalHoverPreview(img)});
   img.addEventListener('mouseleave',()=>{if(!hasUnifiedMobilePreviewStage())hideModalHoverPreview()});
+  registerMobileCardHold(img,show);
 }
 function placeContextualModalHoverPreview(anchor,compactHero){
   if(!anchor||!modalHoverPreview)return;
@@ -629,8 +639,8 @@ function placeClassChoiceHoverPreview(anchor){
   modalHoverPreview.style.top=Math.round(y)+'px';
 }
 let classChoiceHoverOwner=null;
-function bindClassChoiceHoverPreview(card,cardId){
-  if(!card||!cardId||card.dataset.glClassChoicePreviewBound==='1')return;
+function bindClassChoiceHoverPreview(card,cardId,explicitArt=null){
+  if(!card||(!cardId&&!explicitArt)||card.dataset.glClassChoicePreviewBound==='1')return;
   card.dataset.glClassChoicePreviewBound='1';
   let leaveTimer=null;
   const show=()=>{
@@ -640,39 +650,42 @@ function bindClassChoiceHoverPreview(card,cardId){
     promoteTemporaryCardPreview(modalHoverPreview);
     modalHoverSource=card;
     modalHoverPreview.classList.remove('is-context-hero');
-    modalHoverImg.src=art(cardId);
+    modalHoverImg.src=explicitArt||art(cardId);
     placeClassChoiceHoverPreview(card);
     modalHoverPreview.classList.add('open');modalHoverPreview.setAttribute('aria-hidden','false');
   };
   // The stable BUTTON is the hover anchor. Binding to its 3D-flipped IMG used
   // to fire pointerleave when the image/hover transform changed under Firefox.
-  card.addEventListener('pointerenter',e=>{if(e.pointerType!=='touch')show()});
-  card.addEventListener('pointerdown',e=>{if(e.pointerType==='touch'){show();keepMobilePopupPreviewBriefly()}});
+  card.addEventListener('pointerenter',e=>{if(!hasUnifiedMobilePreviewStage()&&e.pointerType!=='touch')show()});
   card.addEventListener('pointermove',e=>{
-    if(e.pointerType==='touch')return;
+    if(hasUnifiedMobilePreviewStage()||e.pointerType==='touch')return;
     if(classChoiceHoverOwner!==card||!modalHoverPreview.classList.contains('open'))show();
     else placeClassChoiceHoverPreview(card);
   });
   card.addEventListener('pointerleave',()=>{
     clearTimeout(leaveTimer);
+    if(hasUnifiedMobilePreviewStage())return;
     leaveTimer=setTimeout(()=>{
       if(classChoiceHoverOwner===card&&!card.matches(':hover')){classChoiceHoverOwner=null;hideModalHoverPreview()}
     },85);
   });
-  card.addEventListener('focus',show);
+  card.addEventListener('focus',()=>{if(!hasUnifiedMobilePreviewStage())show()});
   card.addEventListener('blur',()=>{
     clearTimeout(leaveTimer);
-    if(classChoiceHoverOwner===card){classChoiceHoverOwner=null;hideModalHoverPreview()}
+    if(!hasUnifiedMobilePreviewStage()&&classChoiceHoverOwner===card){classChoiceHoverOwner=null;hideModalHoverPreview()}
   });
+  registerMobileCardHold(card,show);
 }
 function bindContextualModalPreview(img,cardId){
   if(!img||img.dataset.glContextModalPreviewBound==='1')return;img.dataset.glContextModalPreviewBound='1';
   const v=cv(cardId),family=String(v?.family||v?.type||'').toLowerCase(),compactHero=/hero|legacy/.test(family)||/-(H\d{3}|L\d{3}|LEG)/i.test(String(cardId||''));
   const show=()=>{if(backgroundPreviewSuppressed(img))return;promoteTemporaryCardPreview(modalHoverPreview);modalHoverSource=img;modalHoverImg.src=img.src;placeContextualModalHoverPreview(img,compactHero);modalHoverPreview.classList.add('open');modalHoverPreview.setAttribute('aria-hidden','false')};
-  img.addEventListener('mouseenter',show);
-  img.addEventListener('pointerdown',e=>{if(e.pointerType==='touch'){show();keepMobilePopupPreviewBriefly()}});
-  img.addEventListener('mousemove',()=>{if(!backgroundPreviewSuppressed(img))placeContextualModalHoverPreview(img,compactHero)});
+  img.addEventListener('mouseenter',()=>{if(!hasUnifiedMobilePreviewStage())show()});
+  img.addEventListener('mousemove',()=>{if(!hasUnifiedMobilePreviewStage()&&!backgroundPreviewSuppressed(img))placeContextualModalHoverPreview(img,compactHero)});
   img.addEventListener('mouseleave',()=>{if(!hasUnifiedMobilePreviewStage()){modalHoverPreview.classList.remove('is-context-hero');hideModalHoverPreview()}});
+  // Center-choice buttons have their own stable hold anchor. In card lists,
+  // the image is the hold anchor and single tap remains selection-only.
+  if(!img.closest('.gl-center-choice-card'))registerMobileCardHold(img,show);
 }
 function bindChoicePreview(img,cardId,mode){
   // Preview behavior follows the candidate zone, never the action/caller type.
@@ -2446,6 +2459,13 @@ function renderCenterChoiceStage(s){
   cardsHost.innerHTML='';actions.innerHTML='';
   cardsHost.style.setProperty('--gl-choice-count',String(Math.max(1,cards.length)));
   cardsHost.innerHTML=cards.map(centerChoiceCardHtml).join('');
+  if(hasUnifiedMobilePreviewStage()){
+    cardsHost.querySelectorAll('.gl-center-choice-card').forEach((button,i)=>{
+      const entry=cards[i];
+      // Face-down hidden information must stay hidden: do not preview unrevealed cards.
+      if(entry?.faceUp&&entry.front)bindClassChoiceHoverPreview(button,entry.card_id||null,entry.front);
+    });
+  }
   if(mode==='opponent-hand'&&p.reveal_cards){
     cardsHost.querySelectorAll('.gl-center-choice-card').forEach((c,i)=>{const id=p.candidates?.[i]?.card_id,front=c.querySelector('.gl-center-choice-front img');if(front&&id)bindContextualModalPreview(front,id)});
   }

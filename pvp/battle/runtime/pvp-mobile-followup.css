@@ -1,0 +1,116 @@
+/* ===========================================================================
+ * RC42 PvP mobile donor follow-up (24 Nov 2026): points 6-9.
+ * This entire block is touch-stage scoped; desktop layout remains unchanged.
+ * =========================================================================== */
+
+/* Mobile Heroes were slightly too wide for the two Attachment slots. Reduce
+ * the Hero artwork alone by 5%, and move attached cards a little toward their
+ * own slot edges. No reduction to Hand/Mana/Deck cards or the Battlefield. */
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay:not(.gl-mobile-landscape-stage){
+  --hero-w:calc(var(--hero-base-w) * 1.14);
+  --hero-h:calc(var(--hero-w) / var(--hero-ratio));
+}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay:not(.gl-mobile-landscape-stage) .attachment-card.left{left:3%!important}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay:not(.gl-mobile-landscape-stage) .attachment-card.right{right:3%!important}
+
+/* All Action Prompt cards must stay at 85% of the *actual resized* Hero.
+ * Previous 1.02x-base rule assumed the old 1.20x Hero width. */
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay:not(.gl-mobile-landscape-stage)
+ body.gl-center-choice-active:not(.gl-center-pay) .gl-center-choice-card{
+  width:calc(var(--hero-w) * .85)!important;
+  min-width:calc(var(--hero-w) * .85)!important;
+  max-width:calc(var(--hero-w) * .85)!important;
+  flex:0 0 calc(var(--hero-w) * .85)!important;
+}
+
+/* Pay Mana is a distinct 1-row selector: NEVER wrap or scroll horizontally.
+ * 1..12 Shards share the same available width. For larger pools each card
+ * reduces smoothly until all 12 and their selection outlines fit. */
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay:not(.gl-mobile-landscape-stage)
+ body.gl-center-choice-active.gl-center-pay .gl-center-choice-cards{
+  box-sizing:border-box!important;
+  width:min(1500px,calc(var(--gl-stage-logical-w,1600px) - 44px))!important;
+  max-width:none!important;
+  min-width:0!important;
+  flex-wrap:nowrap!important;
+  justify-content:center!important;
+  align-items:center!important;
+  gap:8px!important;
+  padding:44px 12px 12px!important;
+  overflow-x:hidden!important;
+  overflow-y:visible!important;
+  touch-action:manipulation!important;
+}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay:not(.gl-mobile-landscape-stage)
+ body.gl-center-choice-active.gl-center-pay .gl-center-choice-card{
+  box-sizing:border-box!important;
+  width:min(calc(var(--hero-base-w-logical,108px) * 1.02),
+    calc((100% - 48px - (var(--gl-choice-count,12) - 1) * 8px) / var(--gl-choice-count,12)))!important;
+  min-width:0!important;
+  max-width:calc(var(--hero-base-w-logical,108px) * 1.02)!important;
+  flex:0 1 auto!important;
+  aspect-ratio:5/7!important;
+  height:auto!important;
+}
+
+/* Desktop's enlarged Hand/Battlefield preview sits beside the right sidebar,
+ * outside the Hero lanes. The old mobile inset (15% + 54px) covered the Right
+ * Hero; use the actual game-side edge instead, while clearing the Hand strip. */
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay:not(.gl-mobile-landscape-stage)
+ :is(.gl-battlefield-hover-preview.open,.gl-sidebar-hover-preview.open) img{
+  right:8px!important;
+  bottom:clamp(62px,calc(var(--gl-stage-logical-h,747px) * .13),120px)!important;
+}
+
+/* The enlarged image itself may be tapped to close the preview. Portals still
+ * do not intercept taps elsewhere; the outside-tap handler continues to work. */
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay:not(.gl-mobile-landscape-stage)
+ :is(.gl-battlefield-hover-preview.open,.gl-sidebar-hover-preview.open,.gl-modal-hover-preview.open) img{
+  pointer-events:auto!important;
+  touch-action:manipulation!important;
+}
+
+/* Use the live logical canvas, not hardcoded 1600x747, for unusually tall or
+ * narrow phones. The dock remains inside the real sidebar on every aspect. */
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay:not(.gl-mobile-landscape-stage)
+ :is(.gl-battlefield-hover-preview.open,.gl-sidebar-hover-preview.open,.gl-modal-hover-preview.open){
+  width:var(--gl-stage-logical-w,1600px)!important;
+  height:var(--gl-stage-logical-h,747px)!important;
+}
+
+/* Even read-only Action Prompt cards (for example Stoneblood and Draw review)
+ * must receive the 400ms inspection gesture on mobile. They still have no
+ * selection/action click handler; this merely restores pointer hit-testing. */
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay:not(.gl-mobile-landscape-stage)
+ body.gl-center-choice-active :is(.gl-center-stoneblood,.gl-center-draw-replacement) .gl-center-choice-card,
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay:not(.gl-mobile-landscape-stage)
+ body.gl-center-stoneblood .gl-center-choice-card,
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay:not(.gl-mobile-landscape-stage)
+ body.gl-center-draw-replacement .gl-center-choice-card{
+  pointer-events:auto!important;
+}
+
+
+/* PvP portal docking matches the donor without rotating the image again. */
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay:not(.gl-mobile-landscape-stage)
+ :is(.gl-battlefield-hover-preview.open,.gl-sidebar-hover-preview.open,.gl-modal-hover-preview.open){
+  position:fixed!important;display:block!important;inset:0 auto auto 0!important;
+  left:0!important;top:0!important;width:1600px!important;height:747px!important;
+  min-width:1600px!important;min-height:747px!important;
+  max-width:1600px!important;max-height:747px!important;
+  transform:none!important;pointer-events:none!important;
+}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay:not(.gl-mobile-landscape-stage)
+ :is(.gl-battlefield-hover-preview.open,.gl-sidebar-hover-preview.open,.gl-modal-hover-preview.open) img{
+  position:absolute!important;width:248px!important;height:347px!important;
+  left:auto!important;top:auto!important;right:8px!important;
+  bottom:clamp(62px,calc(747px * .13),120px)!important;
+  max-width:none!important;max-height:none!important;object-fit:contain!important;
+  transform:none!important;pointer-events:auto!important;touch-action:manipulation!important;
+}
+/* Choice preview is placed BESIDE a popup; never occupy the Hand dock. */
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay:not(.gl-mobile-landscape-stage)
+ .gl-modal-hover-preview.open img{
+  left:var(--gl-popup-preview-x,12px)!important;top:var(--gl-popup-preview-y,12px)!important;
+  right:auto!important;bottom:auto!important;
+}

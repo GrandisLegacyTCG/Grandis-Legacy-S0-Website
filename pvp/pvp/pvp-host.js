@@ -239,13 +239,46 @@ function cancelPendingDeckImport(){
   if(pendingDeckImport?.timer)clearTimeout(pendingDeckImport.timer);
   pendingDeckImport=null;
 }
+// Compare the card-level meaning of the requested export with the server's
+// *normalized* authoritative deck. The server intentionally flattens the
+// Deck Builder envelope, so raw JSON and the returned deck can never be
+// byte-identical even when the import was accepted.
+function importDeckSignature(raw){
+  if(!raw||typeof raw!=='object')return '';
+  const input=raw.deck&&typeof raw.deck==='object'&&!Array.isArray(raw.deck)?raw.deck:raw;
+  const packages=Array.isArray(input.legacy_packages)?input.legacy_packages:[];
+  let expanded=Array.isArray(input.legacy_deck_expanded)?input.legacy_deck_expanded:
+    Array.isArray(raw.legacy_deck_expanded)?raw.legacy_deck_expanded:null;
+  if(!expanded&&packages.length){
+    expanded=[];
+    for(const pkg of packages){
+      for(const card_id of pkg.hero_rank_ids||[])expanded.push({card_id});
+      if(pkg.legacy_card_id)expanded.push({card_id:pkg.legacy_card_id});
+    }
+  }
+  const mana=Array.isArray(input.mana_deck)?input.mana_deck:
+    Array.isArray(input.shard_deck)?input.shard_deck:
+    Array.isArray(raw.mana_deck)?raw.mana_deck:[];
+  const inferredFormation=packages.length===3?{
+    LEFT:packages[0]?.hero_rank_ids?.[0],
+    CENTER:packages[1]?.hero_rank_ids?.[0],
+    RIGHT:packages[2]?.hero_rank_ids?.[0]}:null;
+  const formation=raw.default_formation||input.default_formation||inferredFormation||{};
+  return JSON.stringify({
+    main:(Array.isArray(input.main_deck)?input.main_deck:[]).map(c=>[String(c?.card_id||''),Number(c?.quantity||0)]),
+    mana,
+    legacy:(expanded||[]).map(c=>String(c?.card_id||'')),
+    formation:['LEFT','CENTER','RIGHT'].map(k=>String(formation?.[k]||''))
+  });
+}
 function confirmImportedDeckFromSnapshot(msg){
   const job=pendingDeckImport;
   if(!job||msg?.match?.status!=='setup')return;
   const got=msg?.local?.customDeck;
   // JSON stringify is safe here: server sends the unchanged clone of the same
   // validated custom export; title alone and card counts cannot prove identity.
-  if(!got||JSON.stringify(got)!==job.payloadKey)return;
+  if(!got||importDeckSignature(got)!==job.payloadKey)return;
+  if(['LEFT','CENTER','RIGHT'].some(k=>String(msg.local.formation?.[k]||'')!==String(job.formation?.[k]||'')))return;
   if(job.timer)clearTimeout(job.timer);
   pendingDeckImport=null;
   state.customDeck=clone(got);
@@ -276,7 +309,7 @@ function commitImportedDeckFromFile(raw,fileName){
     reportDeckImportStatus('error','Import not applied: only a player in Lobby can change decks.');return false;
   }
   cancelPendingDeckImport();
-  const job={payloadKey:JSON.stringify(raw),name,formation:baseFormation(normalized),timer:null};
+  const job={payloadKey:importDeckSignature(raw),name,formation:baseFormation(normalized),timer:null};
   pendingDeckImport=job;
   reportDeckImportStatus('pending','IMPORTING — waiting for server confirmation…');
   if(!send('set-deck',{customDeck:raw,deckName:name,formation:job.formation})){
@@ -370,7 +403,7 @@ function onSnapshot(msg,opts={}){
   if(!presentation()&&msg.match?.status!=='setup')setTimeout(()=>syncPresentation(prevStatus),80);
 }
 function recoverBuildMismatch(){
-  if(state.fatalBuildMismatch)return;state.fatalBuildMismatch=true;state.connected=false;clearIntent('PvP client update required.');
+  if(state.fatalBuildMismatch)return;state.fatalBuildMismatch=true;state.connected=false;state.connectionError='PvP Website and backend build IDs differ. Verify deployment of the matching PvP backend and refresh.';clearIntent('PvP Website/backend build mismatch.');
   try{const k='grandis_legacy_pvp_build_reload',seen=sessionStorage.getItem(k);if(seen!==BUILD_ID){sessionStorage.setItem(k,BUILD_ID);const u=new URL(location.href);u.searchParams.set('_glbuild',Date.now().toString(36));location.replace(u.toString());return}}catch{}
   renderLobby();
 }
@@ -389,6 +422,7 @@ function connect(force=false){
     if(code===4006){/* Another tab/page took over this exact seat session. Fork this tab into a fresh player identity instead of fighting for the same socket forever. */forkConnectionIdentity();state.role='player';persistSession('role','player');state.connectionError='';renderLobby();scheduleReconnect(250);return}
     if(code===4004){/* This tab does not own the stored seat token. Treat it as a new tab/player session, never as a retry of the protected seat. */forkConnectionIdentity();state.role='player';persistSession('role','player');state.connectionError='';renderLobby();scheduleReconnect(250);return}
     if(code===4001){state.sessionInvalid=true;state.connectionError='Connection was rejected. Reconnect to retry with a fresh tab session.';renderLobby();return}
+    state.connectionError='Cannot connect to the PvP service via WebSocket. Verify backend /health, active WSS hostname, and matching build ID.';
     if(!battleFrame)renderLobby();scheduleReconnect();
   };
   ws.onerror=()=>{if(state.ws!==ws)return;state.connected=false;publishConnection();if(battleFrameWarm)removeBattleFrame();if(!battleFrame)renderLobby()};
@@ -580,7 +614,7 @@ function renderLobby(){
     $('pvpRankLabel').textContent='RANK '+['I','II','III'][state.rank-1];
     $('pvpDeckStats').innerHTML='<div><dt>Heroes</dt><dd>'+stats.heroes+'</dd></div><div><dt>Legacies</dt><dd>'+stats.legacies+'</dd></div><div class="total legacy-total"><dt>Legacy Deck</dt><dd>'+(d?.legacy_deck_expanded?.length||0)+'</dd></div><div class="deck-section-start"><dt>Skills</dt><dd>'+stats.skills+'</dd></div><div><dt>Items</dt><dd>'+stats.items+'</dd></div><div><dt>Events</dt><dd>'+stats.events+'</dd></div><div class="total main-total"><dt>Main Deck</dt><dd>'+stats.main+'</dd></div>';
   }
-  $('pvpSetupPeople').innerHTML=seatHtml(1)+seatHtml(2);if(document.activeElement!==$('pvpSetupName'))$('pvpSetupName').value=state.name||'';const me=local(),spec=me?.role==='spectator';prefetchBattlefieldWhenReady();scheduleWarmBattleFrame();$('pvpSetupReadyButton').textContent=me?.ready?'UNREADY':'READY';$('pvpSetupReadyButton').disabled=!state.connected||spec||(!d&&!me?.hasDeck);$('pvpSetupSpectatorButton').textContent=spec?'JOIN AS PLAYER':'SPECTATE';$('pvpSetupStartButton').disabled=!(me?.seat===1&&(state.snapshot?.players||[]).length===2&&(state.snapshot?.players||[]).every(p=>p.connected&&p.ready&&p.hasDeck));$('pvpSetupReconnectButton').textContent=state.sessionInvalid?'NEW SESSION':'RECONNECT';$('pvpSetupHint').textContent=state.idleNotice||(state.fatalBuildMismatch?'Client update required. Refresh this page.':state.connectionError||(!state.connected?'Connecting to PvP service…':spec?'Spectator mode is read-only. Both Hands remain hidden.':me?.seat===1?'Waiting for both players to be ready.':'Ready up when your deck is selected.'));const ic=$('pvpNameStateIcon');ic.className='pvp-v260-name-icon'+(spec?' spectate':me?.ready?' ready':'');
+  $('pvpSetupPeople').innerHTML=seatHtml(1)+seatHtml(2);if(document.activeElement!==$('pvpSetupName'))$('pvpSetupName').value=state.name||'';const me=local(),spec=me?.role==='spectator';prefetchBattlefieldWhenReady();scheduleWarmBattleFrame();$('pvpSetupReadyButton').textContent=me?.ready?'UNREADY':'READY';$('pvpSetupReadyButton').disabled=!state.connected||spec||(!d&&!me?.hasDeck);$('pvpSetupSpectatorButton').textContent=spec?'JOIN AS PLAYER':'SPECTATE';$('pvpSetupStartButton').disabled=!(me?.seat===1&&(state.snapshot?.players||[]).length===2&&(state.snapshot?.players||[]).every(p=>p.connected&&p.ready&&p.hasDeck));$('pvpSetupReconnectButton').textContent=state.sessionInvalid?'NEW SESSION':'RECONNECT';$('pvpSetupHint').textContent=state.idleNotice||(state.fatalBuildMismatch?'PvP Website/backend build mismatch. Deploy matching backend, then refresh.':state.connectionError||(!state.connected?'Connecting to PvP service…':spec?'Spectator mode is read-only. Both Hands remain hidden.':me?.seat===1?'Waiting for both players to be ready.':'Ready up when your deck is selected.'));const ic=$('pvpNameStateIcon');ic.className='pvp-v260-name-icon'+(spec?' spectate':me?.ready?' ready':'');
 }
 function boot(){state.clientId=makeClientId();try{const u=new URL(location.href),explicitDeck=u.searchParams.get('deck')||'';state.name=safeName(u.searchParams.get('name')||stored('name')||'Player');state.role=(u.searchParams.get('role')||sessionStored('role')||'player')==='spectator'?'spectator':'player';state.seatToken=sessionStored('seat')||'';const rawCustom=localStorage.getItem(STORE.custom)||'';if(rawCustom&&!explicitDeck){try{state.customDeck=JSON.parse(rawCustom);state.customDeckName=localStorage.getItem(STORE.customName)||state.customDeck?.display_name||state.customDeck?.deck_name||'Imported Deck';state.formation=baseFormation(state.customDeck)}catch{persist('custom','');persist('customName','')}}state.deckKey=explicitDeck||(!state.customDeck?stored('deck'):'')||''}catch{}persist('name',state.name);persistSession('role',state.role);window.GL_PVP_LOCAL_ROLE=state.role;installImageDecodeGuard();installActivityTracking();ensureLobby();renderLobby();window.addEventListener('resize',syncLobbyScale,{passive:true});connect(false)}
 
