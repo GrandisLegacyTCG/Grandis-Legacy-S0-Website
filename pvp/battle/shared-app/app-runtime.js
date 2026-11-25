@@ -49,7 +49,11 @@ const feedback=document.createElement('div');feedback.className='gl-feedback';BF
 const choiceOverlay=document.createElement('div');choiceOverlay.className='overlay choice-overlay gl-vsai-choice-overlay';choiceOverlay.innerHTML='<section class="choice-panel"><header class="choice-head"><h2 class="gl-choice-title">Choice</h2></header><div class="choice-body gl-choice-body"></div><footer class="choice-foot"><button type="button" class="gl-choice-cancel" hidden>CANCEL</button><button type="button" class="gl-choice-confirm">CONFIRM</button></footer></section>';document.body.appendChild(choiceOverlay);
 // F15 popup: keep the actual Hand visible during a search that adds cards to
 // Hand, but prevent unrelated gameplay buttons from receiving its taps.
-const choiceHandWindow=document.createElement('div');choiceHandWindow.className='gl-choice-hand-window';choiceHandWindow.setAttribute('aria-hidden','true');choiceOverlay.prepend(choiceHandWindow);
+// RC43 UI: mask only the legally revealed Hand artwork; no rectangular transparent slot.
+const handMaskNS='http://www.w3.org/2000/svg';
+const choiceHandWindow=document.createElementNS(handMaskNS,'svg');choiceHandWindow.setAttribute('class','gl-choice-hand-window');choiceHandWindow.setAttribute('aria-hidden','true');choiceHandWindow.setAttribute('preserveAspectRatio','none');
+choiceHandWindow.innerHTML='<defs><mask id="glChoiceHandArtMask" maskUnits="userSpaceOnUse" maskContentUnits="userSpaceOnUse" style="mask-type:luminance"><rect width="100%" height="100%" fill="white"/><g class="gl-hand-mask-cards" fill="black"/></mask></defs><rect width="100%" height="100%" fill="rgba(0,0,0,.72)" mask="url(#glChoiceHandArtMask)"/>';
+choiceOverlay.prepend(choiceHandWindow);
 for(const edge of ['top','left','right']){const shield=document.createElement('div');shield.className='gl-choice-hand-shield gl-choice-hand-shield-'+edge;shield.setAttribute('aria-hidden','true');choiceOverlay.insertBefore(shield,choiceOverlay.querySelector('.choice-panel'));}
 const playedDetailOverlay=document.createElement('div');playedDetailOverlay.className='gl-played-detail-overlay';playedDetailOverlay.innerHTML='<section class="gl-played-detail-panel" role="dialog" aria-modal="true" aria-labelledby="glPlayedDetailTitle"><header class="gl-played-detail-head"><h2 id="glPlayedDetailTitle">Card Played</h2><button type="button" class="gl-played-detail-close" aria-label="Close Card Played detail">CLOSE</button></header><div class="gl-played-detail-body"></div></section>';document.body.appendChild(playedDetailOverlay);
 const cardReviewOverlay=document.createElement('div');cardReviewOverlay.className='gl-card-review-overlay';cardReviewOverlay.innerHTML='<section class="gl-card-review-panel" role="dialog" aria-modal="true" aria-label="Card Review"><button class="gl-card-review-outer-close gl-card-review-close" type="button" aria-label="Close Card Review">CLOSE</button><div class="gl-card-review-body"></div></section>';document.body.appendChild(cardReviewOverlay);
@@ -550,12 +554,17 @@ function placeBattlefieldHoverPreview(kind,anchor){
   left=Math.max(g,Math.min(left,vw-w-g));top=Math.max(g,Math.min(top,vh-h-g));
   battlefieldHoverPreview.style.left=Math.round(left)+'px';battlefieldHoverPreview.style.top=Math.round(top)+'px';
 }
+function pvpMouseHoverEvent(e){
+  // Mouse hover is valid on desktop, hybrid laptops and phones with a mouse.
+  // Touch-generated synthetic mouseenter must not trigger a hover popup.
+  return !!e&&(e.pointerType==='mouse'||(!e.pointerType&&!e.sourceCapabilities?.firesTouchEvents&&!window.GL_MOBILE_PREVIEW_HOLD?.recentTouch?.()));
+}
 function bindBattlefieldPreview(img,kind,anchor){
   if(!img)return;const key='glBattlefieldPreview'+String(kind||'card');if(img.dataset[key]==='1')return;img.dataset[key]='1';
   const show=()=>{if(anchor?.dataset?.glBlind==='1'||backgroundPreviewSuppressed(anchor||img))return;promoteTemporaryCardPreview(battlefieldHoverPreview);battlefieldHoverSource=img;battlefieldHoverPreview.classList.toggle('is-hero',kind==='hero');battlefieldHoverImg.src=img.src;placeBattlefieldHoverPreview(kind,anchor||img);battlefieldHoverPreview.classList.add('open');battlefieldHoverPreview.setAttribute('aria-hidden','false')};
-  img.addEventListener('mouseenter',()=>{if(!isPvpMobilePreviewStage())show()});
-  img.addEventListener('mousemove',()=>{if(!isPvpMobilePreviewStage()&&battlefieldHoverSource===img&&!backgroundPreviewSuppressed(anchor||img))placeBattlefieldHoverPreview(kind,anchor||img)});
-  img.addEventListener('mouseleave',()=>{if(!isPvpMobilePreviewStage()&&battlefieldHoverSource===img)hideBattlefieldHoverPreview()});
+  img.addEventListener('mouseenter',e=>{if(pvpMouseHoverEvent(e))show()});
+  img.addEventListener('mousemove',e=>{if(pvpMouseHoverEvent(e)&&battlefieldHoverSource===img&&!backgroundPreviewSuppressed(anchor||img))placeBattlefieldHoverPreview(kind,anchor||img)});
+  img.addEventListener('mouseleave',e=>{if(pvpMouseHoverEvent(e)&&battlefieldHoverSource===img)hideBattlefieldHoverPreview()});
   // A touch tap still selects normally. Only a 400ms hold can inspect a
   // visible card; the donor controller prevents a hold from firing its click.
   registerPvpMobileCardHold(img,show);
@@ -629,9 +638,9 @@ function placeSidebarHoverPreview(anchor){
 function bindSidebarPreview(img){
   if(!img||img.dataset.glSidebarPreviewBound==='1')return;img.dataset.glSidebarPreviewBound='1';
   const show=()=>{if(backgroundPreviewSuppressed(img))return;pvpSidebarPreviewSource=img;promoteTemporaryCardPreview(sidebarHoverPreview);sidebarHoverImg.src=img.src;placeSidebarHoverPreview(img);sidebarHoverPreview.classList.add('open');sidebarHoverPreview.setAttribute('aria-hidden','false')};
-  img.addEventListener('mouseenter',()=>{if(!isPvpMobilePreviewStage())show()});
-  img.addEventListener('mousemove',()=>{if(!isPvpMobilePreviewStage()&&!backgroundPreviewSuppressed(img))placeSidebarHoverPreview(img)});
-  img.addEventListener('mouseleave',()=>{if(!isPvpMobilePreviewStage())hideSidebarHoverPreview()});
+  img.addEventListener('mouseenter',e=>{if(pvpMouseHoverEvent(e))show()});
+  img.addEventListener('mousemove',e=>{if(pvpMouseHoverEvent(e)&&!backgroundPreviewSuppressed(img))placeSidebarHoverPreview(img)});
+  img.addEventListener('mouseleave',e=>{if(pvpMouseHoverEvent(e))hideSidebarHoverPreview()});
   registerPvpMobileCardHold(img,show);
 }
 function hideModalHoverPreview(){pvpModalPreviewSource=null;modalHoverPreview.style.removeProperty('width');modalHoverPreview.style.removeProperty('height');modalHoverPreview.classList.remove('open');modalHoverPreview.setAttribute('aria-hidden','true');modalHoverImg.removeAttribute('src');modalHoverPreview.classList.remove('gl-mobile-preview-large');['--gl-popup-preview-x','--gl-popup-preview-y','--gl-popup-preview-width','--gl-popup-preview-height'].forEach(k=>modalHoverPreview.style.removeProperty(k))}
@@ -644,7 +653,7 @@ function setFixedChoicePreview(src,alt){
 function bindFixedChoicePreview(img,cardId){
   if(!img||img.dataset.glFixedChoicePreviewBound==='1')return;img.dataset.glFixedChoicePreviewBound='1';
   const show=()=>{if(backgroundPreviewSuppressed(img))return;hideModalHoverPreview();const v=cv(cardId);setFixedChoicePreview(art(cardId),v?.name||img.alt)};
-  img.addEventListener('mouseenter',()=>{if(!isPvpMobilePreviewStage())show()});img.addEventListener('focus',()=>{if(!isPvpMobilePreviewStage())show()});
+  img.addEventListener('mouseenter',e=>{if(pvpMouseHoverEvent(e))show()});img.addEventListener('focus',()=>{if(!isPvpMobilePreviewStage())show()});
   registerPvpMobileCardHold(img,show);
 }
 function placeModalHoverPreview(anchor){
@@ -670,9 +679,9 @@ function placeModalHoverPreview(anchor){
 function bindModalPreview(img){
   if(!img||img.dataset.glModalPreviewBound==='1')return;img.dataset.glModalPreviewBound='1';
   const show=()=>{if(backgroundPreviewSuppressed(img))return;pvpModalPreviewSource=img;promoteTemporaryCardPreview(modalHoverPreview);modalHoverPreview.classList.remove('is-context-hero');modalHoverImg.src=img.src;placeModalHoverPreview(img);modalHoverPreview.classList.add('open');modalHoverPreview.setAttribute('aria-hidden','false')};
-  img.addEventListener('mouseenter',()=>{if(!isPvpMobilePreviewStage())show()});
-  img.addEventListener('mousemove',()=>{if(!isPvpMobilePreviewStage()&&!backgroundPreviewSuppressed(img))placeModalHoverPreview(img)});
-  img.addEventListener('mouseleave',()=>{if(!isPvpMobilePreviewStage())hideModalHoverPreview()});
+  img.addEventListener('mouseenter',e=>{if(pvpMouseHoverEvent(e))show()});
+  img.addEventListener('mousemove',e=>{if(pvpMouseHoverEvent(e)&&!backgroundPreviewSuppressed(img))placeModalHoverPreview(img)});
+  img.addEventListener('mouseleave',e=>{if(pvpMouseHoverEvent(e))hideModalHoverPreview()});
   registerPvpMobileCardHold(img,show);
 }
 function placeContextualModalHoverPreview(anchor,compactHero){
@@ -761,16 +770,16 @@ function bindClassChoiceHoverPreview(card,cardId){
   };
   // The stable BUTTON is the hover anchor. Binding to its 3D-flipped IMG used
   // to fire pointerleave when the image/hover transform changed under Firefox.
-  card.addEventListener('pointerenter',e=>{if(!isPvpMobilePreviewStage()&&e.pointerType!=='touch')show()});
+  card.addEventListener('pointerenter',e=>{if(e.pointerType==='mouse')show()});
   card.addEventListener('pointermove',e=>{
-    if(isPvpMobilePreviewStage()||e.pointerType==='touch')return;
+    if(e.pointerType!=='mouse')return;
     if(classChoiceHoverOwner!==card||!modalHoverPreview.classList.contains('open'))show();
     else placeClassChoiceHoverPreview(card);
   });
-  card.addEventListener('pointerleave',()=>{
+  card.addEventListener('pointerleave',e=>{
     clearTimeout(leaveTimer);
     // A touch release must not auto-dismiss the preview from a successful hold.
-    if(isPvpMobilePreviewStage())return;
+    if(e.pointerType!=='mouse')return;
     leaveTimer=setTimeout(()=>{
       if(classChoiceHoverOwner===card&&!card.matches(':hover')){classChoiceHoverOwner=null;hideModalHoverPreview()}
     },85);
@@ -790,9 +799,9 @@ function bindContextualModalPreview(img,cardId){
   if(!img||img.dataset.glContextModalPreviewBound==='1')return;img.dataset.glContextModalPreviewBound='1';
   const v=cv(cardId),family=String(v?.family||v?.type||'').toLowerCase(),compactHero=/hero|legacy/.test(family)||/-(H\d{3}|L\d{3}|LEG)/i.test(String(cardId||''));
   const show=()=>{if(backgroundPreviewSuppressed(img))return;pvpModalPreviewSource=img;promoteTemporaryCardPreview(modalHoverPreview);modalHoverImg.src=img.src;placeContextualModalHoverPreview(img,compactHero);modalHoverPreview.classList.add('open');modalHoverPreview.setAttribute('aria-hidden','false')};
-  img.addEventListener('mouseenter',()=>{if(!isPvpMobilePreviewStage())show()});
-  img.addEventListener('mousemove',()=>{if(!isPvpMobilePreviewStage()&&!backgroundPreviewSuppressed(img))placeContextualModalHoverPreview(img,compactHero)});
-  img.addEventListener('mouseleave',()=>{if(!isPvpMobilePreviewStage()){modalHoverPreview.classList.remove('is-context-hero');hideModalHoverPreview()}});
+  img.addEventListener('mouseenter',e=>{if(pvpMouseHoverEvent(e))show()});
+  img.addEventListener('mousemove',e=>{if(pvpMouseHoverEvent(e)&&!backgroundPreviewSuppressed(img))placeContextualModalHoverPreview(img,compactHero)});
+  img.addEventListener('mouseleave',e=>{if(pvpMouseHoverEvent(e)){modalHoverPreview.classList.remove('is-context-hero');hideModalHoverPreview()}});
   // Center-choice buttons own their gesture. List images and other inspectable
   // cards use the same donor hold controller with no click-side effects.
   if(!img.closest('.gl-center-choice-card'))registerPvpMobileCardHold(img,show);
@@ -1055,11 +1064,9 @@ function zoneEl(side,type){
 let mobileDiscardArmed=null;
 let mobileDiscardTimer=null;
 function isHandsetViewport(){
-  const short=Math.min(window.innerWidth||0,window.innerHeight||0);
-  const long=Math.max(window.innerWidth||0,window.innerHeight||0);
-  let touch=(navigator.maxTouchPoints||0)>0;
-  try{touch=touch||matchMedia('(pointer:coarse)').matches}catch(_){}
-  return touch&&short<=680&&long<=1350;
+  // The donor separates smartphone identity from touch input and viewport size.
+  // Touch-enabled desktop laptops must not enter the two-tap mobile Discard UI.
+  return window.GL_PLATFORM?.isMobile?.()===true;
 }
 function clearMobileDiscardArm(){
   if(mobileDiscardTimer!==null){clearTimeout(mobileDiscardTimer);mobileDiscardTimer=null}
@@ -1089,10 +1096,10 @@ function openInspectCards(title,ids,instruction,previewMode='contextual'){
   if(st()?.pending)return;
   inspectState={title,ids:(ids||[]).filter(Boolean),instruction:instruction||'',previewMode};modalRenderKey='';renderInspectModal();
 }
-function closeInspectModal(){hideModalHoverPreview();inspectState=null;activeModalType='';modalRenderKey='';choiceOverlay.classList.remove('open','gl-choice-main-deck-preview')}
+function closeInspectModal(){resetCollectionPopup();hideModalHoverPreview();inspectState=null;activeModalType='';modalRenderKey='';choiceOverlay.classList.remove('open','gl-choice-main-deck-preview')}
 function renderInspectModal(){
   if(!inspectState)return;
-  choiceOverlay.classList.remove('gl-choice-main-deck-preview');choiceOverlay.classList.add('open');activeModalType='inspect';
+  choiceOverlay.classList.remove('gl-choice-main-deck-preview');choiceOverlay.classList.add('open','gl-collection-popup');activeModalType='inspect';
   const sig='inspect|'+inspectState.title+'|'+inspectState.ids.join('|');if(modalRenderKey===sig)return;modalRenderKey=sig;
   const title=choiceOverlay.querySelector('.gl-choice-title'),body=choiceOverlay.querySelector('.gl-choice-body'),confirm=choiceOverlay.querySelector('.gl-choice-confirm');
   title.textContent=inspectState.title;body.innerHTML='';
@@ -1101,7 +1108,7 @@ function renderInspectModal(){
   else{const e=document.createElement('div');e.className='gl-inspect-empty';e.textContent='This pile is empty.';body.appendChild(e)}
   const cancel=choiceOverlay.querySelector('.gl-choice-cancel');
   if(cancel){cancel.hidden=true;cancel.onclick=null;}
-  confirm.textContent='CLOSE';confirm.disabled=false;confirm.onclick=closeInspectModal;
+  confirm.textContent='CLOSE';confirm.disabled=false;confirm.onclick=closeInspectModal;fitCollectionPopup();requestAnimationFrame(fitCollectionPopup);
 }
 // Part 5: music remains OFF by default; the existing engine SFX switch remains ON by default.
 // Save user choices without coupling BGM to the card / battle / coin sound effect setting.
@@ -2343,9 +2350,10 @@ function pvpIncomingDamageWording(attack){
 }
 function renderPvpIncomingDamage(s){
   if(window.GL_APP_MODE!=='PVP')return;
-  const attack=findActiveAttackWindow(s);
+  const ability=s?.responseWindow?.kind==='incoming_ability_damage'?s.responseWindow:null;
+  const attack=ability||findActiveAttackWindow(s);
   let notice=document.getElementById('glPvpIncomingDamage');
-  if(!attack||!s?.responseWindow||!attack.card_id||!Number.isFinite(Number(attack.damage))){
+  if(!attack||!s?.responseWindow||(!attack.card_id&&!attack.ability_name)||!Number.isFinite(Number(attack.damage))){
     notice?.classList.remove('show');return;
   }
   const field=document.querySelector('.app .battlefield');if(!field)return;
@@ -2357,7 +2365,7 @@ function renderPvpIncomingDamage(s){
     const amount=document.createElement('div');amount.className='gl-conditional-attack-summary';
     notice.append(title,amount);field.appendChild(notice);
   }
-  const name=cv(attack.card_id)?.name||attack.card_id;
+  const name=ability?(attack.ability_name||'Ability Damage'):(cv(attack.card_id)?.name||attack.card_id);
   const wording=pvpIncomingDamageWording(attack);
   const signature=[attack.card_id,wording].join('|');
   if(notice.dataset.attackKey!==signature){
@@ -2483,8 +2491,8 @@ function pendingActionInfo(s,p){
 function bindBattlefieldHandHover(card){
   if(!card||card.dataset.glHoverBound==='1')return;card.dataset.glHoverBound='1';
   let leaveTimer=0;
-  card.addEventListener('mouseenter',()=>{clearTimeout(leaveTimer);card.classList.add('is-hovered')});
-  card.addEventListener('mouseleave',()=>{clearTimeout(leaveTimer);leaveTimer=setTimeout(()=>card.classList.remove('is-hovered'),170)});
+  card.addEventListener('mouseenter',e=>{if(!pvpMouseHoverEvent(e))return;clearTimeout(leaveTimer);card.classList.add('is-hovered')});
+  card.addEventListener('mouseleave',e=>{if(!pvpMouseHoverEvent(e))return;clearTimeout(leaveTimer);leaveTimer=setTimeout(()=>card.classList.remove('is-hovered'),170)});
 }
 
 // Stage 1.5.9: calculate the fan from the actual number of visible slots on both sides.
@@ -2521,6 +2529,7 @@ function layoutAdaptiveHand(track,side){
   const set=(k,v)=>{if(track.style.getPropertyValue(k)!==v)track.style.setProperty(k,v)};
   set('--gl-hand-left',(left-hr.left).toFixed(2)+'px');set('--gl-hand-space',span.toFixed(2)+'px');
   set('--gl-fit-hand-w',width+'px');set('--gl-fit-hand-h',(width/0.68).toFixed(3)+'px');
+  if(player)set('--gl-hand-action-scale',String(width/81));
   track.classList.toggle('gl-hand-dense',width<normal-.5);
   return true;
 }
@@ -4593,27 +4602,141 @@ function returnToHandSearchSessionKey(s,p){
       [c.card_id||'',c.deck_index??c.discard_index??c.hand_index??-1])
   });
 }
+let handSpotlightFrame=0,handSpotlightSignature='';
 function resetReturnToHandSearchDisplay(){
-  glHandSearchSessionKey='';
-  glPvpMobileListScrollSession='';
+  glHandSearchSessionKey='';glPvpMobileListScrollSession='';
   choiceOverlay.classList.remove('gl-choice-to-hand');
   document.body.classList.remove('gl-choice-to-hand-active');
+  if(handSpotlightFrame)cancelAnimationFrame(handSpotlightFrame);
+  handSpotlightFrame=0;handSpotlightSignature='';
+  choiceHandWindow.querySelector('.gl-hand-mask-cards').replaceChildren();
+}
+function handSearchArtwork(){
+  return [...playerHandTrack.querySelectorAll(':scope > .hand-card:not(.gl-presentation-hidden):not(.gl-draw-reservation-slot) > .hand-art')].filter(im=>im.offsetWidth>0&&im.offsetHeight>0);
 }
 function positionReturnToHandSearch(){
   if(!choiceOverlay.classList.contains('gl-choice-to-hand'))return;
-  const mobile=adaptiveStageActive(),r=mobile?uiLayoutRect(playerHandTrack):uiRect(playerHandTrack);
-  const sceneW=mobile?1600:Math.max(1,window.innerWidth||1),sceneH=mobile?747:Math.max(1,window.innerHeight||1);
-  // Existing Hand is never moved or resized. Spotlight follows its true track.
-  const left=Math.max(0,Math.round((r?.left??sceneW*.38)-12));
-  const right=Math.min(sceneW,Math.round((r?.right??sceneW*.70)+12));
-  const top=Math.max(0,Math.min(sceneH-30,Math.round((r?.top??sceneH-120)-10)));
-  const width=Math.max(1,right-left);
-  const panelCap=Math.max(215,Math.min(sceneH-32,Math.floor(2*(top-22+32)-sceneH)));
+  const mobile=pvpLandscapeStage(),style=getComputedStyle(document.documentElement);
+  const sceneW=mobile?(parseFloat(style.getPropertyValue('--gl-stage-logical-w'))||1600):Math.max(1,window.innerWidth||1);
+  const sceneH=mobile?(parseFloat(style.getPropertyValue('--gl-stage-logical-h'))||747):Math.max(1,window.innerHeight||1);
+  const scale=mobile?1:currentUiScale(),artwork=handSearchArtwork(),rects=artwork.map(im=>mobile?uiRect(im):uiRect(im));
+  const left=rects.length?Math.max(0,Math.floor(Math.min(...rects.map(r=>r.left))-12)):0;
+  const right=rects.length?Math.min(sceneW,Math.ceil(Math.max(...rects.map(r=>r.right))+12)):0;
+  const artTop=rects.length?Math.min(...rects.map(r=>r.top)):sceneH;
+  const top=rects.length?Math.max(0,Math.min(sceneH,Math.floor(artTop-10))):sceneH;
   const put=(key,value)=>{const v=Math.round(value)+'px';if(choiceOverlay.style.getPropertyValue(key)!==v)choiceOverlay.style.setProperty(key,v)};
   put('--gl-choice-hand-x',left);put('--gl-choice-hand-y',top);
-  put('--gl-choice-hand-w',width);put('--gl-choice-hand-right',right);
-  put('--gl-choice-panel-cap',panelCap);
+  put('--gl-choice-hand-w',Math.max(0,right-left));put('--gl-choice-hand-right',right);
+  put('--gl-choice-panel-cap',Math.max(1,top-14));
+  const group=choiceHandWindow.querySelector('.gl-hand-mask-cards');
+  // Recover the card's affine transform in overlay coordinates. Overlapping
+  // black shapes form a union in the luminance mask, including fan rotation.
+  const shapes=artwork.map((im,i)=>{
+    const r=rects[i],w=im.offsetWidth,h=im.offsetHeight;
+    const transform=getComputedStyle(im.parentElement).transform;
+    const m=new DOMMatrixReadOnly(transform==='none'?undefined:transform);
+    const a=m.a*scale,b=m.b*scale,c=m.c*scale,d=m.d*scale;
+    const xs=[0,a*w,c*h,a*w+c*h],ys=[0,b*w,d*h,b*w+d*h];
+    const x=r.left-Math.min(...xs),y=r.top-Math.min(...ys);
+    return [w,h,parseFloat(getComputedStyle(im).borderTopLeftRadius)||0,a,b,c,d,x,y].map(v=>Math.round(v*1000)/1000);
+  });
+  const sig=JSON.stringify([sceneW,sceneH,shapes]);
+  if(sig!==handSpotlightSignature){
+    handSpotlightSignature=sig;choiceHandWindow.setAttribute('viewBox',`0 0 ${sceneW} ${sceneH}`);
+    const mask=choiceHandWindow.querySelector('mask');mask.setAttribute('x','0');mask.setAttribute('y','0');mask.setAttribute('width',sceneW);mask.setAttribute('height',sceneH);
+    group.replaceChildren(...shapes.map(([w,h,r,a,b,c,d,x,y])=>{const el=document.createElementNS(handMaskNS,'rect');el.setAttribute('width',w);el.setAttribute('height',h);el.setAttribute('rx',r);el.setAttribute('transform',`matrix(${a} ${b} ${c} ${d} ${x} ${y})`);return el}));
+  }
 }
+function watchHandSpotlight(){
+  if(handSpotlightFrame)return;
+  const tick=()=>{
+    handSpotlightFrame=0;
+    if(!choiceOverlay.classList.contains('open')||!choiceOverlay.classList.contains('gl-choice-to-hand'))return;
+    positionReturnToHandSearch();
+    const panel=choiceOverlay.querySelector('.choice-panel'),edge=parseFloat(choiceOverlay.style.getPropertyValue('--gl-choice-hand-y'));
+    if(panel.offsetTop+panel.offsetHeight>edge-2)fitCollectionPopup();
+    handSpotlightFrame=requestAnimationFrame(tick);
+  };
+  handSpotlightFrame=requestAnimationFrame(tick);
+}
+// Collection geometry is distinct from direct action rows. Preserve the
+// existing compact tile appearance, and measure the real header/footer and
+// row overhead (names/buttons) before allocating two complete rows.
+function fitCollectionPopup(){
+  if(!choiceOverlay.classList.contains('open')||!choiceOverlay.classList.contains('gl-collection-popup')||choiceOverlay.classList.contains('gl-choice-to-hand'))return;
+  const panel=choiceOverlay.querySelector('.choice-panel'),body=panel.querySelector('.choice-body'),grid=body.querySelector('.choice-grid');
+  if(!grid||!grid.children.length)return;
+  const root=document.documentElement, mobile=adaptiveStageActive(),style=getComputedStyle(root);
+  const W=mobile?parseFloat(style.getPropertyValue('--gl-stage-logical-w')):window.innerWidth;
+  const H=mobile?parseFloat(style.getPropertyValue('--gl-stage-logical-h')):window.innerHeight;
+  if(!(W>0&&H>0))return;
+  const px=v=>parseFloat(v)||0;
+  const set=(el,k,v)=>el.style.setProperty(k,v,'important');
+  const top=Math.min(14,Math.max(6,Math.round(H*.02)));
+  const handTop=choiceOverlay.classList.contains('gl-choice-to-hand')?px(choiceOverlay.style.getPropertyValue('--gl-choice-hand-y')):H;
+  const bottom=Math.min(H-top,handTop-8);
+  const maxH=Math.max(1,bottom-top);
+  const bs=getComputedStyle(body), intro=body.querySelector('.choice-instruction');
+  const shell=panel.querySelector('.choice-head').offsetHeight+panel.querySelector('.choice-foot').offsetHeight+px(bs.paddingTop)+px(bs.paddingBottom)+2;
+  const introH=intro?intro.offsetHeight+px(getComputedStyle(intro).marginTop)+px(getComputedStyle(intro).marginBottom):0;
+  const maxGridH=Math.max(1,maxH-shell-introH);
+  const pad=px(bs.paddingLeft)+px(bs.paddingRight)+4, gap=8;
+  // Reserve a side preview gutter on wide screens. On narrow screens the
+  // preview may be smaller, but never make the grid artificially wide.
+  const gutter=Math.min(mobile?180:245,Math.floor(W*.17));
+  const maxGridW=Math.max(1,W-2*top-pad-2*gutter-12);
+  const first=grid.firstElementChild;
+  const normal=mobile?Math.min(138,Math.max(96,(document.querySelector(".hero-card img.heroImg")?.offsetWidth||123)*.92+12)):96;
+  const normalCols=Math.max(1,Math.floor((maxGridW+gap)/(normal+gap)));
+  const availableRows=grid.children.length>normalCols?2:1;
+  // Measure actual tile chrome; a name and Select button are part of a row.
+  set(grid,'grid-template-columns',`repeat(1,${normal}px)`);
+  set(first,'width',normal+'px');set(first,'min-width','0');set(first,'max-width','none');
+  const im=first.querySelector('img');
+  const chrome=Math.max(12,first.offsetHeight-(im?.offsetHeight||0));
+  const artInset=Math.max(0,first.offsetWidth-(im?.offsetWidth||first.offsetWidth));
+  const fitWidth=Math.floor((maxGridH-(availableRows-1)*gap-availableRows*chrome)/availableRows/1.4+artInset);
+  let tile=Math.max(24,Math.min(normal,fitWidth,maxGridW));
+  let cols=Math.max(1,Math.min(grid.children.length,Math.floor((maxGridW+gap)/(tile+gap))));
+  if(grid.children.length<=cols){cols=grid.children.length;tile=Math.max(24,Math.min(normal,Math.floor((maxGridW-(cols-1)*gap)/cols),Math.floor((maxGridH-chrome)/1.4+artInset)));}
+  set(first,'width','100%');
+  set(panel,'min-width','0');set(panel,'max-width',Math.max(1,W-2*top)+'px');
+  set(panel,'max-height',maxH+'px');set(panel,'height','auto');set(panel,'transform','none');
+  set(choiceOverlay,'align-items','flex-start');set(choiceOverlay,'padding-top',top+'px');set(choiceOverlay,'padding-bottom','0px');
+  set(body,'max-height',Math.max(1,maxH-shell+px(bs.paddingTop)+px(bs.paddingBottom))+'px');
+  let rows=[],realGridBudget=0;
+  // Wrapped headings/instructions and fractional layout may change after the
+  // real panel width is applied. Re-measure the second row and reduce the
+  // tile just enough to guarantee two complete rows when needed and feasible.
+  for(let attempt=0;attempt<8;attempt++){
+    cols=Math.max(1,Math.min(grid.children.length,Math.floor((maxGridW+gap)/(tile+gap))));
+    const gridW=cols*tile+(cols-1)*gap+10;
+    set(panel,'width',Math.min(W-2*top,gridW+pad)+'px');
+    set(grid,'grid-template-columns',`repeat(${cols},${tile}px)`);set(grid,'grid-auto-columns',tile+'px');
+    set(grid,'width',gridW+'px');set(grid,'max-width','100%');set(grid,'max-height',maxGridH+'px');
+    realGridBudget=Math.max(1,Math.min(maxGridH,grid.clientHeight));rows=[];
+    const children=[...grid.children];
+    for(let i=0;i<children.length;i+=cols){const row=children.slice(i,i+cols);rows.push(Math.max(...row.map(el=>el.offsetTop+el.offsetHeight))-first.offsetTop);}
+    if(rows.length<2||rows[1]<=realGridBudget+1||tile<=24||attempt===7)break;
+    tile=Math.max(24,tile-Math.max(1,Math.ceil((rows[1]-realGridBudget+3)/2.8)));
+  }
+  // Display as many complete rows as fit; the rest scroll. Never snap a
+  // feasible two-row collection down to a single row due to rounding.
+  const complete=rows.filter(h=>h<=realGridBudget+1);
+  if(complete.length&&complete.length<rows.length&&(complete.length>=2||rows.length===1||tile<=24))set(grid,'max-height',complete.at(-1)+'px');
+  const panelH=panel.offsetHeight;
+  set(choiceOverlay,'padding-top',(rows.length<=1?Math.max(top,Math.floor((top+bottom-panelH)/2)):top)+'px');
+  choiceOverlay.dataset.collectionColumns=String(cols);
+}
+function resetCollectionPopup(){
+  choiceOverlay.classList.remove('gl-collection-popup');delete choiceOverlay.dataset.collectionColumns;
+  for(const k of ['align-items','padding-top','padding-bottom'])choiceOverlay.style.removeProperty(k);
+  const panel=choiceOverlay.querySelector('.choice-panel'),body=panel.querySelector('.choice-body');
+  for(const k of ['width','min-width','max-width','height','max-height','transform'])panel.style.removeProperty(k);
+  body.style.removeProperty('max-height');
+}
+window.addEventListener('resize',()=>requestAnimationFrame(fitCollectionPopup),{passive:true});
+
 function limitReturnToHandSearchRows(){
   if(!choiceOverlay.classList.contains('gl-choice-to-hand'))return;
   const body=choiceOverlay.querySelector('.choice-body'),grid=body?.querySelector('.card-search-choice-grid');
@@ -4633,7 +4756,7 @@ window.addEventListener('orientationchange',()=>setTimeout(()=>{positionReturnTo
 function renderAllowedModal(s){
   const p=s.pending,allowed=['card_search_choice','legacy_card_choice','crystal_ball_reorder','optional_swap'];
   if(!p||!allowed.includes(p.type)||pendingOwner(p)!=='PLAYER'||isDirectHandCardSearch(p)||isHandDiscardPending(p)){
-    resetReturnToHandSearchDisplay();
+    resetReturnToHandSearchDisplay();resetCollectionPopup();
     if(!p&&inspectState){renderInspectModal();return}
     // The generic modal is polled every 120 ms but DOES NOT own the preview
     // for any active center-choice card (including End Phase Hand Limit).
@@ -4651,6 +4774,8 @@ function renderAllowedModal(s){
     modalSig=JSON.stringify({type:p.type,choice_id:p.choice_id||'',title:p.title||'',candidates:(p.candidates||[]).map(x=>typeof x==='string'?x:(x.card_id||x.id||x.hand_index||'')),selected_index:selectedChoiceIndex(p),selected_indices:p.selected_indices||[],selected_order:p.selected_order||[],exp_choices:(p.exp_choices||[]).map(x=>[x.card_id,x.exp_index]),selected_exp_choice:p.selected_exp_choice??null,required_count:p.required_count||p.required_choices||p.max_count||p.quota||0,multi_select:!!p.multi_select,committing:!!p.committing,confirm_text:p.confirm_text||'',candidate_zone:candidateZone,resolve_to:p.resolve_to||'',swap_lane:p.source_lane||'',swap_options:p.swap_options||[],swap_card:p.card_id||'',swap_hero_state:swapHeroSig});
   activeModalType=p.type;choiceOverlay.classList.add('open');
   const handSearch=isReturnToHandSearch(p),swapChoice=p.type==='optional_swap';
+  const collection=!handSearch&&!swapChoice&&['card_search_choice','legacy_card_choice','crystal_ball_reorder'].includes(p.type);
+  if(collection)choiceOverlay.classList.add('gl-collection-popup');else resetCollectionPopup();
   // WebSocket snapshots deserialize a NEW pending object after every Select.
   // F18 donor's p===previous test would always reset scroll in multiplayer.
   const searchSessionKey=handSearch?returnToHandSearchSessionKey(s,p):'';
@@ -4661,7 +4786,7 @@ function renderAllowedModal(s){
   choiceOverlay.classList.toggle('gl-choice-swap',swapChoice);
   choiceOverlay.classList.toggle('gl-choice-to-hand',handSearch);
   document.body.classList.toggle('gl-choice-to-hand-active',handSearch);
-  if(handSearch)positionReturnToHandSearch();
+  if(handSearch){positionReturnToHandSearch();watchHandSpotlight();}
   // Multi-card choices re-render after selection; preserve the scroll position
   // of the same pending decision across authoritative WebSocket snapshots.
   // PvP snapshots are fresh objects, so object identity cannot identify a session.
@@ -4672,7 +4797,7 @@ function renderAllowedModal(s){
       (p.candidates||[]).map(x=>typeof x==='string'?x:(x.card_id||x.id||''))]):'';
   const priorListBody=choiceOverlay.querySelector('.gl-choice-body');
   const listScrollY=mobileListSession&&mobileListSession===glPvpMobileListScrollSession
-    ?(priorListBody?.scrollTop||0):0;
+    ?(collection?(priorListBody?.querySelector('.choice-grid')?.scrollTop||0):(priorListBody?.scrollTop||0)):0;
   glPvpMobileListScrollSession=mobileListSession;
   // Polling renders used to destroy/recreate the modal buttons every 120 ms, which could eat
   // ordinary mouse clicks. Rebuild only when the choice state actually changes.
@@ -4787,11 +4912,13 @@ function renderAllowedModal(s){
     });confirm.textContent='Confirm Order';confirm.disabled=false;
   }
   confirm.onclick=()=>intent('handleChoiceConfirm',[]);
+  if(collection){fitCollectionPopup();requestAnimationFrame(fitCollectionPopup);}
   if(mobileListSession){
-    body.scrollTop=listScrollY;
+    const scrollOwner=collection?grid:body;
+    scrollOwner.scrollTop=listScrollY;
     requestAnimationFrame(()=>{
-      if(glPvpMobileListScrollSession===mobileListSession&&body.isConnected)
-        body.scrollTop=listScrollY;
+      if(glPvpMobileListScrollSession===mobileListSession&&scrollOwner.isConnected)
+        scrollOwner.scrollTop=listScrollY;
     });
   }
   if(handSearch){

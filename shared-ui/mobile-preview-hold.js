@@ -8,8 +8,9 @@
   const registrations = new WeakMap();
   let held = null;
   let suppressClick = null;
-  const mobile = () => document.documentElement.classList.contains('gl-mobile-gameplay-stage') &&
-    !document.documentElement.classList.contains('gl-mobile-landscape-stage');
+  let touchUntil=0;
+  // Gesture eligibility follows the actual pointer, not the viewport/orientation.
+  const mobile = () => !document.querySelector('.gl-lobby-overlay.open');
   const isTouch = e => e.pointerType === 'touch' || e.pointerType === 'pen';
   const marker = 'data-gl-mobile-preview-hold';
   const getTarget = e => e.target?.closest?.('['+marker+']') || null;
@@ -19,6 +20,7 @@
   }
   document.addEventListener('pointerdown', e => {
     cancelPending();
+    if(isTouch(e))touchUntil=Date.now()+800;else if(e.pointerType==='mouse')touchUntil=0;
     if (!mobile() || !isTouch(e) || e.button !== 0) return;
     const element = getTarget(e);
     if (!element || !registrations.has(element)) return;
@@ -61,6 +63,7 @@
       element.setAttribute(marker, '');
       registrations.set(element,show);
     },
+    recentTouch:()=>Date.now()<touchUntil,
     holdMs:HOLD_MS
   };
 })();

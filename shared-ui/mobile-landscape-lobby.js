@@ -13,13 +13,7 @@
   let coinObserver = null;
   let scheduled = false;
 
-  const isHandset = () => {
-    const short = Math.min(window.innerWidth || 0, window.innerHeight || 0);
-    const long = Math.max(window.innerWidth || 0, window.innerHeight || 0);
-    let touch = (navigator.maxTouchPoints || 0) > 0;
-    try { touch = touch || matchMedia('(pointer:coarse)').matches; } catch (_) {}
-    return touch && short <= 680 && long <= 1350;
-  };
+  const isHandset = () => window.GL_PLATFORM?.isMobile()===true;
 
   function position() {
     const eligible = isHandset();
@@ -57,7 +51,7 @@
     root.style.setProperty('--gl-mobile-lobby-scale', String(scale));
     root.style.setProperty('--gl-mobile-lobby-w',logicalW+'px');
     root.style.setProperty('--gl-mobile-lobby-h',logicalH+'px');
-    root.dataset.glInternalRevision = 'RC42-R398-UNIFORM';
+    root.dataset.glInternalRevision = 'RC43-PLATFORM-UNIFORM';
   }
   function requestPosition() {
     if (scheduled) return;

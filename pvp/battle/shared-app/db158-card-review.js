@@ -2,7 +2,7 @@
    Read-only presentation. Printed values are copied from the 242-card Deck Builder v1.66 source registry.
    Kept isolated in an iframe to avoid changing the v6.91.9 battlefield CSS. */
 (function(g){'use strict';
-  var files=['pvp-review-bundle-rc40-20261116.css'];
+  var files=['app.css', 's0-enhancements-v1.32.2.css', 's0-shared-header-review.css', 's0-part7-revision-v1.36.css', 's0-part7-revision-v1.38.css', 's0-part7-revision-v1.39.css', 's0-review-v1.41.css', 's0-review-v1.42.css', 's0-review-v1.43.css', 's0-review-v1.44.css', 's0-ui-v1.49.css', 's0-hotfix-v1.49.1.css', 's0-layout-v1.50.css', 's0-modal-parity-v1.52.css', 's0-review-v1.54.css', 's0-review-v1.56.css', 's0-review-v1.57.css', 's0-launch-v1.58.css', 's0-rulebook-v2.9-review-v1.58.css', 's0-mobile-header-v1.63.css', 's0-filter-layout-v1.64.css', 's0-validation-tooltip-v1.64.css', 's0-filter-parity-v1.64.css', 's0-filter-responsive-fix-v1.65.css', 's0-card-image-loader-v1.68.css', 's0-ui-polish-v1.66.css', 's0-toast-feedback.css'];
   function escape(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
   // Deck Builder v1.66 is the authoritative Review presentation data. Gameplay
   // continues to use VS AI's canonical engine card definitions independently.

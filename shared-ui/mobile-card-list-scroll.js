@@ -10,8 +10,8 @@
   function ownerFor(target,review){
     const overlay=review?target.closest?.('#cardReviewDialog'):target.closest?.(modalSelector);
     if(!overlay)return null;
-    if(!review&&target.closest('.gl-vsai-choice-overlay.gl-choice-to-hand')){
-      const grid=target.closest('.card-search-choice-grid');
+    if(!review&&target.closest('.gl-vsai-choice-overlay.gl-collection-popup')){
+      const grid=target.closest('.choice-grid');
       return grid&&grid.scrollHeight>grid.clientHeight+2?grid:null;
     }
     for(let el=target;el;el=el.parentElement){

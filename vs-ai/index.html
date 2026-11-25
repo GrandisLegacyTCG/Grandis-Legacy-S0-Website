@@ -5,7 +5,7 @@
 <base href="../">
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-<title>Grandis Legacy — VS AI Season 0 RC42 · Main Deck R3.98 / Legacy Deck R4.0 · Rulebook v3.5</title>
+<title>Grandis Legacy — VS AI Season 0 RC43 · Main Deck R3.98 / Legacy Deck R4.0 · Rulebook v3.5</title>
 <link rel="icon" type="image/png" sizes="120x120" href="/assets/site/web-s0/favicon.png?v=20261124-shared-v1">
 <style>
 @font-face{font-family:Noto;src:url('assets/fonts/NotoSans-Variable.woff2') format('woff2');font-weight:100 900;font-style:normal;font-display:swap}
@@ -167,7 +167,7 @@ button{font:inherit}
 .phase-action.cancel-mode{border-color:#9a4149;background:rgba(56,14,19,.72);color:#ffc0c6}
 
 /* Bottom HUD holds only the centered hand; resource pools are anchored to their battlefield rail so deck -> deck -> pool gaps stay equal. */
-.bottom-hud{position:relative;min-height:calc(var(--hand-h) * .85 + 7px);overflow:visible;z-index:60}
+.bottom-hud{position:relative;min-height:calc(var(--hand-h) * .85 + 7px);overflow:visible;z-index:60;pointer-events:none}
 .bottom-hud .hand{height:100%;min-height:inherit;position:absolute;inset:0;pointer-events:none;overflow:visible;justify-content:center}
 .bottom-hud .hand-track{pointer-events:auto}
 .mana-pool{position:absolute;width:21.5%;height:var(--zone-h);border:1px solid rgba(244,211,94,.28);border-radius:8px;background:linear-gradient(180deg,rgba(9,19,30,.92),rgba(4,10,17,.96));box-shadow:inset 0 0 0 1px rgba(255,255,255,.015);display:flex;align-items:center;padding:3px 6px;z-index:65;overflow:visible}
@@ -292,7 +292,7 @@ html.gl-adaptive-stage .played{column-gap:5px;row-gap:5px}
 .opponent-field .zone>.count,.opponent-field .opponent-mana-pool>.count{left:-4px;right:auto;top:auto;bottom:-4px}
 </style>
 
-<link rel="stylesheet" href="shared-ui/battlefield-ui.css?v=rc42-action-hero-ratio-20261125">
+<link rel="stylesheet" href="shared-ui/battlefield-ui.css?v=rc43-20261126-web">
 <link rel="stylesheet" href="assets/css/gl-header-parity.css?v=20261119-header-clean-v2">
 <link rel="stylesheet" href="assets/css/gl-site-brand.css?v=20261120-v3">
 <link rel="stylesheet" href="assets/css/gl-site-navigation.css?v=20261120-v1">
@@ -391,6 +391,7 @@ html.gl-adaptive-stage .played{column-gap:5px;row-gap:5px}
     <section class="history-panel" id="historyPanel" aria-hidden="true"><div class="history-head"><h3>Full Card History</h3><button class="history-close" id="historyClose" type="button">Close</button></div><div class="history-grid"></div></section>
   </aside>
 </div>
+<script src="shared-ui/platform.js?v=rc43-20261126"></script>
 <script id="gl-responsive-stage-js">
 (() => {
   const REF_W=1600, REF_H=747, STEP=.05, NORMAL_MIN=.85, NORMAL_MAX=1.20, EMERGENCY_MIN=.75;
@@ -399,7 +400,7 @@ html.gl-adaptive-stage .played{column-gap:5px;row-gap:5px}
   const snapNearest=v=>round2(Math.round(v/STEP)*STEP);
   const snapDown=v=>round2(Math.floor((v+1e-9)/STEP)*STEP);
   const clamp=(v,lo,hi)=>Math.max(lo,Math.min(v,hi));
-  const touchDevice=()=>{try{return (navigator.maxTouchPoints||0)>0||matchMedia('(pointer:coarse)').matches;}catch(_){return (navigator.maxTouchPoints||0)>0;}};
+  const touchDevice=()=>window.GL_PLATFORM.isMobile();
   function publish(scale,logicalW,logicalH){
     root.style.setProperty('--ui-scale',String(scale));
     root.style.setProperty('--logical-w',logicalW+'px');
@@ -421,7 +422,7 @@ html.gl-adaptive-stage .played{column-gap:5px;row-gap:5px}
     const touch=touchDevice();
     // M02: all standalone gameplay popups use the same logical landscape
     // canvas and transform as the battlefield on touch handsets.
-    root.classList.toggle('gl-mobile-gameplay-stage',touch&&Math.min(cssW,cssH)<=900&&Math.max(cssW,cssH)<=2000);
+    root.classList.toggle('gl-mobile-gameplay-stage',touch);
     if(touch){
       root.classList.add('gl-adaptive-stage');
       const portrait=cssH>cssW;
@@ -503,16 +504,16 @@ html.gl-adaptive-stage .played{column-gap:5px;row-gap:5px}
   <script src="assets/review-db158/js/db166-view-model.js?v=rc41-r39-20261118"></script>
   <script src="shared-app/rc42-card-thumbnails.js?v=rc42-instant-art-shared-header-20261125-v1"></script>
   <script src="shared-app/rc42-card-art-loader.js?v=rc42-instant-art-shared-header-20261125-v1"></script>
-  <script src="shared-app/db158-card-review.js?v=rc42-action-hero-ratio-20261125"></script>
+  <script src="shared-app/db158-card-review.js?v=rc43-20261126-web"></script>
   <script src="runtime/season0-generated/rc42-main-deck-r398-overlay.js?v=rc42-r398-r40-20261124"></script>
-  <script src="engine/shared-app/app.bundle.js?v=rc42-mobile-preview-dismiss-20261124-v2"></script>
+  <script src="engine/shared-app/app.bundle.js?v=rc43-20261126-web"></script>
   <script src="vs-ai/route-asset-compat.js?v=rc42-r398-r40-20261124"></script>
   <script src="runtime/adapters/authority-adapter.js"></script>
   <script src="runtime/adapters/local-ai-adapter.js"></script>
-  <script src="shared-ui/mobile-preview-hold.js?v=rc42-mobile-followup-20261124-v1"></script>
-  <script src="shared-app/app-runtime.js?v=rc42-action-hero-ratio-20261125"></script>
-  <script src="shared-ui/mobile-card-list-scroll.js?v=rc42-action-hero-ratio-20261125"></script>
-  <script src="shared-ui/mobile-landscape-lobby.js?v=rc42-uniform-20261124"></script>
+  <script src="shared-ui/mobile-preview-hold.js?v=rc43-20261126-web"></script>
+  <script src="shared-app/app-runtime.js?v=rc43-20261126-web"></script>
+  <script src="shared-ui/mobile-card-list-scroll.js?v=rc43-20261126-web"></script>
+  <script src="shared-ui/mobile-landscape-lobby.js?v=rc43-20261126-web"></script>
   <script src="vs-ai/route-nav-compat.js?v=rc42-instant-art-shared-header-20261125-v1"></script>
 
 </body>

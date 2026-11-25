@@ -47,9 +47,11 @@ const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.id='g
 document.body.appendChild(svg);
 const feedback=document.createElement('div');feedback.className='gl-feedback';BF.appendChild(feedback);
 const choiceOverlay=document.createElement('div');choiceOverlay.className='overlay choice-overlay gl-vsai-choice-overlay';choiceOverlay.innerHTML='<section class="choice-panel"><header class="choice-head"><h2 class="gl-choice-title">Choice</h2></header><div class="choice-body gl-choice-body"></div><footer class="choice-foot"><button type="button" class="gl-choice-cancel" hidden>CANCEL</button><button type="button" class="gl-choice-confirm">CONFIRM</button></footer></section>';document.body.appendChild(choiceOverlay);
-// RC41 F15: only card pickups into Hand get a transparent Hand window; the
-// three shield strips keep unrelated battlefield buttons non-interactive.
-const choiceHandWindow=document.createElement('div');choiceHandWindow.className='gl-choice-hand-window';choiceHandWindow.setAttribute('aria-hidden','true');choiceOverlay.prepend(choiceHandWindow);
+// Card-return choices dim the scene except for the real Hand artwork.
+const handMaskNS='http://www.w3.org/2000/svg';
+const choiceHandWindow=document.createElementNS(handMaskNS,'svg');choiceHandWindow.setAttribute('class','gl-choice-hand-window');choiceHandWindow.setAttribute('aria-hidden','true');choiceHandWindow.setAttribute('preserveAspectRatio','none');
+choiceHandWindow.innerHTML='<defs><mask id="glChoiceHandArtMask" maskUnits="userSpaceOnUse" maskContentUnits="userSpaceOnUse" style="mask-type:luminance"><rect width="100%" height="100%" fill="white"/><g class="gl-hand-mask-cards" fill="black"/></mask></defs><rect width="100%" height="100%" fill="rgba(0,0,0,.72)" mask="url(#glChoiceHandArtMask)"/>';
+choiceOverlay.prepend(choiceHandWindow);
 for(const edge of ['top','left','right']){const shield=document.createElement('div');shield.className='gl-choice-hand-shield gl-choice-hand-shield-'+edge;shield.setAttribute('aria-hidden','true');choiceOverlay.insertBefore(shield,choiceOverlay.querySelector('.choice-panel'));}
 const playedDetailOverlay=document.createElement('div');playedDetailOverlay.className='gl-played-detail-overlay';playedDetailOverlay.innerHTML='<section class="gl-played-detail-panel" role="dialog" aria-modal="true" aria-labelledby="glPlayedDetailTitle"><header class="gl-played-detail-head"><h2 id="glPlayedDetailTitle">Card Played</h2><button type="button" class="gl-played-detail-close" aria-label="Close Card Played detail">CLOSE</button></header><div class="gl-played-detail-body"></div></section>';document.body.appendChild(playedDetailOverlay);
 const cardReviewOverlay=document.createElement('div');cardReviewOverlay.className='gl-card-review-overlay';cardReviewOverlay.innerHTML='<section class="gl-card-review-panel" role="dialog" aria-modal="true" aria-label="Card Review"><div class="gl-card-review-body"></div></section>';document.body.appendChild(cardReviewOverlay);
@@ -299,6 +301,7 @@ function hasUnifiedMobilePreviewStage(){
 // A single touch gesture is shared by Battlefield, Hand, Mana, and card choices.
 // Desktop mouse hover and double-click behavior is deliberately untouched.
 function registerMobileCardHold(el,show){window.GL_MOBILE_PREVIEW_HOLD?.bind(el,show)}
+function previewMouseEvent(e){return e?.pointerType ? e.pointerType==='mouse' : !e?.sourceCapabilities?.firesTouchEvents && !window.GL_MOBILE_PREVIEW_HOLD?.recentTouch?.();}
 function isRotatedMobileGameplay(){
   return hasUnifiedMobilePreviewStage()&&document.documentElement.classList.contains('gl-stage-portrait');
 }
@@ -499,9 +502,9 @@ function placeBattlefieldHoverPreview(kind,anchor){
 function bindBattlefieldPreview(img,kind,anchor){
   if(!img)return;const key='glBattlefieldPreview'+String(kind||'card');if(img.dataset[key]==='1')return;img.dataset[key]='1';
   const show=()=>{if(backgroundPreviewSuppressed(anchor||img))return;promoteTemporaryCardPreview(battlefieldHoverPreview);battlefieldHoverSource=img;battlefieldHoverPreview.classList.toggle('is-hero',kind==='hero');setCardArtwork(battlefieldHoverImg,cardArtwork.original(img));placeBattlefieldHoverPreview(kind,anchor||img);battlefieldHoverPreview.classList.add('open');battlefieldHoverPreview.setAttribute('aria-hidden','false')};
-  img.addEventListener('mouseenter',()=>{if(!hasUnifiedMobilePreviewStage())show()});
-  img.addEventListener('mousemove',()=>{if(!hasUnifiedMobilePreviewStage()&&battlefieldHoverSource===img&&!backgroundPreviewSuppressed(anchor||img))placeBattlefieldHoverPreview(kind,anchor||img)});
-  img.addEventListener('mouseleave',()=>{if(!hasUnifiedMobilePreviewStage()&&battlefieldHoverSource===img)hideBattlefieldHoverPreview()});
+  img.addEventListener('pointerenter',e=>{if(previewMouseEvent(e))show()});
+  img.addEventListener('pointermove',e=>{if(previewMouseEvent(e)&&battlefieldHoverSource===img&&!backgroundPreviewSuppressed(anchor||img))placeBattlefieldHoverPreview(kind,anchor||img)});
+  img.addEventListener('pointerleave',e=>{if(previewMouseEvent(e)&&battlefieldHoverSource===img)hideBattlefieldHoverPreview()});
   registerMobileCardHold(img,show);
 }
 function formatMatchTime(ms){const total=Math.max(0,Math.floor(Number(ms||0)/1000)),m=Math.floor(total/60),sec=total%60;return String(m).padStart(2,'0')+':'+String(sec).padStart(2,'0')}
@@ -573,9 +576,9 @@ function placeSidebarHoverPreview(anchor){
 function bindSidebarPreview(img){
   if(!img||img.dataset.glSidebarPreviewBound==='1')return;img.dataset.glSidebarPreviewBound='1';
   const show=()=>{if(backgroundPreviewSuppressed(img))return;promoteTemporaryCardPreview(sidebarHoverPreview);sidebarHoverSource=img;setCardArtwork(sidebarHoverImg,cardArtwork.original(img));placeSidebarHoverPreview(img);sidebarHoverPreview.classList.add('open');sidebarHoverPreview.setAttribute('aria-hidden','false')};
-  img.addEventListener('mouseenter',()=>{if(!hasUnifiedMobilePreviewStage())show()});
-  img.addEventListener('mousemove',()=>{if(!hasUnifiedMobilePreviewStage()&&!backgroundPreviewSuppressed(img))placeSidebarHoverPreview(img)});
-  img.addEventListener('mouseleave',()=>{if(!hasUnifiedMobilePreviewStage())hideSidebarHoverPreview()});
+  img.addEventListener('pointerenter',e=>{if(previewMouseEvent(e))show()});
+  img.addEventListener('pointermove',e=>{if(previewMouseEvent(e)&&!backgroundPreviewSuppressed(img))placeSidebarHoverPreview(img)});
+  img.addEventListener('pointerleave',e=>{if(previewMouseEvent(e))hideSidebarHoverPreview()});
   registerMobileCardHold(img,show);
 }
 function hideModalHoverPreview(){modalHoverSource=null;modalHoverPreview.style.removeProperty('width');modalHoverPreview.style.removeProperty('height');modalHoverPreview.classList.remove('open');modalHoverPreview.setAttribute('aria-hidden','true');modalHoverImg.removeAttribute('src')}
@@ -604,7 +607,7 @@ function bindMobileOutsidePreviewDismiss(){
 bindMobileOutsidePreviewDismiss();
 [battlefieldHoverImg,sidebarHoverImg,modalHoverImg].forEach(im=>{
   im.addEventListener('pointerdown',event=>{
-    if(!hasUnifiedMobilePreviewStage())return;
+    if(event.pointerType!=='touch'&&event.pointerType!=='pen')return;
     event.preventDefault();event.stopImmediatePropagation();
     hideBattlefieldHoverPreview();hideSidebarHoverPreview();hideModalHoverPreview();
   });
@@ -643,9 +646,9 @@ function placeModalHoverPreview(anchor){
 function bindModalPreview(img){
   if(!img||img.dataset.glModalPreviewBound==='1')return;img.dataset.glModalPreviewBound='1';
   const show=()=>{if(backgroundPreviewSuppressed(img))return;modalHoverSource=img;modalHoverPreview.classList.remove('is-context-hero');setCardArtwork(modalHoverImg,cardArtwork.original(img));placeModalHoverPreview(img);modalHoverPreview.classList.add('open');modalHoverPreview.setAttribute('aria-hidden','false')};
-  img.addEventListener('mouseenter',()=>{if(!hasUnifiedMobilePreviewStage())show()});
-  img.addEventListener('mousemove',()=>{if(!hasUnifiedMobilePreviewStage()&&!backgroundPreviewSuppressed(img))placeModalHoverPreview(img)});
-  img.addEventListener('mouseleave',()=>{if(!hasUnifiedMobilePreviewStage())hideModalHoverPreview()});
+  img.addEventListener('pointerenter',e=>{if(previewMouseEvent(e))show()});
+  img.addEventListener('pointermove',e=>{if(previewMouseEvent(e)&&!backgroundPreviewSuppressed(img))placeModalHoverPreview(img)});
+  img.addEventListener('pointerleave',e=>{if(previewMouseEvent(e))hideModalHoverPreview()});
   registerMobileCardHold(img,show);
 }
 function placeContextualModalHoverPreview(anchor,compactHero){
@@ -735,15 +738,15 @@ function bindClassChoiceHoverPreview(card,cardId,explicitArt=null){
   };
   // The stable BUTTON is the hover anchor. Binding to its 3D-flipped IMG used
   // to fire pointerleave when the image/hover transform changed under Firefox.
-  card.addEventListener('pointerenter',e=>{if(!hasUnifiedMobilePreviewStage()&&e.pointerType!=='touch')show()});
+  card.addEventListener('pointerenter',e=>{if(e.pointerType==='mouse')show()});
   card.addEventListener('pointermove',e=>{
-    if(hasUnifiedMobilePreviewStage()||e.pointerType==='touch')return;
+    if(e.pointerType!=='mouse')return;
     if(classChoiceHoverOwner!==card||!modalHoverPreview.classList.contains('open'))show();
     else placeClassChoiceHoverPreview(card);
   });
-  card.addEventListener('pointerleave',()=>{
+  card.addEventListener('pointerleave',e=>{
     clearTimeout(leaveTimer);
-    if(hasUnifiedMobilePreviewStage())return;
+    if(e.pointerType!=='mouse')return;
     leaveTimer=setTimeout(()=>{
       if(classChoiceHoverOwner===card&&!card.matches(':hover')){classChoiceHoverOwner=null;hideModalHoverPreview()}
     },85);
@@ -759,9 +762,9 @@ function bindContextualModalPreview(img,cardId){
   if(!img||img.dataset.glContextModalPreviewBound==='1')return;img.dataset.glContextModalPreviewBound='1';
   const v=cv(cardId),family=String(v?.family||v?.type||'').toLowerCase(),compactHero=/hero|legacy/.test(family)||/-(H\d{3}|L\d{3}|LEG)/i.test(String(cardId||''));
   const show=()=>{if(backgroundPreviewSuppressed(img))return;promoteTemporaryCardPreview(modalHoverPreview);modalHoverSource=img;setCardArtwork(modalHoverImg,cardArtwork.original(img));placeContextualModalHoverPreview(img,compactHero);modalHoverPreview.classList.add('open');modalHoverPreview.setAttribute('aria-hidden','false')};
-  img.addEventListener('mouseenter',()=>{if(!hasUnifiedMobilePreviewStage())show()});
-  img.addEventListener('mousemove',()=>{if(!hasUnifiedMobilePreviewStage()&&!backgroundPreviewSuppressed(img))placeContextualModalHoverPreview(img,compactHero)});
-  img.addEventListener('mouseleave',()=>{if(!hasUnifiedMobilePreviewStage()){modalHoverPreview.classList.remove('is-context-hero');hideModalHoverPreview()}});
+  img.addEventListener('pointerenter',e=>{if(previewMouseEvent(e))show()});
+  img.addEventListener('pointermove',e=>{if(previewMouseEvent(e)&&!backgroundPreviewSuppressed(img))placeContextualModalHoverPreview(img,compactHero)});
+  img.addEventListener('pointerleave',e=>{if(previewMouseEvent(e)){modalHoverPreview.classList.remove('is-context-hero');hideModalHoverPreview()}});
   // Center-choice buttons have their own stable hold anchor. In card lists,
   // the image is the hold anchor and single tap remains selection-only.
   if(!img.closest('.gl-center-choice-card'))registerMobileCardHold(img,show);
@@ -833,16 +836,8 @@ window.addEventListener('message',e=>{
     if(lobbyReviewProgressionIds.includes(next))openCardReview(next,{keepLobbyLineage:true});
     return;
   }
-  if(e.data?.kind==='GL_S0_REVIEW_FIT'&&cardReviewOverlay.classList.contains('open')){
-    if(adaptiveStageActive())return;
-    const h=Number(e.data.height);
-    if(Number.isFinite(h)&&h>100){
-      // Avoid stretching the Deck Builder card to fill empty background space.
-      const logicalViewportHeight=hasUnifiedMobilePreviewStage()?747:window.innerHeight;
-      const fit=Math.min(Math.ceil(h),Math.max(250,logicalViewportHeight-32));
-      frame.style.setProperty('height',fit+'px','important');
-    }
-  }
+  // Deck Builder's own responsive dialog controls height inside the full scene.
+  if(e.data?.kind==='GL_S0_REVIEW_FIT')return;
 });
 cardReviewOverlay.addEventListener('click',e=>{if(e.target===cardReviewOverlay)closeCardReview()});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&cardReviewOverlay.classList.contains('open'))closeCardReview()});
@@ -925,13 +920,7 @@ function zoneEl(side,type){
 // affects the authoritative Discard/inspection state or desktop click behavior.
 let mobileDiscardArmed=null;
 let mobileDiscardTimer=null;
-function isHandsetViewport(){
-  const short=Math.min(window.innerWidth||0,window.innerHeight||0);
-  const long=Math.max(window.innerWidth||0,window.innerHeight||0);
-  let touch=(navigator.maxTouchPoints||0)>0;
-  try{touch=touch||matchMedia('(pointer:coarse)').matches}catch(_){}
-  return touch&&short<=680&&long<=1350;
-}
+function isHandsetViewport(){return window.GL_PLATFORM?.isMobile()===true;}
 function clearMobileDiscardArm(){
   if(mobileDiscardTimer!==null){clearTimeout(mobileDiscardTimer);mobileDiscardTimer=null}
   mobileDiscardArmed?.classList?.remove('gl-discard-tap-armed');
@@ -960,11 +949,11 @@ function openInspectCards(title,ids,instruction,previewMode='contextual'){
   if(st()?.pending)return;
   inspectState={title,ids:(ids||[]).filter(Boolean),instruction:instruction||'',previewMode};modalRenderKey='';renderInspectModal();
 }
-function closeInspectModal(){hideModalHoverPreview();inspectState=null;activeModalType='';modalRenderKey='';resetReturnToHandSearchDisplay();choiceOverlay.classList.remove('open','gl-choice-main-deck-preview')}
+function closeInspectModal(){resetCollectionPopup();hideModalHoverPreview();inspectState=null;activeModalType='';modalRenderKey='';resetReturnToHandSearchDisplay();choiceOverlay.classList.remove('open','gl-choice-main-deck-preview')}
 function renderInspectModal(){
   if(!inspectState)return;
   resetReturnToHandSearchDisplay();
-  choiceOverlay.classList.remove('gl-choice-main-deck-preview');choiceOverlay.classList.add('open');activeModalType='inspect';
+  choiceOverlay.classList.remove('gl-choice-main-deck-preview');choiceOverlay.classList.add('open','gl-collection-popup');activeModalType='inspect';
   const sig='inspect|'+inspectState.title+'|'+inspectState.ids.join('|');if(modalRenderKey===sig)return;modalRenderKey=sig;
   const title=choiceOverlay.querySelector('.gl-choice-title'),body=choiceOverlay.querySelector('.gl-choice-body'),confirm=choiceOverlay.querySelector('.gl-choice-confirm');
   title.textContent=inspectState.title;body.innerHTML='';
@@ -973,7 +962,7 @@ function renderInspectModal(){
   else{const e=document.createElement('div');e.className='gl-inspect-empty';e.textContent='This pile is empty.';body.appendChild(e)}
   const cancel=choiceOverlay.querySelector('.gl-choice-cancel');
   if(cancel){cancel.hidden=true;cancel.onclick=null;}
-  confirm.textContent='CLOSE';confirm.disabled=false;confirm.onclick=closeInspectModal;
+  confirm.textContent='CLOSE';confirm.disabled=false;confirm.onclick=closeInspectModal;fitCollectionPopup();requestAnimationFrame(fitCollectionPopup);
 }
 // Part 5: music remains OFF by default; the existing engine SFX switch remains ON by default.
 // Save user choices without coupling BGM to the card / battle / coin sound effect setting.
@@ -2119,6 +2108,7 @@ function layoutAdaptiveHand(track,side){
   const set=(k,v)=>{if(track.style.getPropertyValue(k)!==v)track.style.setProperty(k,v)};
   set('--gl-hand-left',(left-hr.left).toFixed(2)+'px');set('--gl-hand-space',span.toFixed(2)+'px');
   set('--gl-fit-hand-w',width+'px');set('--gl-fit-hand-h',(width/0.68).toFixed(3)+'px');
+  if(player)set('--gl-hand-action-scale',String(width/81));
   track.classList.toggle('gl-hand-dense',width<normal-.5);
   return true;
 }
@@ -3668,7 +3658,7 @@ function renderHand(s){
   applyHandFan(playerHandTrack,'PLAYER');
   requestAnimationFrame(syncPlayerHandToHeroCenter);
 }
-function addAction(host,label,cls,fn,options={}){const b=document.createElement('button');b.type='button';b.className=cls;b.textContent=label;if(options.reason)b.dataset.reason=String(options.reason);if(options.disabled)b.disabled=true;b.onclick=e=>{e.stopPropagation();if(b.disabled)return;fn()};host.appendChild(b);return b}
+function addAction(host,label,cls,fn,options={}){const b=document.createElement('button');b.type='button';b.className=cls;b.textContent=label;if(options.reason)b.dataset.reason=String(options.reason);if(options.disabled)b.disabled=true;b.onclick=e=>{e.stopPropagation();if(b.disabled||choiceOverlay.classList.contains('gl-choice-to-hand'))return;fn()};host.appendChild(b);return b}
 function handleDiscardClick(p,handIndex){
   if(p.type==='hand_limit_discard'){
     intent('toggleDiscardIndex',[handIndex]);
@@ -3924,30 +3914,143 @@ function returnToHandSearchSessionKey(s,p){
       [c.card_id||'',c.deck_index??c.discard_index??c.hand_index??-1])
   });
 }
+let handSpotlightFrame=0,handSpotlightSignature='';
 function resetReturnToHandSearchDisplay(){
   glHandSearchSessionKey='';
   choiceOverlay.classList.remove('gl-choice-to-hand');
   document.body.classList.remove('gl-choice-to-hand-active');
+  if(handSpotlightFrame)cancelAnimationFrame(handSpotlightFrame);
+  handSpotlightFrame=0;handSpotlightSignature='';
+  choiceHandWindow.querySelector('.gl-hand-mask-cards').replaceChildren();
+}
+function handSearchArtwork(){
+  return [...playerHandTrack.querySelectorAll(':scope > .hand-card:not(.gl-presentation-hidden):not(.gl-draw-reservation-slot) > .hand-art')].filter(im=>im.offsetWidth>0&&im.offsetHeight>0);
 }
 function positionReturnToHandSearch(){
   if(!choiceOverlay.classList.contains('gl-choice-to-hand'))return;
-  const mobile=adaptiveStageActive();let r=mobile?uiLayoutRect(playerHandTrack):uiRect(playerHandTrack);
-  if(mobile){const cards=[...playerHandTrack.querySelectorAll(':scope > .hand-card')].map(uiLayoutRect).filter(Boolean);if(cards.length)r={left:Math.min(...cards.map(x=>x.left)),right:Math.max(...cards.map(x=>x.right)),top:Math.min(...cards.map(x=>x.top))};}
-  const style=mobile?getComputedStyle(document.documentElement):null;
+  const mobile=adaptiveStageActive(),style=getComputedStyle(document.documentElement);
   const sceneW=mobile?(parseFloat(style.getPropertyValue('--gl-stage-logical-w'))||1600):Math.max(1,window.innerWidth||1);
   const sceneH=mobile?(parseFloat(style.getPropertyValue('--gl-stage-logical-h'))||747):Math.max(1,window.innerHeight||1);
-  // Existing Hand is never moved or resized. Spotlight follows its true track.
-  const left=Math.max(0,Math.round((r?.left??sceneW*.38)-12));
-  const right=Math.min(sceneW,Math.round((r?.right??sceneW*.70)+12));
-  const top=Math.max(0,Math.min(sceneH-30,Math.round((r?.top??sceneH-120)-10)));
-  const width=Math.max(1,right-left);
-  const panelCap=Math.max(215,Math.min(sceneH-32,Math.floor(2*(top-22+32)-sceneH)));
+  const scale=mobile?1:currentUiScale(),artwork=handSearchArtwork(),rects=artwork.map(im=>mobile?uiLayoutRect(im):uiRect(im));
+  const left=rects.length?Math.max(0,Math.floor(Math.min(...rects.map(r=>r.left))-12)):0;
+  const right=rects.length?Math.min(sceneW,Math.ceil(Math.max(...rects.map(r=>r.right))+12)):0;
+  const artTop=rects.length?Math.min(...rects.map(r=>r.top)):sceneH;
+  const top=rects.length?Math.max(0,Math.min(sceneH,Math.floor(artTop-10))):sceneH;
   const put=(key,value)=>{const v=Math.round(value)+'px';if(choiceOverlay.style.getPropertyValue(key)!==v)choiceOverlay.style.setProperty(key,v)};
   put('--gl-choice-hand-x',left);put('--gl-choice-hand-y',top);
-  put('--gl-choice-hand-w',width);put('--gl-choice-hand-right',right);
-  put('--gl-choice-panel-cap',panelCap);
+  put('--gl-choice-hand-w',Math.max(0,right-left));put('--gl-choice-hand-right',right);
+  put('--gl-choice-panel-cap',Math.max(1,top-14));
+  const group=choiceHandWindow.querySelector('.gl-hand-mask-cards');
+  // Recover the card's affine transform in overlay coordinates. Overlapping
+  // black shapes form a union in the luminance mask, including fan rotation.
+  const shapes=artwork.map((im,i)=>{
+    const r=rects[i],w=im.offsetWidth,h=im.offsetHeight;
+    const transform=getComputedStyle(im.parentElement).transform;
+    const m=new DOMMatrixReadOnly(transform==='none'?undefined:transform);
+    const a=m.a*scale,b=m.b*scale,c=m.c*scale,d=m.d*scale;
+    const xs=[0,a*w,c*h,a*w+c*h],ys=[0,b*w,d*h,b*w+d*h];
+    const x=r.left-Math.min(...xs),y=r.top-Math.min(...ys);
+    return [w,h,parseFloat(getComputedStyle(im).borderTopLeftRadius)||0,a,b,c,d,x,y].map(v=>Math.round(v*1000)/1000);
+  });
+  const sig=JSON.stringify([sceneW,sceneH,shapes]);
+  if(sig!==handSpotlightSignature){
+    handSpotlightSignature=sig;choiceHandWindow.setAttribute('viewBox',`0 0 ${sceneW} ${sceneH}`);
+    const mask=choiceHandWindow.querySelector('mask');mask.setAttribute('x','0');mask.setAttribute('y','0');mask.setAttribute('width',sceneW);mask.setAttribute('height',sceneH);
+    group.replaceChildren(...shapes.map(([w,h,r,a,b,c,d,x,y])=>{const el=document.createElementNS(handMaskNS,'rect');el.setAttribute('width',w);el.setAttribute('height',h);el.setAttribute('rx',r);el.setAttribute('transform',`matrix(${a} ${b} ${c} ${d} ${x} ${y})`);return el}));
+  }
 }
+function watchHandSpotlight(){
+  if(handSpotlightFrame)return;
+  const tick=()=>{
+    handSpotlightFrame=0;
+    if(!choiceOverlay.classList.contains('open')||!choiceOverlay.classList.contains('gl-choice-to-hand'))return;
+    positionReturnToHandSearch();
+    const panel=choiceOverlay.querySelector('.choice-panel'),edge=parseFloat(choiceOverlay.style.getPropertyValue('--gl-choice-hand-y'));
+    if(panel.offsetTop+panel.offsetHeight>edge-2)fitCollectionPopup();
+    handSpotlightFrame=requestAnimationFrame(tick);
+  };
+  handSpotlightFrame=requestAnimationFrame(tick);
+}
+// Collection geometry is distinct from direct action rows. Preserve the
+// existing compact tile appearance, and measure the real header/footer and
+// row overhead (names/buttons) before allocating two complete rows.
+function fitCollectionPopup(){
+  if(!choiceOverlay.classList.contains('open')||!choiceOverlay.classList.contains('gl-collection-popup'))return;
+  const panel=choiceOverlay.querySelector('.choice-panel'),body=panel.querySelector('.choice-body'),grid=body.querySelector('.choice-grid');
+  if(!grid||!grid.children.length)return;
+  const root=document.documentElement, mobile=adaptiveStageActive(),style=getComputedStyle(root);
+  const W=mobile?parseFloat(style.getPropertyValue('--gl-stage-logical-w')):window.innerWidth;
+  const H=mobile?parseFloat(style.getPropertyValue('--gl-stage-logical-h')):window.innerHeight;
+  if(!(W>0&&H>0))return;
+  const px=v=>parseFloat(v)||0;
+  const set=(el,k,v)=>el.style.setProperty(k,v,'important');
+  const top=Math.min(14,Math.max(6,Math.round(H*.02)));
+  const handTop=choiceOverlay.classList.contains('gl-choice-to-hand')?px(choiceOverlay.style.getPropertyValue('--gl-choice-hand-y')):H;
+  const bottom=Math.min(H-top,handTop-8);
+  const maxH=Math.max(1,bottom-top);
+  const bs=getComputedStyle(body), intro=body.querySelector('.choice-instruction');
+  const shell=panel.querySelector('.choice-head').offsetHeight+panel.querySelector('.choice-foot').offsetHeight+px(bs.paddingTop)+px(bs.paddingBottom)+2;
+  const introH=intro?intro.offsetHeight+px(getComputedStyle(intro).marginTop)+px(getComputedStyle(intro).marginBottom):0;
+  const maxGridH=Math.max(1,maxH-shell-introH);
+  const pad=px(bs.paddingLeft)+px(bs.paddingRight)+4, gap=8;
+  // Reserve a side preview gutter on wide screens. On narrow screens the
+  // preview may be smaller, but never make the grid artificially wide.
+  const gutter=Math.min(mobile?180:245,Math.floor(W*.17));
+  const maxGridW=Math.max(1,W-2*top-pad-2*gutter-12);
+  const first=grid.firstElementChild;
+  const normal=mobile?Math.min(138,Math.max(96,(document.querySelector(".hero-card img.heroImg")?.offsetWidth||123)*.92+12)):96;
+  const normalCols=Math.max(1,Math.floor((maxGridW+gap)/(normal+gap)));
+  const availableRows=grid.children.length>normalCols?2:1;
+  // Measure actual tile chrome; a name and Select button are part of a row.
+  set(grid,'grid-template-columns',`repeat(1,${normal}px)`);
+  set(first,'width',normal+'px');set(first,'min-width','0');set(first,'max-width','none');
+  const im=first.querySelector('img');
+  const chrome=Math.max(12,first.offsetHeight-(im?.offsetHeight||0));
+  const artInset=Math.max(0,first.offsetWidth-(im?.offsetWidth||first.offsetWidth));
+  const fitWidth=Math.floor((maxGridH-(availableRows-1)*gap-availableRows*chrome)/availableRows/1.4+artInset);
+  let tile=Math.max(24,Math.min(normal,fitWidth,maxGridW));
+  let cols=Math.max(1,Math.min(grid.children.length,Math.floor((maxGridW+gap)/(tile+gap))));
+  if(grid.children.length<=cols){cols=grid.children.length;tile=Math.max(24,Math.min(normal,Math.floor((maxGridW-(cols-1)*gap)/cols),Math.floor((maxGridH-chrome)/1.4+artInset)));}
+  set(first,'width','100%');
+  set(panel,'min-width','0');set(panel,'max-width',Math.max(1,W-2*top)+'px');
+  set(panel,'max-height',maxH+'px');set(panel,'height','auto');set(panel,'transform','none');
+  set(choiceOverlay,'align-items','flex-start');set(choiceOverlay,'padding-top',top+'px');set(choiceOverlay,'padding-bottom','0px');
+  set(body,'max-height',Math.max(1,maxH-shell+px(bs.paddingTop)+px(bs.paddingBottom))+'px');
+  let rows=[],realGridBudget=0;
+  // Wrapped headings/instructions and fractional layout may change after the
+  // real panel width is applied. Re-measure the second row and reduce the
+  // tile just enough to guarantee two complete rows when needed and feasible.
+  for(let attempt=0;attempt<8;attempt++){
+    cols=Math.max(1,Math.min(grid.children.length,Math.floor((maxGridW+gap)/(tile+gap))));
+    const gridW=cols*tile+(cols-1)*gap+10;
+    set(panel,'width',Math.min(W-2*top,gridW+pad)+'px');
+    set(grid,'grid-template-columns',`repeat(${cols},${tile}px)`);set(grid,'grid-auto-columns',tile+'px');
+    set(grid,'width',gridW+'px');set(grid,'max-width','100%');set(grid,'max-height',maxGridH+'px');
+    realGridBudget=Math.max(1,Math.min(maxGridH,grid.clientHeight));rows=[];
+    const children=[...grid.children];
+    for(let i=0;i<children.length;i+=cols){const row=children.slice(i,i+cols);rows.push(Math.max(...row.map(el=>el.offsetTop+el.offsetHeight))-first.offsetTop);}
+    if(rows.length<2||rows[1]<=realGridBudget+1||tile<=24||attempt===7)break;
+    tile=Math.max(24,tile-Math.max(1,Math.ceil((rows[1]-realGridBudget+3)/2.8)));
+  }
+  // Display as many complete rows as fit; the rest scroll. Never snap a
+  // feasible two-row collection down to a single row due to rounding.
+  const complete=rows.filter(h=>h<=realGridBudget+1);
+  if(complete.length&&complete.length<rows.length&&(complete.length>=2||rows.length===1||tile<=24))set(grid,'max-height',complete.at(-1)+'px');
+  const panelH=panel.offsetHeight;
+  set(choiceOverlay,'padding-top',(rows.length<=1?Math.max(top,Math.floor((top+bottom-panelH)/2)):top)+'px');
+  choiceOverlay.dataset.collectionColumns=String(cols);
+}
+function resetCollectionPopup(){
+  choiceOverlay.classList.remove('gl-collection-popup');delete choiceOverlay.dataset.collectionColumns;
+  for(const k of ['align-items','padding-top','padding-bottom'])choiceOverlay.style.removeProperty(k);
+  const panel=choiceOverlay.querySelector('.choice-panel'),body=panel.querySelector('.choice-body');
+  for(const k of ['width','min-width','max-width','height','max-height','transform'])panel.style.removeProperty(k);
+  body.style.removeProperty('max-height');
+}
+window.addEventListener('resize',()=>requestAnimationFrame(fitCollectionPopup),{passive:true});
+
 function limitReturnToHandSearchRows(){
+  if(choiceOverlay.classList.contains('gl-collection-popup')){fitCollectionPopup();return;}
   if(!choiceOverlay.classList.contains('gl-choice-to-hand'))return;
   const body=choiceOverlay.querySelector('.choice-body'),grid=body?.querySelector('.card-search-choice-grid');
   const first=grid?.querySelector('.card-search-choice');if(!first)return;
@@ -4047,7 +4150,7 @@ function renderAllowedModal(s){
     const expPreviewOwnedByInspector=expInspectorOverlay.classList.contains('open');
     if(!centerPreviewOwnedByCenterChoice&&!expPreviewOwnedByInspector)hideModalHoverPreview();
     if(p)inspectState=null;
-    choiceOverlay.classList.remove('open','gl-choice-main-deck-preview','gl-choice-swap');activeModalType='';modalRenderKey='';return;
+    resetCollectionPopup();choiceOverlay.classList.remove('open','gl-choice-main-deck-preview','gl-choice-swap');activeModalType='';modalRenderKey='';return;
   }
   const candidateZone=candidateSourceZone(p),swapHeroSig=['optional_swap','optional_target_swap'].includes(p.type)?
     laneOrder.map(l=>{const h=sideHeroes(s,p.type==='optional_target_swap'?p.target_side:p.source_side)?.[l];return[l,heroImageId(h)||'',Number(h?.hp||0),!!swapPreviewIsLegacy(h),swapPreviewStatus(h)];}):null,
@@ -4062,20 +4165,22 @@ function renderAllowedModal(s){
   const scrollBefore=handSearch&&glHandSearchSessionKey===searchSessionKey&&searchGridBefore?
     Math.max(0,searchGridBefore.scrollTop):0;
   glHandSearchSessionKey=searchSessionKey;
+  const collection=!swapChoice&&(p.type==='card_search_choice'||p.type==='legacy_card_choice');
+  if(collection)choiceOverlay.classList.add('gl-collection-popup');else resetCollectionPopup();
   choiceOverlay.classList.toggle('gl-choice-swap',swapChoice);
   choiceOverlay.classList.toggle('gl-choice-to-hand',handSearch);
   document.body.classList.toggle('gl-choice-to-hand-active',handSearch);
-  if(handSearch)positionReturnToHandSearch();
+  if(handSearch){positionReturnToHandSearch();watchHandSpotlight();}else if(handSpotlightFrame)resetReturnToHandSearchDisplay();
   // For mobile list selectors, preserve the scroll row when a selection
   // triggers a fresh engine snapshot. This is not applied to desktop, Swap,
   // or the Hand-return picker (which already owns the grid scroll session).
-  const mobileListSession=hasUnifiedMobilePreviewStage()&&!handSearch&&!swapChoice?
+  const mobileListSession=collection&&!handSearch?
     JSON.stringify([glPresentationEpoch,s?.round||0,s?.turn||'',s?.phase||'',p.type,
       p.choice_id||'',p.source_card_id||'',p.commit_token||'',p.title||'',candidateZone,
       (p.candidates||[]).map(x=>typeof x==='string'?x:(x.card_id||x.id||''))]):'';
   const oldListBody=choiceOverlay.querySelector('.gl-choice-body');
   const listScrollY=mobileListSession&&mobileListSession===glMobileListScrollSession?
-    (oldListBody?.scrollTop||0):0;
+    (oldListBody?.querySelector('.choice-grid')?.scrollTop||0):0;
   glMobileListScrollSession=mobileListSession;
   // Polling renders used to destroy/recreate the modal buttons every 120 ms, which could eat
   // ordinary mouse clicks. Rebuild only when the choice state actually changes.
@@ -4222,11 +4327,12 @@ function renderAllowedModal(s){
     });confirm.textContent='Confirm Order';confirm.disabled=false;
   }
   confirm.onclick=()=>intent('handleChoiceConfirm',[]);
+  if(collection){fitCollectionPopup();requestAnimationFrame(fitCollectionPopup);}
   if(mobileListSession){
-    body.scrollTop=listScrollY;
+    grid.scrollTop=listScrollY;
     requestAnimationFrame(()=>{
       if(glMobileListScrollSession===mobileListSession&&body.isConnected)
-        body.scrollTop=listScrollY;
+        grid.scrollTop=listScrollY;
     });
   }
   if(handSearch){

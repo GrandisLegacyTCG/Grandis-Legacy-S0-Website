@@ -154,7 +154,6 @@ function currentFormation(){const d=currentDeck();return state.formation&&format
 function cardDef(id){const d=window.GL_S0_LOBBY_CARD_DEFINITIONS||{};if(!cardDef.m)cardDef.m=new Map((d.cards||[]).filter(Boolean).map(c=>[String(c.card_id),c]));return cardDef.m.get(String(id))||null}
 function cardName(id){const c=cardDef(id);return c?.name||c?.card_name||id||'Unknown'}
 function localCardArt(id){const raw=String(id||'').trim();return typeof window.GL_PVP_CARD_ART_URL==='function'?window.GL_PVP_CARD_ART_URL(raw):(/^S0-[A-Z0-9-]+$/.test(raw)?('/card-art/'+encodeURIComponent(raw)+'.webp'):'')}
-function localManaArt(sh){const key=sh?.kind==='CLASS'?String(sh.class_name||'').trim():'Generic';return 'assets/shards/'+encodeURIComponent(key||'Generic')+'.webp'}
 function cardSrc(id){return localCardArt(id)}
 const imagePreloadCache=new Map();
 const lobbyImageQueue=[];
@@ -190,7 +189,7 @@ function preloadImage(src){
 function preloadImages(urls){return Promise.allSettled([...new Set((urls||[]).filter(Boolean).map(String))].map(preloadImage))}
 function deckAssetUrls(deck){const ids=new Set();(deck?.legacy_deck_expanded||[]).filter(x=>String(x.card_type||'').toLowerCase()==='hero').forEach(x=>x?.card_id&&ids.add(String(x.card_id)));return [...ids].map(localCardArt)}
 function visibleBoardAssetUrls(snap){const s=snap?.match?.board?.appState||snap?.appState||null;if(!s)return[];const ids=new Set(),walk=v=>{if(typeof v==='string'){if(/^S0-[A-Z0-9-]+$/i.test(v)&&v!=='__GL_HIDDEN_CARD__')ids.add(v);return}if(Array.isArray(v)){v.forEach(walk);return}if(v&&typeof v==='object')Object.values(v).forEach(walk)};for(const k of ['playerHand','playerDiscard','aiDiscard','playerHeroes','aiHeroes','activeAttachments','presentationEvents'])walk(s[k]);return [...ids].map(localCardArt)}
-function preloadDeckAssets(deck){return preloadImages([...deckAssetUrls(deck),'assets/ui/back-main.webp','assets/ui/back-legacy.webp','assets/ui/back-shard.webp','assets/shards/Generic.webp','assets/shards/Warrior.webp','assets/shards/Mage.webp','assets/shards/Archer.webp','assets/shards/Cleric.webp','assets/shards/Thief.webp'])}
+function preloadDeckAssets(deck){return preloadImages([...deckAssetUrls(deck),'assets/ui/back-main.webp','assets/ui/back-legacy.webp','assets/ui/back-shard.webp'])}
 const BATTLE_VFX_ASSETS=['/engine/assets/battle/P.Attack.png','/engine/assets/battle/M.Attack.png','/engine/assets/battle/P.Defense.png','/engine/assets/battle/M.Defense.png','/engine/assets/battle/Heal.png','/engine/assets/battle/Blade.png'];
 const BATTLE_AUDIO_ASSETS=['/pvp/engine/assets/audio/battle/P.Atk.mp3','/engine/assets/audio/battle/M.Atk.mp3','/pvp/engine/assets/audio/battle/P.Def.mp3','/engine/assets/audio/battle/M.Def.mp3','/engine/assets/audio/battle/Dodge.mp3','/engine/assets/audio/battle/Heal.mp3'];
 const battleAudioPrime=new Map();
@@ -230,7 +229,7 @@ function primeEarlyBattleFeedback(previousSnapshot,nextSnapshot){
   }
 }
 function installImageDecodeGuard(){
-  const guard=img=>{if(!img)return;const src=String(img.getAttribute('src')||'');if(!/(?:card-art\/|assets\/shards\/|assets\/ui\/back-)/i.test(src))return;if(img.dataset.glGuardedSrc===src)return;img.dataset.glGuardedSrc=src;const alt=img.getAttribute('alt')||'';img.dataset.glResolvedAlt=alt;if(!(img.complete&&img.naturalWidth>0)){img.classList.add('gl-image-pending');img.setAttribute('alt','')}
+  const guard=img=>{if(!img)return;const src=String(img.getAttribute('src')||'');if(!/(?:card-art\/|assets\/ui\/back-)/i.test(src))return;if(img.dataset.glGuardedSrc===src)return;img.dataset.glGuardedSrc=src;const alt=img.getAttribute('alt')||'';img.dataset.glResolvedAlt=alt;if(!(img.complete&&img.naturalWidth>0)){img.classList.add('gl-image-pending');img.setAttribute('alt','')}
     const done=async()=>{if(String(img.getAttribute('src')||'')!==src)return;try{await img.decode?.()}catch{}img.classList.remove('gl-image-pending');img.setAttribute('alt',alt)};img.addEventListener('load',done,{once:true});img.addEventListener('error',()=>{if(String(img.getAttribute('src')||'')===src)img.classList.remove('gl-image-pending')},{once:true});if(img.complete&&img.naturalWidth>0)done()};
   document.querySelectorAll('img').forEach(guard);new MutationObserver(rows=>rows.forEach(r=>{if(r.type==='attributes'){guard(r.target);return}r.addedNodes.forEach(n=>{if(n?.nodeType!==1)return;if(n.matches?.('img'))guard(n);n.querySelectorAll?.('img').forEach(guard)})})).observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['src']});
 }

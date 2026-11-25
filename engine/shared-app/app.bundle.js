@@ -6,7 +6,7 @@
   var GL_APP_MODE=String((typeof window!=='undefined'&&window.GL_APP_MODE)||'LOCAL_AI').toUpperCase();
   var IS_PVP_APP=GL_APP_MODE==='PVP';
   var IS_TUTORIAL_APP=GL_APP_MODE==='TUTORIAL';
-  var GL_VERSION=IS_PVP_APP?'Grandis Legacy PvP v3.41 · VS AI v6.42 Battlefield · One Source v1.9.5 · Runtime Data v0.16.2 · Foundation v1.94.2 · Core v0.61':(IS_TUTORIAL_APP?'Grandis Legacy Tutorial v0.71 GitHub Pages · VS AI v6.48 Base · One Source v1.9.5 · Runtime Data v0.16.2 · Foundation v1.94.2 · Core v0.61':'Grandis Legacy VS AI Season 0 RC42 · Main Deck R3.94 · Legacy Deck R3.9 · Rulebook v3.5');
+  var GL_VERSION=IS_PVP_APP?'Grandis Legacy PvP v3.41 · VS AI v6.42 Battlefield · One Source v1.9.5 · Runtime Data v0.16.2 · Foundation v1.94.2 · Core v0.61':(IS_TUTORIAL_APP?'Grandis Legacy Tutorial v0.71 GitHub Pages · VS AI v6.48 Base · One Source v1.9.5 · Runtime Data v0.16.2 · Foundation v1.94.2 · Core v0.61':'Grandis Legacy VS AI Season 0 RC43 · Main Deck R3.98 · Legacy Deck R4.0 · Rulebook v3.5');
   var PHASES=['Draw','Deploy','Battle','Reform','End'];
   var LANE_ORDER=['LEFT','CENTER','RIGHT'];
   var EXP_MAX_TOTAL=700;
@@ -483,7 +483,15 @@
     return formula+' '+type+' Damage';
   }
   function conditionalAttackInfo(state,rw){
-    if(!rw||rw.kind!=='incoming_attack'||!rw.card_id)return null;
+    if(!rw||!rw.card_id)return null;
+    // Racial ability damage shares the disclosure, not Attack Skill semantics.
+    if(rw.kind==='incoming_ability_damage'){
+      var abilityDamage=Math.max(0,Number(rw.damage||0));
+      var abilityType=/^Magical$/i.test(String(rw.damage_type||''))?'Magical':'Physical';
+      return {name:String(rw.ability_name||'Ability Damage'),summary:abilityDamage+' '+abilityType+' Damage',damage:abilityDamage,
+        key:String(rw.response_window_token||[rw.ability_id,rw.source_side,rw.source_lane,rw.target_side,rw.target_lane,state&&state.round||0].join(':'))};
+    }
+    if(rw.kind!=='incoming_attack')return null;
     var attackCard=card(rw.card_id),action=rw.action||{};
     if(!attackCard||!isAttackCard(attackCard))return null;
     var hero=state&&rw.source_side&&rw.source_lane?sideHeroes(state,rw.source_side)[rw.source_lane]:null;
@@ -4144,7 +4152,7 @@
     return !!(c && cardFamily(c)==='Item' && !isAttackCard(c) &&
       Array.isArray(c.effect) && c.effect.some(function(e){return e.kind==='inflict_status' && e.status==='Burn';}));
   }
-  function isTacticalFollowUpSetupCard(c){ return isAttackBuffSetupCard(c) || isRingOfGraceCard(c) || isDoubleCastingCard(c) || isWildfireCard(c) || isHeavensFuryCard(c) || isBurnSetupItem(c) || !!(c&&c.card_id==='S0-ITM-020'); }
+  function isTacticalFollowUpSetupCard(c){ return isAttackBuffSetupCard(c) || isRingOfGraceCard(c) || isDoubleCastingCard(c) || isWildfireCard(c) || isHeavensFuryCard(c) || isBurnSetupItem(c) || isDazedCard(c) || !!(c&&c.card_id==='S0-ITM-020'); }
   function aiRemainingManaAfterAction(state, action){
     if(!state||!action)return manaPoolCardsForSide(state||{},'AI').length;
     var sim=clone(state),c=card(action.card_id),cost=Number(action.cost||0),plan=autoManaPaymentForAI(sim,'AI',c,cost);
@@ -4215,6 +4223,46 @@
     return legal[0]||null;
   }
   function aiCanFollowSetupWithAttack(state, setupAction){ return !!aiBestAttackAfterSetup(state,setupAction); }
+  function aiDazedWouldConsumeRankTribute(state,action){
+    if(aiIntermediatePreserveSkillForRank(state,action))return true;
+    var c=card(action.card_id);if(!isSkillCard(c)||isUltimateCard(c)||aiIntermediateAttackWinsMatch(state,action))return false;
+    var normal=(state.aiHand||[]).filter(function(id){return isSkillCard(card(id))&&!isUltimateCard(card(id));});
+    return normal.length<=1 && LANE_ORDER.some(function(l){var h=sideHeroes(state,'AI')[l];return isActiveHeroSlot(h)&&heroRank(h)<3&&Number(nextRankThreshold(h)||0)-Number(h.exp_total||0)===100&&canReceiveTributeFor(state,'AI',c.card_id,l);});
+  }
+  function aiDazedPlan(state,setupAction){
+    if(!state||!setupAction||!setupAction.source_lane||!setupAction.target_lane)return null;
+    var lane=setupAction.target_lane,victim=sideHeroes(state,'PLAYER')[lane];
+    if(!isActiveHeroSlot(victim)||hasStatus(victim,'Stun')||statusImmune(victim)||opponentInvincibleStatusProtection(state,victim))return null;
+    var casting=(state.pendingCastings||[]).some(function(pc){return pc.side==='PLAYER'&&(pc.original_source_lane||pc.source_lane)===lane&&castingSourceMatchesHero(pc,victim);});
+    if(casting)return {kind:'CASTING_INTERRUPTION',setup_card_id:setupAction.card_id,setup_target_lane:lane};
+    // Do not spend Stun on a target that cannot defend anyway. Only public
+    // state is used; no reading opponent Hand identities.
+    if(hasStatus(victim,'Sleep'))return null;
+    var sim=aiManaSimulationAfterSetup(state,setupAction,'Battle',false);
+    var actor=sideHeroes(sim,'AI')[setupAction.source_lane];
+    if(!actor)return null;
+    actor.exhausted=true;actor.exhaust_reason='Dazed planning';
+    addStatus(sideHeroes(sim,'PLAYER')[lane],'Stun',1,'Dazed planning');
+    var legal=getLegalActions('AI',sim).filter(function(a){
+      var c=card(a.card_id),src=sideHeroes(sim,'AI')[a.source_lane];
+      if(a.type!=='PLAY_CARD'||!isAttackCard(c)||isCastingCard(c)||isAIChoiceHeavyCard(c,sim)||
+        !aiAttackAffectsHeroLaneNow(sim,a,lane)||!aiIntermediateCastingTargetAllowed(sim,a)||
+        aiDazedWouldConsumeRankTribute(sim,a)||aiAttackFullyAbsorbedByFormation(sim,a))return false;
+      var canPreventDodge=!hasStatus(victim,'Freeze')&&!attackCannotBeDodged(c,src)&&!s0AttackHasGrantedSureHit(sim,src);
+      var canPreventBlock=!attackCannotBeBlocked(c);
+      if(!canPreventDodge&&!canPreventBlock)return false;
+      var incoming={target_lane:lane,damage_type:damageTypeForActionSource(c,src),cannot_block:!canPreventBlock,cannot_dodge:!canPreventDodge};
+      var racialPossible=dragonScaleResponseOptionsFor(state,'PLAYER',incoming).length>0||secondChanceResponseOptionsFor(state,'PLAYER',incoming).length>0;
+      // Hand count is public; never read its card identities or assume a particular defense.
+      if(!racialPossible && Number((state.playerHand||[]).length)===0)return false;
+      var raw=computedAttackDamageForAction(sim,Object.assign({},a,{target_lane:lane}),src,sideHeroes(sim,'PLAYER')[lane]);
+      var dmg=aiVisibleDefenderProfile(sim,sideHeroes(sim,'PLAYER')[lane],damageTypeForActionSource(c,src),Number(raw||0)+burnIncomingDamageBonus(victim,Number(raw||0)>0));
+      return !dmg.immune&&dmg.effective>0&&aiAttackTacticalScore(sim,a)>0;
+    });
+    legal.sort(function(a,b){return aiAttackTacticalScore(sim,b)-aiAttackTacticalScore(sim,a);});
+    var best=legal[0];if(!best)return null;
+    return {kind:'ATTACK_FOLLOWUP',followup_phase:'Battle',not_before_round:Number(state.round||1),preferred_card_id:best.card_id,preferred_source_lane:best.source_lane,preferred_target_lane:best.target_lane||null,setup_target_lane:lane,setup_card_id:setupAction.card_id,dazed:true};
+  }
   function aiBestAttackAfterFreezeBomb(state,setupAction){
     if(!state||!setupAction||!setupAction.target_lane)return null;
     var victim=sideHeroes(state,'PLAYER')[setupAction.target_lane];
@@ -4430,6 +4478,7 @@
   function aiCanFollowRingWithHeal(state, setupAction){ return !!aiBestHealAfterRing(state,setupAction); }
   function aiPlanForSetupAction(state,action){
     var c=card(action&&action.card_id);
+    if(isDazedCard(c))return aiDazedPlan(state,action);
     if(isCoordinationAttackCard(c)&&aiIntermediate(state)){
       var pair=aiIntermediateCoordinationTwoTurnPlan(state,action);if(!pair)return null;
       return {kind:'ATTACK_FOLLOWUP',followup_phase:'Battle',not_before_round:Number(state.round||1),
@@ -5414,6 +5463,7 @@
   function aiRankNeed(state,lane){ var h=state.aiHeroes&&state.aiHeroes[lane]; var t=nextRankThreshold(h); return t?Math.max(0,t-Number(h.exp_total||0)):99999; }
   function aiDeployActionScore(state, action){
     var c=card(action.card_id), score=0;
+    if(isDazedCard(c)){var stunPlan=aiDazedPlan(state,action);return stunPlan?(stunPlan.kind==='CASTING_INTERRUPTION'?240:150)-Number(action.cost||0):-1000;}
     if(c&&isScoutingCard(c)&&aiIntermediate(state)){var choices=legalScoutingExpChoices(state,'AI',action.target_lane);var best=choices.reduce(function(v,x){return Math.max(v,trialExpCardValueForSide(state,x.card_id,'PLAYER'));},0);return 75+best*.45;}
     if(aiIntermediate(state)){var forced=aiIntermediateDeployGate(state,action);if(forced!==null)return forced;}
     if(isBeginAnewCard(c)){
@@ -5479,6 +5529,7 @@
     // The normal Battle chooser can still select any worthwhile legal Attack.
     if(plan.freeze_bomb && (!plan.preferred_target_lane ||
        !hasStatus(sideHeroes(state,'PLAYER')[plan.preferred_target_lane],'Freeze')))return null;
+    if(plan.dazed && (!plan.setup_target_lane||!hasStatus(sideHeroes(state,'PLAYER')[plan.setup_target_lane],'Stun')))return null;
     if(plan.fire_flask && (!plan.setup_target_lane ||
        !hasStatus(sideHeroes(state,'PLAYER')[plan.setup_target_lane],'Burn')))return null;
     function matchesBase(a,ignoreCard){
@@ -5498,6 +5549,7 @@
     if(plan.freeze_bomb)candidates=candidates.filter(function(a){
       return !isCastingCard(card(a.card_id)) && aiAttackTacticalScore(state,a)>0;
     });
+    if(plan.dazed)candidates=candidates.filter(function(a){return !isCastingCard(card(a.card_id))&&aiAttackAffectsHeroLaneNow(state,a,plan.setup_target_lane)&&!aiAttackFullyAbsorbedByFormation(state,a);});
     if(plan.fire_flask)candidates=candidates.filter(function(a){
       return !isCastingCard(card(a.card_id)) && aiAttackAffectsHeroLaneNow(state,a,plan.setup_target_lane) &&
         aiAttackTacticalScore(state,a)>0 && aiFireFlaskRealizedBonus(state,a,plan.setup_target_lane)>0 &&
@@ -5781,7 +5833,7 @@
     if(phase==='Battle'){
       // Even Beginner must follow through after choosing a one-use Fire Flask;
       // other Beginner decisions remain intentionally simple.
-      if(state.aiPlan&&state.aiPlan.fire_flask){
+      if(state.aiPlan&&(state.aiPlan.fire_flask||state.aiPlan.dazed)){
         var burnedFollow=aiPlannedFollowUpAction(state,'Battle',play);
         state.aiPlan=null;
         if(burnedFollow)return burnedFollow;
@@ -5800,19 +5852,20 @@
       return attacks[0];
     }
     if(phase==='Deploy'){
-      if(state.aiPlan&&state.aiPlan.fire_flask&&Number(state.aiPlan.not_before_round||0)<=Number(state.round||0))return skip;
+      if(state.aiPlan&&(state.aiPlan.fire_flask||state.aiPlan.dazed)&&Number(state.aiPlan.not_before_round||0)<=Number(state.round||0))return skip;
       // Beginner does not sequence multi-turn Casting, combo setup, or Warp
       // Scroll tactical positioning. It can still use straightforward cards.
       var basic=play.filter(function(a){
         var c=card(a.card_id);
-        return !isAttackCard(c)&&(!isTacticalFollowUpSetupCard(c)||isBurnSetupItem(c)||isTripleShotCard(c)||(c&&c.card_id==='S0-MAG-022'))&&
-          !isWarpScrollCard(c)&&(!isBurnSetupItem(c)||!!aiBestAttackAfterFireFlask(state,a));
+        return !isAttackCard(c)&&(!isTacticalFollowUpSetupCard(c)||isBurnSetupItem(c)||isDazedCard(c)||isTripleShotCard(c)||(c&&c.card_id==='S0-MAG-022'))&&
+          !isWarpScrollCard(c)&&(!isBurnSetupItem(c)||!!aiBestAttackAfterFireFlask(state,a))&&(!isDazedCard(c)||!!aiDazedPlan(state,a));
       });
       if(!basic.length)return skip;
       function value(a){
         var c=card(a.card_id),family=cardFamily(c),score=0;
         if(isHealCard(c))score=26;
         else if(family==='Item')score=18;
+        else if(isDazedCard(c)){var stunPlan=aiDazedPlan(state,a);score=stunPlan&&stunPlan.kind==='CASTING_INTERRUPTION'?40:16;}
         else if(family==='Event')score=16;
         else if(isBuffCard(c))score=19;
         else score=8;
@@ -5821,10 +5874,10 @@
       }
       basic.sort(function(a,b){return value(b)-value(a)||Number(a.hand_index||0)-Number(b.hand_index||0);});
       if(value(basic[0])<9)return skip;
-      if(isBurnSetupItem(card(basic[0].card_id))){
+      if(isBurnSetupItem(card(basic[0].card_id))||isDazedCard(card(basic[0].card_id))){
         var flamePlan=aiPlanForSetupAction(state,basic[0]);
         if(!flamePlan)return skip;
-        basic[0].ai_setup_plan=flamePlan;
+        if(flamePlan.kind==='ATTACK_FOLLOWUP')basic[0].ai_setup_plan=flamePlan;
       }
       return basic[0];
     }
@@ -5936,7 +5989,7 @@
     if(phase==='Deploy'){
       // A guaranteed same-turn Fire Flask/Freeze Bomb combo needs its Mana
       // intact. Avoid spending another Deploy card before the planned Attack.
-      if(state.aiPlan&&(state.aiPlan.fire_flask||state.aiPlan.freeze_bomb)&&
+      if(state.aiPlan&&(state.aiPlan.fire_flask||state.aiPlan.freeze_bomb||state.aiPlan.dazed)&&
          Number(state.aiPlan.not_before_round||0)<=Number(state.round||0))
         return {type:'SKIP',side:'AI',label:'Proceed to Battle for committed status setup Attack'};
       var dueAttackPlan=state.aiPlan&&state.aiPlan.kind==='ATTACK_FOLLOWUP'&&Number(state.aiPlan.not_before_round||0)<=Number(state.round||0);
@@ -5944,7 +5997,7 @@
       var meaningful=setup.filter(function(a){ return aiDeployActionScore(state,a)>-999; });
       if(meaningful.length){
         var chosen=meaningful.sort(function(a,b){ return aiDeployActionScore(state,b)-aiDeployActionScore(state,a); })[0];
-        if(isTacticalFollowUpSetupCard(card(chosen.card_id))){ var plan=aiPlanForSetupAction(state,chosen); if(plan) chosen.ai_setup_plan=plan; }
+        if(isTacticalFollowUpSetupCard(card(chosen.card_id))){ var plan=aiPlanForSetupAction(state,chosen); if(plan&&plan.kind!=='CASTING_INTERRUPTION') chosen.ai_setup_plan=plan; }
         return chosen;
       }
       var begin=setup.filter(function(a){ return isBeginAnewCard(card(a.card_id))&&(!aiIntermediate(state)||aiDeployActionScore(state,a)>-999); });
@@ -6329,6 +6382,18 @@
     if(!loc)return false;
     return !!activeAttachmentForSide(state,loc.side,'S0-CLE-025') || hasIceBlockDamageImmunity(targetHero);
   }
+  function cancelStunnedCastings(state,hero){
+    var loc=heroRuntimeLocation(state,hero); if(!loc||!hasStatus(hero,'Stun'))return 0;
+    var stopped=(state.pendingCastings||[]).filter(function(pc){return pc.side===loc.side&&(pc.original_source_lane||pc.source_lane)===loc.lane&&castingSourceMatchesHero(pc,hero);});
+    if(!stopped.length)return 0;
+    state.pendingCastings=(state.pendingCastings||[]).filter(function(pc){return stopped.indexOf(pc)<0;});
+    stopped.forEach(function(pc){
+      releaseLocalAttachmentAt(state,pc.side,loc.lane,pc.attachmentSlot,pc.card_id,'casting canceled: Stun');
+      recordCastingExitEvent(state,pc,'CANCELED','Canceled by Stun.');
+      pushLog(state,'CAST cancels: '+cardName(card(pc.card_id))+' source was Stunned before release.');
+    });
+    return stopped.length;
+  }
   function addStatus(hero, name, duration, text, sourceInfo){
     if(!hero) return false;
     hero.statuses=hero.statuses||[];
@@ -6344,12 +6409,14 @@
       if(/^(Untargetable by Single Target Attacks|Physical Damage -20)$/i.test(n)) existing.owner_turns_until_expiry=Math.max(Number(existing.owner_turns_until_expiry||0),incoming);
       existing.sources=existing.sources||[]; existing.sources.push(src);
       existing.text=text||((statusBadgeLabel(existing))+' · '+Number(existing.duration||0)+' turn(s)')||existing.text||name;
+      if(/^Stun$/i.test(n)&&incoming>0)cancelStunnedCastings(appState,hero);
       return true;
     }
     var statusRecord={name:name, duration:incoming, text:text||((duration?name+' · '+incoming+' turn(s)':name)), sources:[src]};
     if(/^Taunt$/i.test(n)) statusRecord.owner_turns_until_expiry=2;
     if(/^(Untargetable by Single Target Attacks|Physical Damage -20)$/i.test(n)) statusRecord.owner_turns_until_expiry=incoming;
     hero.statuses.push(statusRecord);
+    if(/^Stun$/i.test(n)&&incoming>0)cancelStunnedCastings(appState,hero);
     return true;
   }
   function mergeStatusDuration(existing, incoming, statusType){
@@ -8032,12 +8099,10 @@
       return startOpponentManaSelection(state,{side:action.source_side||action.side||'PLAYER',amount:firstMana.amount,mode:firstMana.mode,reason:firstMana.reason,continuation:{action:clone(action),post:clone(post),result:remainingResult,options:clone(options||{}),resume_pending:legacyPending?clone(legacyPending):null}});
     }
     if(post.deferred_discard_card_id){ action.deferred_discard_card_id=post.deferred_discard_card_id; action.deferred_discard_side=post.deferred_discard_side||action.source_side; }
-    // Card-specific continuation semantics: source-swap cards use connected resolution;
-    // Soul Blast Shot uses printed "when this attack hits" and therefore allows Block/Prevent to 0.
-    var soulPrintedHit=isSoulBlastShotCard(card(action.card_id)) && printedAttackHitCount(result)>0;
-    var sourceSwapRequested=!!post.optional_swap_after;
-    var targetSwapRequested=!!soulPrintedHit;
-    if(result && (result.negated || result.canceled || result.dodged || (result.prevented && !soulPrintedHit))){
+    // Source Swap is independent. Soul Blast Shot explicitly requires a Hit.
+    var sourceSwapRequested=!!post.optional_swap_after && attackEffectAllowed('DEFAULT',result);
+    var targetSwapRequested=isSoulBlastShotCard(card(action.card_id)) && attackEffectAllowed('ON_HIT',result);
+    if(!attackEffectAllowed('DEFAULT',result)){
       if(post.defer_reposition_discard || post.deferred_discard_card_id) finalizeDeferredRepositionDiscard(state,post,action.source_side,action.card_id);
       if(legacyPending){ renderLegacyDefeatChoice(); return true; }
       clearPendingAfterResolvedAction(state);
@@ -8374,6 +8439,8 @@
       state.pendingCastings=(state.pendingCastings||[]).filter(function(pc){return !(pc&&pc.card_id===cardId&&pc.side===(post.draw_counter_side||rw.source_side)&&pc.source_lane===(post.draw_counter_lane||rw.source_lane)&&Number(pc.attachmentSlot)===Number(post.draw_counter_slot));});
       return;
     }
+    // The Grand Finale CONDITION owns the card before the Attack, even if that Attack misses.
+    if(action._condition_attachment_committed){var placed=(state.activeAttachments||[]).find(function(a){return a.commit_token===action.commit_token;});releaseHeldCardMotion(holdKey,placed?{type:'attachment',side:placed.side,lane:placed.lane,slot:placed.slot}:{type:'discard',side:rw.source_side});return;}
     var persistentResolved=!!post.persistent && !rw.negated && !rw.canceled;
     var expectedSourceHeroId=action.source_hero_card_id||rw.source_hero_card_id||(sourceHero&&!isLegacyModeHero(sourceHero)?heroIdFrom(sourceHero):null);
     var sourceHostActive=!!(sourceHero&&!isLegacyModeHero(sourceHero)&&Number(sourceHero.hp||0)>0&&(!expectedSourceHeroId||String(heroIdFrom(sourceHero)||'')===String(expectedSourceHeroId)));
@@ -8742,7 +8809,7 @@
     // An INVINCIBLE Response must suppress new Status as well as damage.
     // Previously connectionPrevented was missing here and Burn/Poison/Stun
     // could slip through a valid temporary INVINCIBLE defense.
-    var statuses=[],poisonVialApplied=false;if(!dodged&&!connectionPrevented&&!grandFinaleImmune&&!blessingImmune){statuses=applyAttackStatuses(c,target,source);
+    var statuses=[],poisonVialApplied=false;if(attackEffectAllowed('INFLICT',{dodged:!!dodged,connected:connected})&&!connectionPrevented&&!grandFinaleImmune&&!blessingImmune){statuses=applyAttackStatuses(c,target,source);
       if(connected && enrageAppliesToAttack(c,source)){
         var bleed=applyStatusEffectToHero({kind:'inflict_status',status:'Bleed',duration_turns:1},target,source,'Enrage connected Physical Attack',card('S0-WAR-013'));
         if(bleed) statuses.push(bleed+' from Enrage');
@@ -8965,14 +9032,7 @@
       pushLog(appState, cardName(card(rw.card_id))+' multi-target damage results — '+laneResults.join(', ')+'.');
       result={damage:totalDamage, hp_damage:totalDamage, base_damage:totalDamage, primary_damage:totalDamage, follow_up_damage:0, follow_up_incoming_damage:0, conditional_follow_up_results:[], poison_vial_applied:poisonVialAppliedAny, connected_hits:areaConnectedHits, skipped:false};
     } else {
-      // Respond first; Venom Detonation removes the printed Poison only on
-      // resolution, never while a defender's Response Window is still open.
-      // Its stored pre-removal duration still determines each target's damage.
-      if(rw.action&&rw.action.venom_detonation&&!rw.negated){
-        var venomTarget=sideHeroes(appState,rw.target_side)[rw.target_lane];
-        if(venomTarget&&removePoison(venomTarget))pushLog(appState,'Venom Detonation removes stored Poison from '+cardName(card(venomTarget.card_id))+' after the Response decision.');
-      }
-      if(rw.post&&rw.post.execute_defeat){ var exTarget=sideHeroes(appState,rw.target_side)[rw.target_lane]; var stopped=!!(rw.negated||dodged); if(!stopped&&exTarget&&executeTargetValid(exTarget)){exTarget.hp=0;pushLog(appState,cardName(card(rw.card_id))+' defeats '+cardName(card(exTarget.card_id))+' after its Response chain resolves.');applyDefeatCheck(appState,rw.target_side,rw.target_lane);} result={damage:0,hp_damage:0,skipped:false,negated:!!rw.negated,dodged:!!dodged,connected:!stopped,execute_defeat:!stopped}; } else result = rw.negated ? {damage:0, hp_damage:0, skipped:false, negated:true, connected:false} : applyResolvedAttackDamage(appState,rw.card_id,rw.source_side,rw.source_lane,rw.target_side,rw.target_lane,rw.damage,rw.damage_type,dodged,block,!!rw.multi_sequence,(responseKindChosen==='immunity'||rw.preapplied_immunity));
+      if(rw.post&&rw.post.execute_defeat){ var exTarget=sideHeroes(appState,rw.target_side)[rw.target_lane]; var stopped=!attackEffectAllowed('INSTANT_DEFEAT',{negated:!!rw.negated,canceled:!!rw.canceled,dodged:!!dodged}); if(!stopped&&exTarget&&executeTargetValid(exTarget)){exTarget.hp=0;pushLog(appState,cardName(card(rw.card_id))+' defeats '+cardName(card(exTarget.card_id))+' after its Response chain resolves.');applyDefeatCheck(appState,rw.target_side,rw.target_lane);} result={damage:0,hp_damage:0,skipped:false,negated:!!rw.negated,dodged:!!dodged,connected:!stopped,execute_defeat:!stopped}; } else result = rw.negated ? {damage:0, hp_damage:0, skipped:false, negated:true, connected:false} : applyResolvedAttackDamage(appState,rw.card_id,rw.source_side,rw.source_lane,rw.target_side,rw.target_lane,rw.damage,rw.damage_type,dodged,block,!!rw.multi_sequence,(responseKindChosen==='immunity'||rw.preapplied_immunity));
     }
     // Absolute Defense reflects the incoming Attack only after a connected Hit.
     // The printed REFLECT value is incoming Attack damage, not HP damage after
@@ -9076,7 +9136,7 @@
       rw.multi_sequence=null;
     }
     if(rw.multi_sequence){
-      var seq=rw.multi_sequence, nextIndex=Number(seq.index||0)+1, totalSoFar=Number(seq.total_damage||0)+Number(result&&result.damage||0), poisonSoFar=!!seq.poison_vial_applied || !!(result&&result.poison_vial_applied), connectedSoFar=Number(seq.connected_hits||0)+(result&&result.connected?1:0);
+      var seq=rw.multi_sequence, nextIndex=Number(seq.index||0)+1, totalSoFar=Number(seq.total_damage||0)+Number(result&&(result.hp_damage!=null?result.hp_damage:result.damage)||0), poisonSoFar=!!seq.poison_vial_applied || !!(result&&result.poison_vial_applied), connectedSoFar=Number(seq.connected_hits||0)+(result&&result.connected?1:0);
       appState.responseWindow=null; closeResponseWindowUI();
       var multiContinuation={action:clone(rw.action||action),post:clone(post||{}),affected_lanes:(seq.affected_lanes||[]).slice(),next_index:nextIndex,total_damage:totalSoFar,poison_vial_applied:poisonSoFar,connected_hits:connectedSoFar};
       if(isDefeatGatePending(appState.pending)){
@@ -9101,6 +9161,8 @@
 
     var action=rw.action||{card_id:rw.card_id, source_side:rw.source_side, source_lane:rw.source_lane, target_side:rw.target_side, target_lane:rw.target_lane};
     var post=rw.post||{};
+    if(rw.canceled)result.canceled=true;
+    if(rw.negated&&!rw.multi_sequence)result.negated=true;
     var firstDoubleActivation=!!(post.double_casting && Number(post.double_casting_stage||1)===1 && !rw.canceled);
     if(firstDoubleActivation){
       if(source && !rw.negated && !rw.canceled) applySourcePostAttackEffects(appState,rw.card_id,source,rw.source_side,rw.source_lane,rw.target_side,rw.target_lane,result);
@@ -9121,7 +9183,7 @@
       }
       return openDoubleCastingSecondTargetSelection(appState,doubleContinuation);
     }
-    if(!rw.negated && source){ applySourcePostAttackEffects(appState, rw.card_id, source, rw.source_side, rw.source_lane, rw.target_side, rw.target_lane, result); }
+    if(!rw.negated && !rw.canceled && source){ applySourcePostAttackEffects(appState, rw.card_id, source, rw.source_side, rw.source_lane, rw.target_side, rw.target_lane, result); }
     if(source && enrageAppliesToAttack(card(rw.card_id),source)){ consumeEnrageBonus(source); }
     finalizePlayedCardAfterResponse(appState,rw);
     if(Number(post.double_casting_stage||0)===2 || (post.double_casting && rw.canceled)) consumeDoubleCasting(appState,action.source_side,action.source_lane);
@@ -9140,7 +9202,7 @@
       delete appState.pending.after_legacy_deferred_pending;
       syncCounts(appState); render(); return true;
     }
-    if(result && (result.dodged||result.dodged_any) && (post.defer_reposition_discard || post.deferred_discard_card_id)) finalizeDeferredRepositionDiscard(appState,post,action.source_side,action.card_id);
+    if(!attackEffectAllowed('DEFAULT',result) && (post.defer_reposition_discard || post.deferred_discard_card_id)) finalizeDeferredRepositionDiscard(appState,post,action.source_side,action.card_id);
     if(resolvePostAttackChoices(appState, action, post, result)){ syncCounts(appState); render(); return true; }
     if(resumeAITurnAfterPlayerResponse(appState)) return true;
     syncCounts(appState); render(); return true;
@@ -9222,6 +9284,17 @@
     var closeBtn=$('responseClose'); if(closeBtn){ closeBtn.onclick=function(ev){ if(ev){ ev.preventDefault(); ev.stopPropagation(); } responsePassNoStuck(); }; }
   }
 
+  // Shared post-resolution trigger authority. CONDITION is committed separately,
+  // before responses; it is never replayed by this gate. DODGE stops the attack
+  // connection, not independent card effects. NEGATE/CANCEL stop unresolved effects.
+  function attackEffectAllowed(trigger,result){
+    result=result||{};
+    if(trigger==='CONDITION'||result.negated||result.canceled)return false;
+    if(trigger==='DEFAULT')return true;
+    if(trigger==='ON_DAMAGE')return !result.dodged&&!result.skipped&&Number(result.primary_hp_damage!=null?result.primary_hp_damage:result.hp_damage!=null?result.hp_damage:result.damage||0)>0;
+    if(trigger==='ON_HIT'||trigger==='INFLICT'||trigger==='INSTANT_DEFEAT')return printedAttackHitCount(result)>0;
+    return false;
+  }
   function connectedHitCount(result){
     // Prevented HP damage is still a HIT under Rulebook v3.2. Only
     // DODGE/NEGATE/CANCEL (or a skipped non-Hero target) stops on-HIT clauses.
@@ -9231,7 +9304,7 @@
   }
   function printedAttackHitCount(result){
     // Printed "when/if this attack hits" does not require HP damage. Block or Prevent to 0 still counts.
-    if(!result || result.negated || result.canceled || result.dodged) return 0;
+    if(!result || result.negated || result.canceled || result.dodged || result.skipped) return 0;
     if(typeof result.connected_hits==='number') return Math.max(0,Number(result.connected_hits||0));
     return 1;
   }
@@ -9358,13 +9431,13 @@
     var p={side:sourceSide,target_side:targetSide,mode:'REMOVE_ONLY',reason:reason||'Effect'}; finishOpponentManaInteraction(state,p,cands.slice(0,n)); return n;
   }
   function applySourcePostAttackEffects(state, cardId, sourceHero, sourceSide, sourceLane, targetSide, targetLane, result){
-    var c=card(cardId); if(!sourceHero || !c) return;
-    var hpDamage=Number(result&&result.primary_hp_damage!=null?result.primary_hp_damage:result&&result.damage||0), connectedHits=connectedHitCount(result), cls=heroClass(sourceHero);
+    var c=card(cardId); if(!sourceHero || !c || !attackEffectAllowed('DEFAULT',result)) return;
+    var dealtDamage=attackEffectAllowed('ON_DAMAGE',result), connectedHits=connectedHitCount(result), cls=heroClass(sourceHero);
     // Opponent Mana identity is hidden during selection. Transfer-style effects remove the chosen
     // opponent Shard to its owner's deck, then gain from the acting player's own Shard Deck.
     // Source S0 Bard effects resolve independent Draw after the existing Attack/Response sequence.
     // Midnight Lullaby's CONDITION Draw has already completed before its Attack.
-    if(c.card_id==='S0-CLE-031'){drawMany(state,sourceSide,3,{reason:'CARD_EFFECT'});pushLog(state,cardName(c)+' draws up to 3 cards after its Attack.');}
+    // Grand Finale Draw 3 is a mandatory CONDITION, already committed before the Attack.
     if(c.card_id==='S0-MAG-021' && connectedHits>0 && ['Mage','Spell Blade','Arcane Duelist'].indexOf(cls)>=0) queueOpponentManaInteraction(result,'REMOVE_AND_GAIN_OWN',cls==='Mage'?1:2,cardName(c)+' connected hit');
     if(c.card_id==='S0-MAG-023' && connectedHits>0) queueOpponentManaInteraction(result,'REMOVE_ONLY',cls==='Arcane Duelist'?5:3,cardName(c)+' connected hit');
     if(c.card_id==='S0-MAG-024' && ['Spell Blade','Arcane Duelist'].indexOf(cls)>=0 && connectedHits>0) queueOpponentManaInteraction(result,'REMOVE_ONLY',connectedHits*(cls==='Arcane Duelist'?2:1),cardName(c)+' connected hits');
@@ -9376,8 +9449,8 @@
     if(physicalAttackConvertedByAether(c,sourceHero) && connectedHits>0) queueOpponentManaInteraction(result,'REMOVE_ONLY',3*connectedHits,'Aether Infusion converted Attack connected hit');
     if(isShieldBashCard(c)){ pushLog(state, cardName(c)+' Attachment gives '+cardName(card(sourceHero.card_id))+' incoming Physical damage -20 until the start of the owner next turn.'); }
     if(isHolyRingCard(c) && ['Priest','Saint'].indexOf(heroClass(sourceHero))!==-1){ pushLog(state, cardName(c)+' Attachment gives '+cardName(card(sourceHero.card_id))+' attack-target prevention until the owner next Draw Phase.'); }
-    if(isHolySlashCard(c) && hpDamage>0){ healHeroIfLegal(state,sourceHero,20,c,sourceHero,'Holy Slash successful HP damage'); }
-    if(c.card_id==='S0-CLE-024' && hpDamage>0){healHeroIfLegal(state,sourceHero,30,c,sourceHero,'Divine Judgement dealt HP damage');}
+    if(isHolySlashCard(c) && dealtDamage){ healHeroIfLegal(state,sourceHero,20,c,sourceHero,'Holy Slash successful HP damage'); }
+    if(c.card_id==='S0-CLE-024' && dealtDamage){healHeroIfLegal(state,sourceHero,30,c,sourceHero,'Divine Judgement dealt HP damage');}
     if(c.card_id==='S0-CLE-009'){ healAllAlliedHeroes(state,sourceSide,20,c,sourceHero,'Holy Blast independent heal'); }
   }
   function transferManaShard(state, side, c){
@@ -9717,6 +9790,7 @@
     LANE_ORDER.forEach(function(lane){ var h=sideHeroes(state,targetSide)[lane]; if(h && Number(h.hp||0)>0 && !isLegacyModeHero(h) && hasStatus(h,'Poison')) affected.push(lane); });
     affected.sort(function(a,b){ return LANE_ORDER.indexOf(a)-LANE_ORDER.indexOf(b); });
     action=Object.assign({},action,{target_side:targetSide,venom_detonation:true,venom_multiplier:(heroClass(sourceHero)==='Renegade'?20:10),venom_damage_by_lane:{},venom_poison_duration_by_lane:{}});
+    affected.forEach(function(lane){var target=sideHeroes(state,targetSide)[lane],duration=poisonDurationOn(target);action.venom_poison_duration_by_lane[lane]=duration;action.venom_damage_by_lane[lane]=window.GL_RULES_RUNTIME.venomDetonationDamage(duration,action.venom_multiplier);removePoison(target);pushLog(state,cardName(c)+' CONDITION removes '+duration+' Poison from '+cardName(card(target.card_id))+' before any Response.');});
     pushLog(state, cardName(c)+' opens a per-Hero Magical response sequence: '+(affected.length?affected.join(' → '):'no poisoned targets')+'.');
     if(affected.length){
       openMultiTargetResponseWindow(state,action,post||{},affected,0,0,false,0);
@@ -10762,7 +10836,10 @@ function getActivatedHeroAbilities(state, side, lane){
       if(!state.pvpHumanVsHuman && oppositeSide(side)==='AI'){
         // Selecting an AI Defense must use the same confirmed payment gate as
         // every other Response (mandatory discard/CONDITION/counter included).
-        return autoResolveCurrentAIResponseWindow(state);
+        var abilityNotice=conditionalAttackInfo(state,state.responseWindow);
+        var abilityResult=autoResolveCurrentAIResponseWindow(state);
+        if(abilityNotice&&!state.responseWindow&&!state.gameOver)showConditionalAttackOverlay(abilityNotice);
+        return abilityResult;
       }
       syncCounts(state); render(); return true;
     }
@@ -10985,6 +11062,12 @@ function getActivatedHeroAbilities(state, side, lane){
         ' card(s) returned to Main Deck; '+Number(action.s0_condition_draw_count||0)+
         ' card(s) actually Drawn.');
     }
+    if(cardId==='S0-CLE-031' && action._s0_condition_committed && !action._condition_attachment_committed){
+      var conditionHost=registerLocalAttachment(state,hostSide,hostLane,attachmentSlot,cardId,attachmentPolicy,action,{source_hero_card_id:heroIdFrom(sourceHero)});
+      if(!conditionHost)throw new Error('Grand Finale CONDITION requires legal Attachment host');
+      action._condition_attachment_committed=true;persistent=false;
+      pushLog(state,'Grand Finale CONDITION grants INVINCIBLE before Attack resolution.');
+    }
     if(state.pvpHumanVsHuman && !isCastingCard(c)){
       var pvpLabel=pvpCardActionLabel(c);
       recordPvpSideAction(state,side,pvpLabel,cardId,cardName(c),baseLog,{action_line:'Action: '+side+' played '+cardName(c)+'.', source_side:action.source_side||side, source_lane:action.source_lane||null, target_side:action.target_side, target_lane:action.target_lane, result_lines:[baseLog],card_played_chain_id:action.card_played_chain_id||null,card_played_chain_step:action.card_played_chain_id?0:null});
@@ -11150,7 +11233,7 @@ function getActivatedHeroAbilities(state, side, lane){
     while(index<affected.length){var candidate=sideHeroes(state,targetSide)[affected[index]];if(candidate&&Number(candidate.hp||0)>0&&!isLegacyModeHero(candidate))break;index++;}
     if(index>=affected.length) return false;
     var lane=affected[index], target=sideHeroes(state,targetSide)[lane], dmg, incoming;
-    if(action.venom_detonation){ action.venom_damage_by_lane=action.venom_damage_by_lane||{}; action.venom_poison_duration_by_lane=action.venom_poison_duration_by_lane||{}; if(typeof action.venom_damage_by_lane[lane]==='undefined'){ var storedDuration=poisonDurationOn(target); action.venom_poison_duration_by_lane[lane]=storedDuration; action.venom_damage_by_lane[lane]=window.GL_RULES_RUNTIME.venomDetonationDamage(storedDuration,action.venom_multiplier); pushLog(state,cardName(c)+' records Poison duration '+storedDuration+' for '+cardName(card(target.card_id))+' before the Response window; status removal resolves afterward.'); } dmg=Number(action.venom_damage_by_lane[lane]||0); incoming={damage:dmg,damage_type:'Magical',attack_type:'Area Damage',cannot_dodge:attackCannotBeDodged(c,sourceHero)||s0AttackHasGrantedSureHit(state,sourceHero),cannot_block:false,card_id:action.card_id,source_side:action.source_side,source_lane:action.source_lane,target_side:targetSide,target_lane:lane,affected_lanes:null,area:true}; }
+    if(action.venom_detonation){ if(!action.venom_damage_by_lane || typeof action.venom_damage_by_lane[lane]==='undefined')throw new Error('Venom Detonation missing committed CONDITION snapshot'); dmg=Number(action.venom_damage_by_lane[lane]||0); incoming={damage:dmg,damage_type:'Magical',attack_type:'Area Damage',cannot_dodge:attackCannotBeDodged(c,sourceHero)||s0AttackHasGrantedSureHit(state,sourceHero),cannot_block:false,card_id:action.card_id,source_side:action.source_side,source_lane:action.source_lane,target_side:targetSide,target_lane:lane,affected_lanes:null,area:true}; }
     else { var actualArea=attackActsAsAreaForSource(state,c,sourceHero)||!!action.triple_shot_area;
       dmg=computedAttackDamageForAction(state,Object.assign({},action,{target_side:targetSide,target_lane:lane}),sourceHero,target); incoming={damage:dmg, damage_type:damageTypeForActionSource(c,sourceHero), attack_type:actualArea?'Area Damage':(attackType(c)||'Single Target'), cannot_dodge:attackCannotBeDodged(c,sourceHero)||s0AttackHasGrantedSureHit(state,sourceHero), cannot_block:attackCannotBeBlocked(c), card_id:action.card_id, source_side:action.source_side, source_lane:action.source_lane, target_side:targetSide, target_lane:lane, affected_lanes:null,area:actualArea,casting:isCastingCard(c)}; }
     incoming.selected_target_lanes=affected.slice();incoming.multi_sequence_index=index;
@@ -11191,6 +11274,9 @@ function getActivatedHeroAbilities(state, side, lane){
     state.pending=null; checkGameEnd(state);
   }
   function resolvePendingCastingsFor(state, side){
+    // Restored/imported states may already contain Stun. Cancel before checking
+    // phase, readiness, counter threshold, Sleep, or an unrelated pending UI.
+    LANE_ORDER.forEach(function(lane){cancelStunnedCastings(state,sideHeroes(state,side)[lane]);});
     var pending=(state.pendingCastings||[]).slice(), remain=[];
     pending.forEach(function(pc){
       // Never replace an open Response Window with the next Casting.
@@ -16085,6 +16171,8 @@ function withUnshuffledSelfTest(fn){ return function(){ var old=STARTUP_SHUFFLE_
     var act=ability&&ability.action||{},eff=act.effect||{},amount=Number(eff.direct_damage||0),damageType=String(eff.damage_type||'Physical'),targetSide=oppositeSide(side),incoming={damage:amount,damage_type:damageType,attack_type:'Ability Damage',cannot_dodge:false,cannot_block:false,card_id:heroIdFrom(sideHeroes(state,side)[lane]),source_side:side,source_lane:lane,target_side:targetSide,target_lane:targetLane};
     state.responseWindow={kind:'incoming_ability_damage',response_owner:targetSide,card_id:incoming.card_id,source_side:side,source_lane:lane,target_side:targetSide,target_lane:targetLane,damage:amount,damage_type:damageType,attack_type:'Ability Damage',ability_id:act.action_key||'primal_strike',ability_name:(ability&&ability.label)||'Primal Strike',options:primalStrikeResponseOptions(state,targetSide,incoming),selected:null};
     state.pending={type:'response_window',card_id:incoming.card_id,commit_stage:'committed'}; pushLog(state,'Response Window opens for '+state.responseWindow.ability_name+' '+damageType+' damage against '+targetSide+' '+targetLane+'.');
+    var notice=conditionalAttackInfo(state,state.responseWindow);
+    if(notice)showConditionalAttackOverlay(notice);
     return true;
   }
   function resolveAbilityDamageResponseWindow(responseOption,committedContext){
@@ -17095,8 +17183,8 @@ function withUnshuffledSelfTest(fn){ return function(){ var old=STARTUP_SHUFFLE_
       st.playerHeroes.CENTER={card_id:'S0-WAR-H001',hp:80,maxHp:80,attachments:[null,null],statuses:[],lane:'CENTER'};
       if(!optionalSwapAvailable(st,act)) return {ok:false,reason:'Source swap did not allow active Hero-to-Hero'};
       st.pending=null;
-      if(resolvePostAttackChoices(st,act,{optional_swap_after:true},{damage:0,dodged:true}) || st.pending) return {ok:false,reason:'Dodged attack opened post-attack swap',pending:st.pending};
-      return {ok:true,sourceStack:true,soulBlastDamage:'30/50',backSlashSwapRemoved:true,heroLegacySwap:true,dodgeStopsSwap:true,quickReloadPreserved:true};
+      if(!resolvePostAttackChoices(st,act,{optional_swap_after:true},{damage:0,dodged:true}) || st.pending?.type!=='optional_swap') return {ok:false,reason:'Dodged attack must offer legal source Swap',pending:st.pending};
+      return {ok:true,sourceStack:true,soulBlastDamage:'30/50',backSlashSwapRemoved:true,heroLegacySwap:true,dodgeAllowsSourceSwap:true,quickReloadPreserved:true};
     } finally { appState=oldApp; matchStarted=oldMatch; SUPPRESS_RENDER=oldSuppress; }
   }
   window.GL_V366_RUNTIME_UPDATE_QA_SELF_TEST=simulateV366RuntimeUpdateAudit;
@@ -17309,7 +17397,7 @@ function withUnshuffledSelfTest(fn){ return function(){ var old=STARTUP_SHUFFLE_
       if(heroIdFrom(s.playerHeroes.LEFT)!==coverId || heroIdFrom(s.playerHeroes.CENTER)!==protectedId) return {ok:false,reason:'Cover Up did not swap before redirect',heroes:s.playerHeroes};
 
       s=fresh(); setHero(s.playerHeroes.LEFT,'S0-THF-H001',100); setHero(s.playerHeroes.CENTER,'S0-WAR-H001',100); var dodgeAction={card_id:'S0-THF-002',source_side:'PLAYER',source_lane:'LEFT',target_side:'AI',target_lane:'CENTER'};
-      if(resolvePostAttackChoices(s,dodgeAction,{optional_swap_after:true},{damage:0,hp_damage:0,dodged:true}) || s.pending) return {ok:false,reason:'Dodged source-swap attack incorrectly opened reposition',pending:s.pending};
+      if(!resolvePostAttackChoices(s,dodgeAction,{optional_swap_after:true},{damage:0,hp_damage:0,dodged:true}) || s.pending?.type!=='optional_swap') return {ok:false,reason:'Dodged source-swap attack must open legal reposition',pending:s.pending};
       if(isChargeSwapCard(card('S0-THF-010'))) return {ok:false,reason:'Back Slash stale swap returned'};
       return {ok:true,stepIn:true,sourceFrontCards:sourceCards,flashSlashAnyAllied:true,soulBlastTargetAdjacent:true,coverUp:true,backSlashNoSwap:true,blockedToZeroStillSwaps:true,heroStateMovesWithInstance:true};
     } finally { appState=oldApp; matchStarted=oldMatch; SUPPRESS_RENDER=oldSuppress; closeResponseWindowUI(); closeChoice(); closeInfo(); }
@@ -19274,7 +19362,7 @@ function withUnshuffledSelfTest(fn){ return function(){ var old=STARTUP_SHUFFLE_
           check(heroIdFrom(heroes.CENTER)===beforeLeft&&heroIdFrom(heroes.LEFT)===beforeCenter&&!s.pending,id+' '+side+' auto-swaps after connected zero-damage Hit');
           s=fresh(side);heroes=sideHeroes(s,side);hero(heroes.LEFT,'S0-WAR-H003',140);hero(heroes.CENTER,'S0-CLE-H001',100);action={card_id:id,source_side:side,source_lane:'LEFT',target_side:opp,target_lane:'CENTER'};
           resolvePostAttackChoices(s,action,{optional_swap_after:true},{dodged:true,connected:false});
-          check(heroIdFrom(heroes.LEFT)==='S0-WAR-H003'&&!s.pending,id+' '+side+' does not swap on DODGE');
+          check(heroIdFrom(heroes.CENTER)==='S0-WAR-H003'&&!s.pending,id+' '+side+' swaps on DODGE');
           s=fresh(side);heroes=sideHeroes(s,side);hero(heroes.LEFT,'S0-WAR-H003',140);hero(heroes.CENTER,'S0-CLE-H001',100);addStatus(heroes.CENTER,'Freeze',1,'RC17 test');
           resolvePostAttackChoices(s,action,{optional_swap_after:true},{connected:true});
           check(heroIdFrom(heroes.LEFT)==='S0-WAR-H003'&&!s.pending,id+' '+side+' respects Freeze');

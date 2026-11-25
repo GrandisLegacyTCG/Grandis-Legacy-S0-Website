@@ -1,3 +1,15 @@
+# GRANDIS LEGACY - WEBSITE RC43 + DECK BUILDER v1.69 (26 NOVEMBER 2026)
+
+**Current release:** Homepage v2.3.17, Rulebook v3.5, VS AI RC43 (owner in-place UI revision), Deck Builder v1.69, Main Deck R3.98, Legacy Deck R4.0, 250 shared card artworks.
+
+Selective integration from the approved FULL RC42 Action UI Website baseline. RC43 introduces attack effect gates, independent effects after Dodge, Dazed AI conservation, Stun casting interruption, Grand Finale and Venom Detonation condition timing, Primal Strike disclosure, platform-aware preview, adaptive collections, native Deck Builder Card Review and proportional mobile Hand controls. Deck Builder v1.69 adds tablet desktop-parity and full-frame portrait landscape presentation including native dialogs, retaining the existing two styles and shared artwork resolver. Its deck-construction authority remains v3.4; RC43's newly approved semantics are not yet published in the unchanged official Rulebook v3.5 PDF or OSA.
+
+Website-specific shared logo/header/navigation, Import Deck styling, shared favicon, analytics and route adapters remain. The retired engine favicon and inactive R3.94 overlay stay absent. No `/pvp/` included or modified. Owner performs clean replacement of non-PvP files only; retain `/pvp/`, `CNAME`, and `.nojekyll`. GitHub is read-only. See external audit/manifest for exact changes and test limitations.
+
+---
+
+## Historical release notes (superseded by the current release above)
+
 # GRANDIS LEGACY - WEBSITE RC42 ACTION UI UPDATE (25 NOVEMBER 2026)
 
 **Current release:** Homepage v2.3.17, Rulebook v3.5, Deck Builder v1.68, VS AI RC42, Main Deck R3.98, Legacy Deck R4.0, and 250 shared card artworks.

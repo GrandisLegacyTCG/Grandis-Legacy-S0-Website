@@ -2,26 +2,28 @@
    Read-only presentation. Printed values are copied from the 242-card Deck Builder v1.66 source registry.
    Kept isolated in an iframe to avoid changing the v6.91.9 battlefield CSS. */
 (function(g){'use strict';
-  var files=['app.css','s0-enhancements-v1.32.2.css','s0-shared-header-review.css','s0-part7-revision-v1.36.css','s0-part7-revision-v1.38.css','s0-part7-revision-v1.39.css','s0-review-v1.41.css','s0-review-v1.42.css','s0-review-v1.43.css','s0-review-v1.44.css','s0-ui-v1.49.css','s0-hotfix-v1.49.1.css','s0-layout-v1.50.css','s0-modal-parity-v1.52.css','s0-review-v1.54.css','s0-review-v1.56.css','s0-review-v1.57.css','s0-launch-v1.58.css','s0-rulebook-v2.9-review-v1.58.css'];
+  var files=['app.css', 's0-enhancements-v1.32.2.css', 's0-shared-header-review.css', 's0-part7-revision-v1.36.css', 's0-part7-revision-v1.38.css', 's0-part7-revision-v1.39.css', 's0-review-v1.41.css', 's0-review-v1.42.css', 's0-review-v1.43.css', 's0-review-v1.44.css', 's0-ui-v1.49.css', 's0-hotfix-v1.49.1.css', 's0-layout-v1.50.css', 's0-modal-parity-v1.52.css', 's0-review-v1.54.css', 's0-review-v1.56.css', 's0-review-v1.57.css', 's0-launch-v1.58.css', 's0-rulebook-v2.9-review-v1.58.css', 's0-mobile-header-v1.63.css', 's0-filter-layout-v1.64.css', 's0-validation-tooltip-v1.64.css', 's0-filter-parity-v1.64.css', 's0-filter-responsive-fix-v1.65.css', 's0-card-image-loader-v1.68.css', 's0-ui-polish-v1.66.css', 's0-toast-feedback.css'];
   function escape(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
   // Deck Builder v1.66 is the authoritative Review presentation data. Gameplay
   // continues to use VS AI's canonical engine card definitions independently.
   function getCard(id){return g.GL_DB166_REVIEW_CARDS?.[id]||null;}
   function documentHtml(c,progressionIds){
     var base=escape(new URL('./',g.document.baseURI).href);
-    var styles=files.map(function(f){return '<link rel="stylesheet" href="assets/review-db158/css/'+f+'">';}).join('');
+    // Website: reuse the additional canonical Deck Builder styles instead of duplicating files.
+    var sharedStyles=['s0-mobile-header-v1.63.css', 's0-filter-layout-v1.64.css', 's0-validation-tooltip-v1.64.css', 's0-filter-parity-v1.64.css', 's0-filter-responsive-fix-v1.65.css', 's0-card-image-loader-v1.68.css', 's0-ui-polish-v1.66.css', 's0-toast-feedback.css'];
+    var styles=files.map(function(f){var folder=sharedStyles.indexOf(f)>=0?'deck-builder/css/':'assets/review-db158/css/';return '<link rel="stylesheet" href="'+folder+f+'">';}).join('');
     var lineage=Array.isArray(progressionIds)&&c.family==='Hero'?progressionIds.map(function(id){return getCard(id);}).filter(Boolean):[];
     var serializedLineage=JSON.stringify(lineage.map(function(x){return {id:x.id,name:x.name,image:x.image};})).replace(/</g,'\\u003c').replace(/>/g,'\\u003e').replace(/&/g,'\\u0026');
     var serialized=JSON.stringify(c).replace(/</g,'\\u003c').replace(/>/g,'\\u003e').replace(/&/g,'\\u0026');
     return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><base href="'+base+'">'+styles+
-      '<style>html,body{color-scheme:light!important;padding:0!important;margin:0!important;width:100%;height:auto!important;min-height:0!important;overflow-x:hidden!important;overflow-y:auto!important;background:transparent!important;background-image:none!important;color:#f4f4f4;font-family:"Noto Sans",Arial,sans-serif;--gold:#e6c474}body::before{display:none!important}#cardReviewDialog{box-sizing:border-box;position:static!important;display:flex!important;align-items:center!important;justify-content:center!important;inset:auto!important;transform:none!important;padding:0!important;margin:0!important;background:transparent!important;border:0!important;box-shadow:none!important;width:100%!important;height:auto!important;min-height:0!important;max-width:none!important;max-height:none!important;overflow:visible!important}#cardReviewDialog::backdrop{display:none!important}#cardReviewDialog .review-card,#cardReviewDialog[data-review-kind="hero"] .review-card{box-sizing:border-box!important;width:100%!important;max-width:100%!important;border:0!important;border-radius:14px!important;outline:none!important;box-shadow:none!important;margin:0!important;min-height:0!important;height:auto!important;max-height:none!important;background:#242630!important}#cardReviewDialog .review-layout,#cardReviewDialog[data-review-kind="hero"] .review-layout{grid-template-columns:var(--gl-review-art-w) minmax(0,1fr)!important;gap:clamp(12px,2vw,26px)!important;align-items:start!important;flex:0 0 auto!important;height:auto!important;max-height:none!important;overflow:visible!important}#cardReviewDialog .review-art,#cardReviewDialog[data-review-kind="hero"] .review-art{box-sizing:border-box!important;width:var(--gl-review-art-w)!important;height:calc(var(--gl-review-art-w)*1.4)!important;max-width:100%!important;max-height:none!important;object-fit:contain!important}#cardReviewDialog{--gl-review-art-w:clamp(175px,22vw,310px)}#reviewProgression[hidden]{display:none!important}html{height:100%!important;min-height:100%!important;overflow-y:auto!important}body{height:auto!important;min-height:100%!important}/* RC22: allow wheel/trackpad scrolling through the Deck Builder review internals, not just programmatic scrolling of the iframe document. */#cardReviewDialog .review-card,#cardReviewDialog .review-rows{overflow:visible!important;overscroll-behavior:auto!important}#cardReviewDialog .review-layout,#cardReviewDialog .review-detail-column{overscroll-behavior:auto!important}@media(max-width:760px){#cardReviewDialog{--gl-review-art-w:clamp(125px,34vw,210px);align-items:center!important}.review-card{max-width:100vw!important}.review-layout{grid-template-columns:minmax(0,1fr)!important;overflow:auto!important}.review-art-column{justify-content:center!important}}</style>'+ 
-      '</head><body><div id="cardReviewDialog" class="app-dialog review-dialog"><div class="dialog-card review-card">'+
+      '<style>@font-face{font-family:"Noto Sans";src:url("assets/fonts/NotoSans-Variable.woff2") format("woff2");font-weight:100 900;font-display:swap}html,body{margin:0!important;width:100%;height:100%;background:transparent!important;overflow:hidden!important}body::before{display:none!important}#cardReviewDialog::backdrop{background:transparent!important;backdrop-filter:none!important}</style>'+
+      '</head><body><dialog id="cardReviewDialog" class="app-dialog review-dialog"><div class="dialog-card review-card">'+
       '<div class="review-header"><div><span id="reviewEyebrow" class="dialog-eyebrow"></span><h2 id="reviewTitle"></h2></div><button id="reviewClose" class="dialog-close review-close" type="button" aria-label="Close">×</button></div>'+
       '<div class="review-layout"><div class="review-art-column"><img id="reviewArt" class="review-art" alt="Card review"></div><div class="review-detail-column"><div id="reviewStats" class="review-stats"></div><div id="reviewRows" class="review-rows"></div></div></div>'+
-      '<div id="reviewProgression" class="review-progression" hidden><span>HERO LINEAGES</span><div id="reviewProgressionCards" class="review-progression-cards"></div></div></div></div>'+
+      '<div id="reviewProgression" class="review-progression" hidden><span>HERO LINEAGES</span><div id="reviewProgressionCards" class="review-progression-cards"></div></div></div></dialog>'+
       '<script>if(parent.GL_CARD_ART)parent.GL_CARD_ART.attach(document);<\/script>'+
-      '<script src="assets/review-db158/js/s0-review-clarity.js?v=rc40-p5-review166-mana-terms"><\/script><script src="assets/review-db158/js/review-renderer-v158.js?v=rc42-instant-art-shared-header-20261125-v1"><\/script>'+
-      '<script>(function(){const card='+serialized+';const lineage='+serializedLineage+';window.GL_S0_REVIEW_RENDER(card);if(lineage.length){const panel=document.getElementById("reviewProgression"),host=document.getElementById("reviewProgressionCards");panel.hidden=false;lineage.forEach(function(x){const b=document.createElement("button");b.type="button";b.className="review-progression-card"+(x.id===card.id?" active":"");b.dataset.reviewRankId=x.id;b.setAttribute("aria-label","Review "+x.name);const img=document.createElement("img");if(parent.GL_CARD_ART)parent.GL_CARD_ART.set(img,x.image);else img.src=x.image;img.alt=x.name;img.draggable=false;b.appendChild(img);b.addEventListener("click",function(){parent.postMessage({kind:"GL_S0_REVIEW_RANK",cardId:x.id},"*")});host.appendChild(b);});}function close(){parent.postMessage({kind:"GL_S0_REVIEW_CLOSE"},"*")}document.getElementById("reviewClose").addEventListener("click",close);document.addEventListener("keydown",function(e){if(e.key==="Escape"){e.preventDefault();close();}});function reportHeight(){var card=document.querySelector("#cardReviewDialog .review-card");if(!card)return;parent.postMessage({kind:"GL_S0_REVIEW_FIT",height:Math.ceil(card.getBoundingClientRect().bottom)},"*");}requestAnimationFrame(reportHeight);setTimeout(reportHeight,80);document.fonts.ready.then(reportHeight);var img=document.getElementById("reviewArt");if(img&&!img.complete)img.addEventListener("load",reportHeight,{once:true});if(window.ResizeObserver)new ResizeObserver(reportHeight).observe(document.querySelector(".review-card"));window.addEventListener("resize",reportHeight);var readySent=false;function reportReady(){if(readySent)return;readySent=true;reportHeight();parent.postMessage({kind:"GL_S0_REVIEW_READY"},"*");}function afterArt(){Promise.resolve(document.fonts.ready).then(function(){requestAnimationFrame(function(){requestAnimationFrame(reportReady);});});}if(img&&!img.complete){img.addEventListener("load",afterArt,{once:true});img.addEventListener("error",afterArt,{once:true});}else afterArt();setTimeout(reportReady,1800);})();<\/script></body></html>';
+      '<script src="assets/review-db158/js/s0-review-clarity.js?v=rc40-p5-review166-mana-terms"><\/script><script src="assets/review-db158/js/review-renderer-v158.js?v=rc40-p5-review166"><\/script><script src="deck-builder/js/s0-ui-v1.49.js"><\/script>'+
+      '<script>(function(){const card='+serialized+';const lineage='+serializedLineage+';window.GL_S0_REVIEW_RENDER(card);document.getElementById("cardReviewDialog").showModal();if(lineage.length){const panel=document.getElementById("reviewProgression"),host=document.getElementById("reviewProgressionCards");panel.hidden=false;lineage.forEach(function(x){const b=document.createElement("button");b.type="button";b.className="review-progression-card"+(x.id===card.id?" active":"");b.dataset.reviewRankId=x.id;b.setAttribute("aria-label","Review "+x.name);const img=document.createElement("img");if(parent.GL_CARD_ART)parent.GL_CARD_ART.set(img,x.image);else img.src=x.image;img.alt=x.name;img.draggable=false;b.appendChild(img);b.addEventListener("click",function(){parent.postMessage({kind:"GL_S0_REVIEW_RANK",cardId:x.id},"*")});host.appendChild(b);});}function close(){parent.postMessage({kind:"GL_S0_REVIEW_CLOSE"},"*")}document.getElementById("reviewClose").addEventListener("click",close);document.addEventListener("keydown",function(e){if(e.key==="Escape"){e.preventDefault();close();}});function reportHeight(){var card=document.querySelector("#cardReviewDialog .review-card");if(!card)return;parent.postMessage({kind:"GL_S0_REVIEW_FIT",height:Math.ceil(card.getBoundingClientRect().bottom)},"*");}requestAnimationFrame(reportHeight);setTimeout(reportHeight,80);document.fonts.ready.then(reportHeight);var img=document.getElementById("reviewArt");if(img&&!img.complete)img.addEventListener("load",reportHeight,{once:true});if(window.ResizeObserver)new ResizeObserver(reportHeight).observe(document.querySelector(".review-card"));window.addEventListener("resize",reportHeight);var readySent=false;function reportReady(){if(readySent)return;readySent=true;reportHeight();parent.postMessage({kind:"GL_S0_REVIEW_READY"},"*");}function afterArt(){Promise.resolve(document.fonts.ready).then(function(){requestAnimationFrame(function(){requestAnimationFrame(reportReady);});});}if(img&&!img.complete){img.addEventListener("load",afterArt,{once:true});img.addEventListener("error",afterArt,{once:true});}else afterArt();setTimeout(reportReady,1800);})();<\/script></body></html>';
   }
   // Reuse the same iframe for all reviews. Re-creating srcdoc on every
   // double-click used to re-parse 19 stylesheet links and both JS renderers.
@@ -35,43 +37,14 @@
   function syncMobileReview(frame){
     if(!frame)return;
     var d=frame.contentDocument;if(!d?.head)return;
-    var mobile=g.document.documentElement.classList.contains('gl-adaptive-stage');
-    d.documentElement.classList.toggle('gl-review-mobile',mobile);
-    d.documentElement.classList.toggle('gl-review-rotated',mobile&&g.document.documentElement.classList.contains('gl-stage-portrait'));
-    if(!mobile)return;
     frame.style.removeProperty('height');
-    if(!d.getElementById('gl-mobile-review-style')){
-      var st=d.createElement('style');st.id='gl-mobile-review-style';st.textContent=`
-        html.gl-review-mobile,html.gl-review-mobile body{width:100%!important;height:100%!important;min-height:0!important;overflow:hidden!important;background:transparent!important;}
-        html.gl-review-mobile #cardReviewDialog{display:block!important;height:100%!important;min-height:0!important;overflow-y:auto!important;overflow-x:hidden!important;overscroll-behavior:contain!important;}
-        html.gl-review-mobile.gl-review-rotated #cardReviewDialog{touch-action:none!important;}
-        html.gl-review-mobile #cardReviewDialog .review-card{display:flex!important;flex-direction:column!important;min-height:100%!important;max-height:none!important;overflow:visible!important;}
-        html.gl-review-mobile #cardReviewDialog .review-header{position:sticky!important;top:0!important;z-index:20!important;background:#242630!important;flex:0 0 auto!important;padding:16px 22px!important;}
-        html.gl-review-mobile #cardReviewDialog .review-header h2{font-size:clamp(22px,2.1vw,32px)!important;}
-        html.gl-review-mobile #cardReviewDialog .dialog-eyebrow{font-size:clamp(13px,1.35vw,19px)!important;}
-        html.gl-review-mobile #cardReviewDialog .review-close{font-size:28px!important;min-width:44px!important;min-height:44px!important;}
-        html.gl-review-mobile #cardReviewDialog{--gl-review-art-w:clamp(180px,25vw,360px);}
-        html.gl-review-mobile #cardReviewDialog .review-layout{display:grid!important;grid-template-columns:var(--gl-review-art-w) minmax(0,1fr)!important;gap:22px!important;padding:18px 22px!important;flex:0 0 auto!important;max-height:none!important;overflow:visible!important;}
-        html.gl-review-mobile #cardReviewDialog .review-art{width:var(--gl-review-art-w)!important;height:calc(var(--gl-review-art-w) * 1.4)!important;object-fit:contain!important;}
-        html.gl-review-mobile #cardReviewDialog :is(.review-detail-column,.review-rows,.review-stats){min-width:0!important;max-height:none!important;height:auto!important;overflow:visible!important;}
-        html.gl-review-mobile #cardReviewDialog :is(.review-rows,.review-stats) :is(strong,p,li,dd){font-size:clamp(17px,1.55vw,25px)!important;line-height:1.38!important;overflow-wrap:anywhere!important;}
-        html.gl-review-mobile #cardReviewDialog :is(.review-rows,.review-stats) :is(span,small,dt){font-size:clamp(13px,1.15vw,19px)!important;line-height:1.25!important;overflow-wrap:anywhere!important;}
-        html.gl-review-mobile #cardReviewDialog .review-progression{flex:0 0 auto!important;max-height:none!important;overflow:visible!important;padding:14px 22px!important;}
-        html.gl-review-mobile #cardReviewDialog .review-progression>span{font-size:17px!important;}
-        html.gl-review-mobile #cardReviewDialog .review-progression-card img{width:100%!important;height:auto!important;aspect-ratio:5/7!important;object-fit:contain!important;}
-      `;d.head.appendChild(st);
+    var mobile=g.document.documentElement.dataset.glPlatform==='mobile';
+    d.documentElement.classList.toggle('gl-review-rotated',mobile&&g.document.documentElement.classList.contains('gl-stage-portrait'));
+    if(!d.getElementById('gl-review-touch-style')){
+      var st=d.createElement('style');st.id='gl-review-touch-style';
+      st.textContent='html.gl-review-rotated #cardReviewDialog :is(.review-card,.review-layout,.review-detail-column){touch-action:none!important;}';d.head.appendChild(st);
     }
-    g.GL_MOBILE_POPUP_SCROLL?.attachReview?.(d);
-    if(!d.__glMobileReviewControls){
-      d.__glMobileReviewControls=true;
-      d.addEventListener('click',function(e){
-        if(!g.document.documentElement.classList.contains('gl-adaptive-stage'))return;
-        var close=e.target.closest('#reviewClose'),rank=e.target.closest('[data-review-rank-id]');
-        if(!close&&!rank)return;
-        e.preventDefault();e.stopPropagation();
-        g.document.dispatchEvent(new g.CustomEvent('gl-mobile-review-control',{detail:{kind:close?'close':'rank',cardId:rank?.dataset.reviewRankId}}));
-      });
-    }
+    if(mobile)g.GL_MOBILE_POPUP_SCROLL?.attachReview?.(d);
   }
   function applyReviewToFrame(frame,c,lineage){
     var w=frame.contentWindow,d=frame.contentDocument,body=frame.parentElement;
@@ -81,7 +54,7 @@
     frame.__glReviewRequest=request;
     body.classList.remove('gl-review-ready');
     w.GL_S0_REVIEW_RENDER(c);
-    if(g.document.documentElement.classList.contains('gl-adaptive-stage')){var sc=d.querySelector('#cardReviewDialog');if(sc)sc.scrollTop=0;}
+    d.querySelectorAll('#cardReviewDialog .review-card,#cardReviewDialog .review-layout,#cardReviewDialog .review-detail-column').forEach(sc=>{sc.scrollTop=0;});
     var panel=d.getElementById('reviewProgression'),host=d.getElementById('reviewProgressionCards');
     if(panel&&host){
       host.replaceChildren();panel.hidden=!lineage.length;
@@ -102,17 +75,7 @@
     function ready(){
       if(!frame.isConnected||frame.__glReviewRequest!==request)return;
       body.classList.add('gl-review-ready');
-      w.requestAnimationFrame(function(){
-        if(!frame.isConnected||frame.__glReviewRequest!==request)return;
-        var card=d.querySelector('#cardReviewDialog .review-card');
-        var height=card?Math.ceil(card.getBoundingClientRect().bottom):0;
-        if(height>100){
-          var mobile=g.document.documentElement.classList.contains('gl-adaptive-stage');
-          if(mobile){syncMobileReview(frame);return;}
-          var fit=Math.min(height,Math.max(250,g.innerHeight-32));
-          frame.style.setProperty('height',fit+'px','important');
-        }
-      });
+
     }
     // Show the review once the artwork is decoded; don't wait for a new iframe
     // document, stylesheet downloads or unrelated battlefield rendering.

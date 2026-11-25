@@ -1,0 +1,251 @@
+/* Tablet desktop-parity layout.
+ * Preserve the desktop panel order and interactions at tablet CSS widths.
+ * Shrink content within flexible tracks; never let fixed-width Hero/Legacy
+ * frames or deck tools overlap their neighbouring panels.
+ * Phone layout (<=760px) and desktop (>=1181px) are not affected.
+ */
+@media (min-width: 761px) and (max-width: 1180px) {
+  /* STYLE 1: keep desktop Library | My Deck workspace side-by-side.
+     Earlier tablet fallback stacked both workspaces and could make the
+     second panel effectively invisible below the scroll area. */
+  body:not(:has(.deck-tools-bar)) .app-shell {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    height: 100dvh !important;
+    overflow: hidden !important;
+  }
+  body:not(:has(.deck-tools-bar)) .builder-layout {
+    display: grid !important;
+    flex: 1 1 auto !important;
+    grid-template-columns: minmax(0, 53%) minmax(0, 47%) !important;
+    gap: 8px !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    padding: 0 9px 9px !important;
+    overflow: hidden !important;
+  }
+  body:not(:has(.deck-tools-bar)) .builder-layout > .library-shell,
+  body:not(:has(.deck-tools-bar)) .builder-layout > .deck-shell {
+    width: auto !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    height: 100% !important;
+    overflow-x: hidden !important;
+  }
+  body:not(:has(.deck-tools-bar)) .builder-layout > .library-shell {overflow-y: hidden !important}
+  body:not(:has(.deck-tools-bar)) .builder-layout > .deck-shell {overflow-y: auto !important}
+
+  body:not(:has(.deck-tools-bar)) .topbar {
+    flex: 0 0 auto !important;
+    height: auto !important;
+    min-height: 68px !important;
+    padding: 7px 14px !important;
+  }
+  body:not(:has(.deck-tools-bar)) .library-toolbar {
+    position: relative;
+    padding: 10px 8px 9px !important;
+    min-width: 0;
+  }
+  body:not(:has(.deck-tools-bar)) .library-tabs {
+    flex-wrap: wrap !important;
+    gap: 4px !important;
+  }
+  body:not(:has(.deck-tools-bar)) .library-tab {
+    min-width: 0;
+    padding-inline: 6px !important;
+    font-size: 10px !important;
+  }
+  body:not(:has(.deck-tools-bar)) .library-result-count {
+    float: none !important;
+    margin: 4px 0 0 !important;
+    font-size: 9px !important;
+    white-space: nowrap;
+    text-align: right;
+  }
+  body:not(:has(.deck-tools-bar)) .library-search-row {
+    margin-top: 6px !important;
+    grid-template-columns: minmax(0,1fr) minmax(66px, 21%) !important;
+    gap: 5px !important;
+  }
+  body:not(:has(.deck-tools-bar)) .library-content {
+    min-width: 0 !important;
+    padding: 8px !important;
+  }
+  body:not(:has(.deck-tools-bar)) .hero-library {gap: 8px !important}
+  body:not(:has(.deck-tools-bar)) .hero-package {
+    grid-template-columns: minmax(0,1fr) minmax(86px, 32%) !important;
+    gap: 6px !important;
+    padding: 5px !important;
+    min-width: 0 !important;
+  }
+  body:not(:has(.deck-tools-bar)) .hero-rank-cards {gap: 3px !important;min-width: 0 !important}
+  body:not(:has(.deck-tools-bar)) .hero-package-info {min-width:0!important;padding:5px!important}
+  body:not(:has(.deck-tools-bar)) .hero-package-info h3 {
+    font-size: 12px !important;
+    line-height: 1.25 !important;
+    overflow-wrap: anywhere;
+    margin: 2px 0 6px !important;
+  }
+  body:not(:has(.deck-tools-bar)) .hero-package-info dl {gap: 4px !important}
+  body:not(:has(.deck-tools-bar)) .hero-package-info .info-label,
+  body:not(:has(.deck-tools-bar)) .hero-package-info dt {font-size: 9px !important}
+  body:not(:has(.deck-tools-bar)) .hero-package-info dd {
+    font-size: 10px !important;
+    line-height: 1.25 !important;
+    overflow-wrap: anywhere;
+  }
+  body:not(:has(.deck-tools-bar)) .hero-select {
+    width: 100% !important;
+    min-height: 28px !important;
+    height: 28px !important;
+    font-size: 9px !important;
+    padding-inline: 2px !important;
+  }
+  body:not(:has(.deck-tools-bar)) .card-library {
+    grid-template-columns: repeat(3,minmax(0,1fr)) !important;
+    gap: 6px !important;
+  }
+  body:not(:has(.deck-tools-bar)) .deck-toolbar {padding: 7px 8px 8px !important}
+  body:not(:has(.deck-tools-bar)) .deck-actions {
+    grid-template-columns: minmax(0,1fr) repeat(3,minmax(0,auto)) !important;
+    gap: 3px !important;
+    min-width: 0 !important;
+  }
+  body:not(:has(.deck-tools-bar)) .deck-actions input {min-width: 0 !important;padding-inline: 5px !important}
+  body:not(:has(.deck-tools-bar)) .deck-actions button {
+    min-width: 0 !important;
+    padding-inline: 3px !important;
+    font-size: clamp(7px, .88vw, 9px) !important;
+    white-space: nowrap;
+  }
+  body:not(:has(.deck-tools-bar)) .deck-section-body {padding: 8px 7px 10px !important}
+  body:not(:has(.deck-tools-bar)) .formation-grid {
+    grid-template-columns: minmax(0,1fr) 18px minmax(0,1fr) 18px minmax(0,1fr) !important;
+    gap: 3px !important;
+    min-width: 0 !important;
+  }
+  body:not(:has(.deck-tools-bar)) .formation-slot,
+  body:not(:has(.deck-tools-bar)) .legacy-slots-grid > .legacy-slot {
+    min-width: 0 !important;
+    max-width: 100% !important;
+    padding: 4px !important;
+  }
+  body:not(:has(.deck-tools-bar)) .position-swap {
+    width: 18px !important;
+    height: 28px !important;
+    border-radius: 6px !important;
+  }
+  body:not(:has(.deck-tools-bar)) .position-swap svg {width: 15px !important;height: 15px !important}
+  body:not(:has(.deck-tools-bar)) .formation-card-placeholder,
+  body:not(:has(.deck-tools-bar)) .legacy-card-placeholder {font-size: 8px !important;padding: 3px !important}
+  body:not(:has(.deck-tools-bar)) .legacy-slots-grid {gap: 5px !important;min-width: 0 !important}
+  body:not(:has(.deck-tools-bar)) .formation-slot .formation-position {font-size: 9px !important}
+  body:not(:has(.deck-tools-bar)) .main-deck-list {grid-template-columns: minmax(0,1fr) !important}
+  body:not(:has(.deck-tools-bar)) .main-deck-row {
+    grid-template-columns: 34px minmax(0,1fr) 25px 20px 25px !important;
+    gap: 4px !important;
+  }
+  body:not(:has(.deck-tools-bar)) .main-card-info strong {font-size: 10px !important}
+  body:not(:has(.deck-tools-bar)) .main-card-info small {font-size: 9px !important}
+
+  /* STYLE 2: keep the desktop 50:50 Hero/Legacy split and avoid cards
+     with fixed minimum widths escaping into adjacent columns. */
+  body:has(.deck-tools-bar) .legacy-content.legacy-split {
+    grid-template-columns: minmax(0,1fr) minmax(0,1fr) !important;
+    gap: 8px !important;
+    padding-inline: 9px !important;
+  }
+  body:has(.deck-tools-bar) .legacy-half,
+  body:has(.deck-tools-bar) .hero-stage,
+  body:has(.deck-tools-bar) .hero-slots-grid,
+  body:has(.deck-tools-bar) .legacy-slots-grid {
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+  body:has(.deck-tools-bar) .legacy-half-panel {padding-left: 7px !important}
+  body:has(.deck-tools-bar) .hero-slots-grid {
+    grid-template-columns: minmax(0,1fr) 22px minmax(0,1fr) 22px minmax(0,1fr) !important;
+    gap: 4px !important;
+    overflow: hidden !important;
+  }
+  body:has(.deck-tools-bar) .legacy-slots-grid {
+    grid-template-columns: repeat(3,minmax(0,1fr)) !important;
+    gap: 5px !important;
+    margin-top: 20px !important;
+    overflow: hidden !important;
+  }
+  body:has(.deck-tools-bar) .hero-slot,
+  body:has(.deck-tools-bar) .legacy-slot {
+    box-sizing: border-box !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    padding: 4px !important;
+  }
+  body:has(.deck-tools-bar) .hero-slot {
+    width: 100% !important;
+    justify-self: stretch !important;
+  }
+  /* Match Legacy frame width to the Hero track (minus two swap controls). */
+  body:has(.deck-tools-bar) .legacy-slot {
+    width: calc(100% - 17px) !important;
+    justify-self: center !important;
+  }
+  body:has(.deck-tools-bar) .position-swap {
+    width: 22px !important;
+    height: 28px !important;
+    min-width: 0 !important;
+    border-radius: 6px !important;
+  }
+  body:has(.deck-tools-bar) .position-swap svg {width: 15px !important;height: 15px !important}
+  body:has(.deck-tools-bar) .card-stage,
+  body:has(.deck-tools-bar) .legacy-card-stage {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+  body:has(.deck-tools-bar) .legacy-slot .legacy-select {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    padding-inline: 3px 15px !important;
+    font-size: clamp(8px,.91vw,10px) !important;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  body:has(.deck-tools-bar) .hero-slot .position-label {
+    padding-inline: 2px !important;
+    font-size: 9px !important;
+  }
+  body:has(.deck-tools-bar) .legacy-placeholder {
+    padding-inline: 3px !important;
+    font-size: clamp(8px,.9vw,10px) !important;
+    overflow-wrap: break-word;
+  }
+  body:has(.deck-tools-bar) .rank-control {
+    width: min(228px,100%) !important;
+    max-width: 100% !important;
+  }
+  body:has(.deck-tools-bar) .deck-tools-bar {min-width: 0 !important}
+  body:has(.deck-tools-bar) .deck-tools {min-width: 0 !important;gap: 5px !important}
+  body:has(.deck-tools-bar) .deck-name-field {flex: 1 1 auto !important;min-width: 0 !important}
+  body:has(.deck-tools-bar) .deck-tools button {
+    flex: 0 1 auto !important;
+    min-width: 0 !important;
+    padding-inline: 7px !important;
+    font-size: clamp(8px,.9vw,10px) !important;
+    white-space: nowrap;
+  }
+  body:has(.deck-tools-bar) .deck-summary {
+    box-sizing: border-box;
+    min-height: 50px !important;
+    height: auto !important;
+    flex-wrap: wrap !important;
+    gap: 5px 11px !important;
+    padding-block: 6px !important;
+  }
+  body:has(.deck-tools-bar) .deck-summary .interaction-hint {margin-left: 0 !important}
+  body:has(.deck-tools-bar) .main-view .deck-grid {min-width: 0 !important}
+}

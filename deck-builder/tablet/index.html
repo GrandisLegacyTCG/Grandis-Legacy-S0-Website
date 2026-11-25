@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="color-scheme" content="dark">
+  <title>Grandis Legacy — Deck Builder</title>
+  <link rel="icon" type="image/png" href="/assets/site/web-s0/favicon.png?v=20261124-shared-v1">
+  <style>
+    html, body {
+      margin: 0; padding: 0; width: 100%; height: 100%;
+      overflow: hidden; background: #0d0e12;
+    }
+    #glTabletLandscapeApp {
+      display: block; box-sizing: border-box;
+      position: fixed; inset: 0;
+      width: 100%; width: 100dvw;
+      height: 100%; height: 100dvh;
+      padding: 0; margin: 0; border: 0;
+      background: #0d0e12;
+      transform: none;
+    }
+    /* Rotate the ENTIRE browsing context, not just .app-shell: all Review,
+       Starter, Import/Confirm, Deck View and Hero Picker <dialog> popups,
+       their backdrops, the toast, and their scroll/click targets rotate too. */
+    @media (orientation: portrait) {
+      #glTabletLandscapeApp {
+        inset: auto;
+        left: 100vw; left: 100dvw;
+        top: 0;
+        width: 100vh; width: 100dvh;
+        height: 100vw; height: 100dvw;
+        transform-origin: top left;
+        transform: rotate(90deg);
+      }
+    }
+  </style>
+</head>
+<body>
+  <iframe id="glTabletLandscapeApp" title="Grandis Legacy Deck Builder — Landscape"
+    scrolling="auto" allow="fullscreen" referrerpolicy="same-origin"></iframe>
+  <script>
+  (() => {
+    'use strict';
+    const params = new URLSearchParams(location.search);
+    const style = params.get('style') === '2' ? '2' : '1';
+    const appRoot = new URL('../', location.href);
+    const source = new URL(style === '2' ? 'style-2/index.html' : 'index.html', appRoot);
+    const originalQuery = new URLSearchParams(params.get('query') || '');
+    originalQuery.delete('gl_tablet_frame');
+    originalQuery.set('gl_tablet_frame', '1');
+    source.search = originalQuery.toString();
+    if (params.has('fragment')) source.hash = params.get('fragment');
+    document.getElementById('glTabletLandscapeApp').src = source.href;
+
+    // Show the normal, shareable app URL, not the internal frame loader URL.
+    // On a refresh, the real route re-enters this gate if still portrait.
+    if (location.protocol !== 'file:') {
+      const canonical = new URL(style === '2' ? 'style-2/' : './', appRoot);
+      const shareQuery = new URLSearchParams(originalQuery);
+      shareQuery.delete('gl_tablet_frame');
+      canonical.search = shareQuery.toString();
+      if (params.has('fragment')) canonical.hash = params.get('fragment');
+      try { history.replaceState({glTabletLandscape: true}, '', canonical.href); } catch (_) {}
+    }
+  })();
+  </script>
+</body>
+</html>
