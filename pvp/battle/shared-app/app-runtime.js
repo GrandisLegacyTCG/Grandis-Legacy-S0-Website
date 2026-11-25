@@ -1035,12 +1035,15 @@ function syncBattlefieldIdentity(){
   if(opponentDeck){const full=String((isPvP?identity.opponentDeck:null)||setup.ai?.deck_name||(isPvP?'Opponent Deck':'AI Deck'));opponentDeck.textContent=clampIdentityText(full,isPvP?'Opponent Deck':'AI Deck');opponentDeck.title=full;}
 }
 function syncPlayerNameBox(){syncBattlefieldIdentity();}
+let phaseActionWidthMobile=null;
 function lockPrimaryActionWidth(){
   if(!primary)return;
   const label=primary.textContent,cls=primary.className;
   primary.textContent='REPOSITION';primary.className='phase-action';primary.style.width='';
-  const w=Math.ceil(uiLayoutRect(primary).width/currentUiScale());
-  if(w>0)primary.style.width=w+'px';
+  const mobile=pvpLandscapeStage();
+  // The mobile body is rotated/scaled; use the untransformed layout width.
+  const w=mobile?primary.offsetWidth:Math.ceil(uiLayoutRect(primary).width/currentUiScale());
+  if(w>0){primary.style.width=w+'px';phaseActionWidthMobile=mobile;}
   primary.textContent=label;primary.className=cls;
 }
 function negativeStatusName(name){return ['Bleed','Burn','Freeze','Poison','Sleep','Stun'].some(x=>x.toLowerCase()===String(name||'').toLowerCase())}
@@ -4334,6 +4337,7 @@ function renderOpponentHand(s){
   requestAnimationFrame(syncOpponentHand);
 }
 function renderPhase(s){
+  if(phaseActionWidthMobile!==pvpLandscapeStage())lockPrimaryActionWidth();
   const labels=[...document.querySelectorAll('.phase-label')];labels.forEach(x=>x.classList.toggle('active',x.textContent.trim().toUpperCase().startsWith(phaseName(s.phase).toUpperCase())));
   const activeLabel=labels.find(x=>x.classList.contains('active'))||labels[0],phaseIndicatorKey=String(s.turn||'')+'|'+Number(s.round||1)+'|'+String(s.phase||''),phaseChanged=!!lastPhaseIndicatorKey&&phaseIndicatorKey!==lastPhaseIndicatorKey;lastPhaseIndicatorKey=phaseIndicatorKey;
   requestAnimationFrame(()=>placePhaseIndicator(activeLabel,phaseChanged));

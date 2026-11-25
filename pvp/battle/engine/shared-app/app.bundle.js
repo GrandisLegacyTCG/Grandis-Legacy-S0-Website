@@ -16523,6 +16523,15 @@ function withUnshuffledSelfTest(fn){ return function(){ var old=STARTUP_SHUFFLE_
     queueCapturedAuthoritativeRankUpMotion:queueCapturedAuthoritativeRankUpMotion,
     queueAuthoritativeRankUpMotion:function(side,lane,toCardId,expCardIds){ var ok=false; ok=queueLegacyDeckToFieldMotion(side,lane,toCardId)||ok; ok=queueRankUpDiscardMotion(side,lane,expCardIds||[])||ok; return ok; },
     getActivatedLegacyAbilitiesFor:function(side,lane){ return clone(getActivatedLegacyAbilities(appState,side,lane)); },
+    // Headless authority continuation, never a client intent or AI policy.
+    settlePvpBattleCastings:function(){
+      var state=appState;
+      if(!SUPPRESS_RENDER||!state||!state.pvpHumanVsHuman||state.phase!=='Battle'||state.turn!=='PLAYER'||state.pending||state.responseWindow||state.gameOver)return false;
+      var before=(state.pendingCastings||[]).length;
+      if(!before)return false;
+      resolvePendingCastingsFor(state,'PLAYER');
+      return (state.pendingCastings||[]).length!==before;
+    },
     testDefeatCastingCleanupRevive:simulateDefeatCastingCleanupReviveQA,
     testUnbrokenStandClassRows:function(){var c=card('S0-WAR-023'),cases={Warrior:'S0-WAR-H001',Gladiator:'S0-WAR-H002',Conqueror:'S0-WAR-H003',Paladin:'S0-WAR-H008',Crusader:'S0-WAR-H009'},out={};Object.keys(cases).forEach(function(name){out[name]=!!attachmentPolicyForCard(c,{card_id:cases[name]});});return out;},
     completeOpeningFlow:function(firstSide,flipData){var before=(appState&&appState.presentationEvents||[]).length;completeOpeningFlow(appState,firstSide,flipData||{},{deferAnimation:true,bridgeImmediate:true});var events=(appState&&appState.presentationEvents||[]).slice(before);return{ok:true,events:clone(events),snapshot:glPvpBridgeSnapshot()};},

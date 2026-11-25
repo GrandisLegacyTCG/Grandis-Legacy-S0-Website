@@ -1,37 +1,54 @@
-/* Grandis Legacy PvP RC42 UI sync: VS AI donor visual parity.
- * TOUCH GAMEPLAY ONLY; never changes PvP network, rules, authority or desktop. */
+/* Mobile PvP phase controls: VS AI RC43 donor geometry and Response focus.
+ * The adaptive stage class, not pointer type, identifies live mobile play. */
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .phase{
+  display:grid!important;
+  grid-template-columns:160px minmax(0,1fr) max-content!important;
+  align-items:center!important;
+  column-gap:12px!important;
+  box-sizing:border-box!important;
+}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .phase-turn{min-width:0!important;flex-basis:auto!important;}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .phase-track{
+  min-width:0!important;gap:8px!important;padding:0 8px!important;overflow:hidden!important;
+}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .phase-actions{
+  display:flex!important;flex:0 0 auto!important;align-items:center!important;
+  gap:9.6px!important;padding-right:10px!important;margin-left:6px!important;
+  min-width:max-content!important;box-sizing:border-box!important;
+}
+/* Same dimensions as RC43 donor; max-content is a safeguard against a
+   width measured before the mobile stage/fonts became ready. */
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .phase-actions .phase-action{
+  position:relative!important;flex:0 0 auto!important;margin:0!important;
+  display:inline-flex!important;align-items:center!important;justify-content:center!important;
+  height:28.8px!important;min-height:28.8px!important;
+  padding:0 14.4px!important;font-size:8.88px!important;border-radius:8.4px!important;
+  box-sizing:border-box!important;white-space:nowrap!important;text-align:center!important;
+  min-width:max-content!important;
+}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .phase-actions .phase-action.next{
+  padding-left:15.6px!important;padding-right:15.6px!important;
+}
+/* Match donor focus stacking. The PvP mobile phase z-index:5 rule has higher
+   specificity than the unscoped donor focus rule, so restore its focus level. */
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .battlefield.gl-focus-payment .phase,
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .battlefield.gl-focus-response .phase{z-index:940!important;}
+/* Donor PASS appearance/reminder animation, active immediately for the
+   mobile Response owner (not for a disabled or hidden button). */
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay #phasePrimaryAction.gl-pass:not(:disabled){
+  position:relative;z-index:4!important;opacity:1!important;visibility:visible!important;
+  border-color:#ffdc7c!important;background:#33280d!important;color:#ffe071!important;
+  animation:glResponsePassReminder 1.15s ease-in-out infinite!important;
+}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay #phasePrimaryAction.gl-pass:not(:disabled):focus-visible{
+  outline:2px solid #ffec9c!important;outline-offset:2px!important;
+}
+@media(prefers-reduced-motion:reduce){
+  html.gl-adaptive-stage.gl-pvp-mobile-gameplay #phasePrimaryAction.gl-pass:not(:disabled){
+    animation:none!important;box-shadow:0 0 0 2px rgba(255,211,92,.65)!important;
+  }
+}
 @media (pointer: coarse){
- html.gl-adaptive-stage.gl-pvp-mobile-gameplay .phase{
-   display:grid!important;
-   grid-template-columns:160px minmax(0,1fr) max-content!important;
-   align-items:center!important;
-   column-gap:12px!important;
-   box-sizing:border-box!important;
- }
- html.gl-adaptive-stage.gl-pvp-mobile-gameplay .phase-turn{min-width:0!important;flex-basis:auto!important;}
- html.gl-adaptive-stage.gl-pvp-mobile-gameplay .phase-track{
-   min-width:0!important;gap:8px!important;padding:0 8px!important;overflow:hidden!important;
- }
- html.gl-adaptive-stage.gl-pvp-mobile-gameplay .phase-actions{
-   display:flex!important;flex:0 0 auto!important;align-items:center!important;
-   gap:14px!important;padding-right:10px!important;margin-left:6px!important;
-   min-width:max-content!important;box-sizing:border-box!important;
- }
- html.gl-adaptive-stage.gl-pvp-mobile-gameplay .phase-actions .phase-action{
-   position:relative!important;flex:0 0 auto!important;margin:0!important;
-   box-sizing:border-box!important;white-space:nowrap!important;
- }
- /* PASS is visibly actionable immediately, not only after the 30s reminder. */
- html.gl-adaptive-stage.gl-pvp-mobile-gameplay #phasePrimaryAction.gl-pass:not(:disabled){
-   z-index:2!important;opacity:1!important;visibility:visible!important;
-   color:#fff3b7!important;background:linear-gradient(180deg,#715820,#382a0b)!important;
-   border:1px solid #ffe083!important;
-   box-shadow:0 0 0 1px rgba(255,220,114,.55),0 0 12px rgba(255,209,74,.6)!important;
-   animation:glPvpPassReadyGlow 1.6s ease-in-out infinite!important;
- }
- html.gl-adaptive-stage.gl-pvp-mobile-gameplay #phasePrimaryAction.gl-pass:not(:disabled):focus-visible{
-   outline:2px solid #ffec9c!important;outline-offset:2px!important;
- }
  /* RC42 VS AI: enlarged counters, mobile only. */
  html.gl-adaptive-stage.gl-pvp-mobile-gameplay .attachment-turn{
    font-size:12px!important;min-width:21px!important;height:21px!important;line-height:19px!important;
@@ -40,11 +57,4 @@
    font-size:10px!important;min-width:14px!important;height:14px!important;
    line-height:12px!important;display:grid!important;place-items:center!important;
  }
-}
-@keyframes glPvpPassReadyGlow{
-  0%,100%{filter:brightness(1);box-shadow:0 0 0 1px rgba(255,220,114,.55),0 0 10px rgba(255,209,74,.48)}
-  50%{filter:brightness(1.23);box-shadow:0 0 0 2px rgba(255,234,139,.76),0 0 17px rgba(255,209,74,.9)}
-}
-@media(prefers-reduced-motion:reduce){
- html.gl-adaptive-stage.gl-pvp-mobile-gameplay #phasePrimaryAction.gl-pass:not(:disabled){animation:none!important;}
 }
