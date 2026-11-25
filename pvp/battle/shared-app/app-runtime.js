@@ -351,6 +351,24 @@ function discardSelectionState(p,handIndex){
 }
 function directTributeHeroReady(p,side,lane){return !!(isDirectHandCardSearch(p)&&p.resolve_to==='source_exp'&&selectedChoiceIndex(p)!=null&&side===(p.source_side||p.host_side||p.side||'PLAYER')&&lane===(p.source_lane||p.host_lane));}
 function phaseName(p){return String(p||'').replace(/\s*Phase$/i,'');}
+function playedCardCapacity(){
+  const grid=playedGrid,box=grid?.closest('.played-box'),sidebar=box?.closest('.sidebar'),shared=sidebar?.querySelector('.shared-box'),stage=sidebar?.querySelector('.active-card-stage');
+  if(!grid||!box||!sidebar||!shared||!stage||!grid.clientWidth||!sidebar.clientHeight)return 6;
+  const css=getComputedStyle(grid),gap=parseFloat(css.columnGap)||0,rowGap=parseFloat(css.rowGap)||0;
+  const cardW=Math.floor(Math.min(72,Math.max(0,(grid.clientWidth-gap*2)/3))),cardH=Math.floor(cardW*7/5);
+  const first=grid.querySelector('.played-card'),margin=first?parseFloat(getComputedStyle(first).marginBottom)||0:12;
+  const sb=getComputedStyle(sidebar),boxCss=getComputedStyle(box),head=box.querySelector('h3'),footer=box.querySelector('.history-btn');
+  const add=(el,...keys)=>keys.reduce((v,k)=>v+(parseFloat(el[k])||0),0);
+  const sideGap=parseFloat(sb.rowGap)||0;
+  const fixed=add(sb,'paddingTop','paddingBottom')+3*sideGap+sidebar.firstElementChild.offsetHeight+sidebar.querySelector('.bottom-actions').offsetHeight;
+  const playedChrome=add(boxCss,'paddingTop','paddingBottom','borderTopWidth','borderBottomWidth')+2*(parseFloat(boxCss.rowGap)||0)+head.offsetHeight+footer.offsetHeight;
+  // Active Card uses (stage width - 8px) and a 5:7 ratio. Include its title,
+  // bottom Battle Log rail and the stage's own padding/height safety margin.
+  const activeChrome=Math.max(0,shared.clientHeight-stage.clientHeight)+2;
+  const fullActive=Math.max(0,stage.clientWidth-8)*1.4+6+activeChrome;
+  const required=fixed+playedChrome+3*(cardH+margin)+2*rowGap+fullActive+4;
+  return sidebar.clientHeight>=required?9:6;
+}
 function fitPlayedCards(){const grid=playedGrid;if(!grid)return;const cs=getComputedStyle(grid),gap=parseFloat(cs.columnGap)||0,cell=Math.max(0,(grid.clientWidth-gap*2)/3),w=Math.floor(Math.min(72,cell)),h=Math.floor(w*7/5);grid.querySelectorAll(':scope > .played-card').forEach(x=>{x.style.width=w+'px';x.style.height=h+'px'});}
 function backgroundPreviewSuppressed(anchor){return document.body.classList.contains('gl-center-choice-active')&&!anchor?.closest?.('.gl-center-choice-stage')}
 function bindPreview(img){
@@ -2484,8 +2502,30 @@ function applyHandFan(track,side){
 }
 
 
-function syncPlayerHandToHeroCenter(){const c=uiLaneElement('PLAYER','CENTER'),r=uiLaneElement('PLAYER','RIGHT'),cards=[...playerHandTrack.querySelectorAll('.hand-card')];if(!c||!r||!cards.length)return;const scale=currentUiScale(),cr=uiLayoutRect(c),rr=uiLayoutRect(r),a=uiLayoutRect(cards[0]),b=uiLayoutRect(cards[cards.length-1]),target=(cr.right+rr.left)/2,actual=(a.left+b.right)/2,d=(target-actual)/scale;if(Math.abs(d)>.15){playerHandShift+=d;document.querySelector('.bottom-hud .hand').style.setProperty('--hand-align-shift',playerHandShift+'px')}}
-function syncOpponentHand(){const lanes=[...document.querySelectorAll('.opponent-field .hero-grid .hero-lane')],l=lanes[0],c=lanes[1],cards=[...oppHandTrack.querySelectorAll('.hand-card')];if(!l||!c||!cards.length)return;const scale=currentUiScale(),lr=uiLayoutRect(l),cr=uiLayoutRect(c),a=uiLayoutRect(cards[0]),b=uiLayoutRect(cards[cards.length-1]),target=(lr.right+cr.left)/2,actual=(a.left+b.right)/2,d=(target-actual)/scale;if(Math.abs(d)>.15){opponentHandShift+=d;oppHandTrack.style.setProperty('--opponent-hand-align-shift',opponentHandShift+'px')}}
+function layoutAdaptiveHand(track,side){
+  if(!document.documentElement.classList.contains('gl-adaptive-stage'))return false;
+  const hand=track.closest('.hand'),cards=[...track.querySelectorAll(':scope > .hand-card')];
+  if(!hand)return false;
+  const hr=uiLayoutRect(hand),field=uiLayoutRect(BF);
+  if(!hr||!field||hr.width<1)return true;
+  const player=side==='PLAYER';
+  const pool=uiLayoutRect(document.querySelector(player?'.player-mana-pool':'.opponent-mana-pool'));
+  const identity=uiLayoutRect(document.querySelector(player?'.player-name.identity-card':'.hand-title.identity-card'));
+  const tokens=uiLayoutRect(document.querySelector(player?'.player-right-rail .racial-row':'.opponent-left-rail .racial-row'));
+  const n=cards.length;
+  const left=Math.max(hr.left+8,player?(pool?.right||hr.left)+10:Math.max(identity?.right||hr.left,tokens?.right||hr.left)+10);
+  const right=Math.min(hr.right-8,player?Math.min(identity?.left||hr.right,tokens?.left||hr.right)-10:(pool?.left||hr.right)-10);
+  const span=Math.max(1,right-left),normal=(parseFloat(document.documentElement.style.getPropertyValue('--hero-base-w-logical'))||108)*.75;
+  // Keep the old large size when space permits; reserve extra width for a raised card.
+  const gap=4, width=Math.max(1,Math.min(normal,Math.floor((span-12-Math.max(0,n-1)*gap)/Math.max(1,n+0.08)*100)/100));
+  const set=(k,v)=>{if(track.style.getPropertyValue(k)!==v)track.style.setProperty(k,v)};
+  set('--gl-hand-left',(left-hr.left).toFixed(2)+'px');set('--gl-hand-space',span.toFixed(2)+'px');
+  set('--gl-fit-hand-w',width+'px');set('--gl-fit-hand-h',(width/0.68).toFixed(3)+'px');
+  track.classList.toggle('gl-hand-dense',width<normal-.5);
+  return true;
+}
+function syncPlayerHandToHeroCenter(){if(layoutAdaptiveHand(playerHandTrack,'PLAYER'))return;const c=uiLaneElement('PLAYER','CENTER'),r=uiLaneElement('PLAYER','RIGHT'),cards=[...playerHandTrack.querySelectorAll('.hand-card')];if(!c||!r||!cards.length)return;const scale=currentUiScale(),cr=uiLayoutRect(c),rr=uiLayoutRect(r),a=uiLayoutRect(cards[0]),b=uiLayoutRect(cards[cards.length-1]),target=(cr.right+rr.left)/2,actual=(a.left+b.right)/2,d=(target-actual)/scale;if(Math.abs(d)>.15){playerHandShift+=d;document.querySelector('.bottom-hud .hand').style.setProperty('--hand-align-shift',playerHandShift+'px')}}
+function syncOpponentHand(){if(layoutAdaptiveHand(oppHandTrack,'AI'))return;const lanes=[...document.querySelectorAll('.opponent-field .hero-grid .hero-lane')],l=lanes[0],c=lanes[1],cards=[...oppHandTrack.querySelectorAll('.hand-card')];if(!l||!c||!cards.length)return;const scale=currentUiScale(),lr=uiLayoutRect(l),cr=uiLayoutRect(c),a=uiLayoutRect(cards[0]),b=uiLayoutRect(cards[cards.length-1]),target=(lr.right+cr.left)/2,actual=(a.left+b.right)/2,d=(target-actual)/scale;if(Math.abs(d)>.15){opponentHandShift+=d;oppHandTrack.style.setProperty('--opponent-hand-align-shift',opponentHandShift+'px')}}
 function syncPlayerManaPoolToHeroLeft(){const field=document.querySelector('.player-field'),lane=uiLaneElement('PLAYER','LEFT'),pool=document.querySelector('.player-mana-pool');if(!field||!lane||!pool)return;const scale=currentUiScale(),fr=uiLayoutRect(field),lr=uiLayoutRect(lane),left=parseFloat(getComputedStyle(pool).left)||4,right=(lr.right-fr.left)/scale,w=Math.max(120,right-left);pool.style.setProperty('--player-mana-pool-w',w+'px');pool.style.width=w+'px';const op=document.querySelector('.opponent-mana-pool'),lockOpponent=centerChoiceModeFor(st())==='opponent-shard';if(op&&!lockOpponent)op.style.width=w+'px';renderMana();requestAnimationFrame(syncPlayerHandToHeroCenter)}
 window.syncPlayerHandToHeroCenter=syncPlayerHandToHeroCenter;window.syncOpponentHand=syncOpponentHand;window.syncPlayerManaPoolToHeroLeft=syncPlayerManaPoolToHeroLeft;
 function sortedShardPoolForDisplay(pool,side){
@@ -2863,6 +2903,70 @@ function playPvpBlindManaFlight(selectedKeys,target){
     setTimeout(finish,1000);
   });
 }
+/* Direct action card geometry shared by all center modes and the optional
+ * Swap action. Values are logical pixels on rotated touch stages, CSS pixels
+ * on desktop. Collection grids/inspection and enlarged previews are separate. */
+function directActionCardWidth(n,normalWidth,usableWidth,usableHeight,gap){
+  if(!Number.isInteger(n)||n<1)return 0;
+  return Math.max(0,Math.floor(Math.min(normalWidth,
+    Math.max(0,usableWidth-(n-1)*gap)/n,Math.max(0,usableHeight)*5/7)*100)/100);
+}
+// Match the actual unrotated 5:7 Hero face, not its slot or exhausted bounding
+// box. Map from the Battlefield's logical scale into this popup's own scale.
+// A rotated mobile popup shares the field transform; a desktop portal does not.
+function directActionNormalWidth(stage){
+  const app=document.querySelector('.app');
+  const hero=app?.querySelector('.gl-hero-physical-stack>.hero-card')||app?.querySelector('.hero-lane>.hero-card');
+  const root=getComputedStyle(document.documentElement),mobile=adaptiveStageActive();
+  const fallback=(parseFloat(root.getPropertyValue('--hero-base-w-logical'))||108)*(mobile?1.14:1.20);
+  const css=hero?getComputedStyle(hero):null;
+  const w=parseFloat(css?.width)||fallback,h=parseFloat(css?.height)||w*7/5;
+  const face=Math.min(w,h*5/7);
+  const scaleOf=el=>{try{const t=getComputedStyle(el).transform;if(t==='none')return 1;const m=new DOMMatrixReadOnly(t);return Math.hypot(m.a,m.b)||1}catch(_){return 1}};
+  return face*(mobile ? .89 : 1)*scaleOf(app)/scaleOf(stage);
+}
+function fitDirectActionRow(stage,row,n,availableHeight,usableWidth=null){
+  if(!stage||!row||!n||!stage.clientWidth||!stage.clientHeight)return;
+  const normal=directActionNormalWidth(stage);
+  const gap=n>12?4:8;
+  const width=usableWidth==null?row.clientWidth-48:usableWidth;
+  const height=Math.max(0,Math.min(stage.clientHeight-240,availableHeight));
+  const size=directActionCardWidth(n,normal,width,height,gap);
+  const px=Math.max(1,size)+'px';
+  if(row.style.getPropertyValue('--gl-action-card-w')!==px)row.style.setProperty('--gl-action-card-w',px);
+  if(row.style.getPropertyValue('--gl-action-gap')!==gap+'px')row.style.setProperty('--gl-action-gap',gap+'px');
+}
+function fitCenterActionCards(){
+  if(!centerChoiceStage.classList.contains('open'))return;
+  const row=centerChoiceStage.querySelector('.gl-center-choice-cards');
+  const copy=centerChoiceStage.querySelector('.gl-center-choice-copy');
+  const actions=centerChoiceStage.querySelector('.gl-center-choice-actions');
+  const css=getComputedStyle(centerChoiceStage),a=getComputedStyle(actions);
+  const num=(x)=>parseFloat(x)||0;
+  const available=centerChoiceStage.clientHeight-num(css.paddingTop)-num(css.paddingBottom)
+    -copy.offsetHeight-actions.offsetHeight-num(a.marginTop)-num(a.marginBottom)
+    -2*num(css.rowGap)-56;
+  fitDirectActionRow(centerChoiceStage,row,row.children.length,available);
+}
+function fitSwapActionCards(){
+  if(!choiceOverlay.classList.contains('open')||!choiceOverlay.classList.contains('gl-choice-swap'))return;
+  const row=choiceOverlay.querySelector('.gl-swap-choice-actions');if(!row)return;
+  // The swap modal has its own frame, labels and buttons. Fit to the actual
+  // slot width as well as the shared normal size and available portal height.
+  const n=row.children.length;if(!n)return;
+  const width=Math.max(0,row.clientWidth-8);
+  const available=choiceOverlay.clientHeight-260;
+  fitDirectActionRow(choiceOverlay,row,n,available,width);
+}
+function fitOpenDirectActionCards(){fitCenterActionCards();fitSwapActionCards();}
+window.addEventListener('resize',()=>requestAnimationFrame(fitOpenDirectActionCards),{passive:true});
+window.addEventListener('orientationchange',()=>requestAnimationFrame(fitOpenDirectActionCards),{passive:true});
+if(typeof ResizeObserver!=='undefined'){
+  const actionGeometryObserver=new ResizeObserver(fitOpenDirectActionCards);
+  [centerChoiceStage,centerChoiceStage.querySelector('.gl-center-choice-copy'),
+    centerChoiceStage.querySelector('.gl-center-choice-actions'),choiceOverlay].forEach(el=>actionGeometryObserver.observe(el));
+}
+if(document.fonts?.ready)document.fonts.ready.then(fitOpenDirectActionCards);
 function resetCenterChoiceVisualState(){
   centerChoiceBusy=false;centerChoiceStage.classList.remove('is-busy');
   const copy=centerChoiceStage.querySelector('.gl-center-choice-copy'),actions=centerChoiceStage.querySelector('.gl-center-choice-actions');
@@ -2888,7 +2992,9 @@ function renderCenterChoiceStage(s){
   }
   setCenterChoiceBodyMode(mode);
   centerChoiceStage.className='gl-center-choice-stage open gl-center-mode-'+mode+(centerChoiceBusy?' is-busy':'');
-  centerChoiceStage.dataset.glActionPopup=['trial_rankup_return_exp','scouting_exp_selection'].includes(p?.type)?'1':'0';
+  // All center-stage pending choices are direct card actions. The Deck/Discard
+  // collection grids remain separate and do not receive this sizing contract.
+  centerChoiceStage.dataset.glActionPopup='1';
   centerChoiceStage.setAttribute('aria-hidden','false');
   const title=centerChoiceStage.querySelector('.gl-center-choice-title'),helper=centerChoiceStage.querySelector('.gl-center-choice-helper'),status=centerChoiceStage.querySelector('.gl-center-choice-status'),cardsHost=centerChoiceStage.querySelector('.gl-center-choice-cards'),actions=centerChoiceStage.querySelector('.gl-center-choice-actions');
   let identity='',sig='',cards=[],selectedKeys=new Set(),clickableKeys=new Set(),titleText='',helperText='',statusText='',selectedTarget=null,otherTarget=null;
@@ -3245,6 +3351,7 @@ function renderCenterChoiceStage(s){
     });
   }
 
+  fitCenterActionCards();
   if(newSession){
     requestAnimationFrame(()=>requestAnimationFrame(()=>{
       animateCenterChoiceEntrance(centerChoiceOrigin(mode,p),mode,p);
@@ -3546,6 +3653,36 @@ function renderAttachments(laneEl,h,side,lane,s){
     }else badge?.remove();
   });
 }
+// Mobile status info is a read-only tap portal, independent of the lane's
+// periodic DOM rebuild. The status-removal selection still owns its tap.
+const mobileStatusTip=document.createElement('div');mobileStatusTip.className='gl-mobile-status-tip';mobileStatusTip.setAttribute('role','tooltip');document.body.appendChild(mobileStatusTip);
+let mobileStatusTipKey=null;
+function closeMobileStatusTip(){mobileStatusTipKey=null;mobileStatusTip.classList.remove('open')}
+function updateMobileStatusTip(){
+  if(!mobileStatusTipKey)return;
+  if(!pvpLandscapeStage()||document.querySelector('.gl-lobby-overlay.open,.gl-card-review-overlay.open,.gl-vsai-choice-overlay.open,.gl-center-choice-stage.open,.gl-played-detail-overlay.open,.gl-exp-inspector-overlay.open,.gl-result-overlay.open')||document.querySelector('.sidebar.history-open,.sidebar.battlelog-open'))return closeMobileStatusTip();
+  const {side,lane,name}=mobileStatusTipKey,host=uiLaneElement(side,lane),button=[...(host?.querySelectorAll('.gl-status-stack button')||[])].find(b=>b.getAttribute('aria-label')===name);
+  if(!button||button.classList.contains('gl-clickable'))return closeMobileStatusTip();
+  const tip=button.parentElement.querySelector('.gl-indicator-tooltip');if(!tip)return closeMobileStatusTip();
+  const sig=tip.innerHTML;if(mobileStatusTip.dataset.sig!==sig){mobileStatusTip.dataset.sig=sig;mobileStatusTip.innerHTML=sig;const duration=button.querySelector('small')?.textContent;if(duration)mobileStatusTip.querySelector('strong').textContent=name+' — '+duration+' '+(duration==='1'?'TURN':'TURNS');}
+  const rect=uiLayoutRect(button),w=mobileStatusTip.offsetWidth,h=mobileStatusTip.offsetHeight;
+  const rw=parseFloat(document.documentElement.style.getPropertyValue('--gl-stage-logical-w'))||1600,rh=parseFloat(document.documentElement.style.getPropertyValue('--gl-stage-logical-h'))||747;
+  if(!rect)return closeMobileStatusTip();
+  let x=rect.right+10;if(x+w>rw-8)x=rect.left-w-10;
+  mobileStatusTip.style.setProperty('--gl-status-tip-x',Math.max(8,Math.min(rw-w-8,x))+'px');
+  mobileStatusTip.style.setProperty('--gl-status-tip-y',Math.max(8,Math.min(rh-h-8,rect.top+(rect.height-h)/2))+'px');
+}
+document.addEventListener('pointerdown',e=>{if(mobileStatusTipKey&&!e.target.closest('.gl-status-stack button'))closeMobileStatusTip()},true);
+document.addEventListener('click',e=>{
+  if(!pvpLandscapeStage())return;
+  const button=e.target.closest?.('.gl-status-stack button');if(!button||button.classList.contains('gl-clickable'))return;
+  const lane=button.closest('.hero-lane');if(!lane)return;
+  e.preventDefault();e.stopImmediatePropagation();
+  const key={side:lane.dataset.side,lane:lane.dataset.lane,name:button.getAttribute('aria-label')};
+  if(mobileStatusTipKey&&JSON.stringify(key)===JSON.stringify(mobileStatusTipKey))return closeMobileStatusTip();
+  mobileStatusTipKey=key;mobileStatusTip.classList.add('open');updateMobileStatusTip();
+},true);
+window.addEventListener('resize',()=>requestAnimationFrame(updateMobileStatusTip),{passive:true});
 function renderStatuses(laneEl,h,s,side,lane,delayExhaust){
   // Only status-targeting choices can change clickability of a status icon.
   // Ordinary Response, Mana and network ACK snapshots must not recreate images.
@@ -4392,19 +4529,21 @@ function renderHistory(s,chain){
   resolvedHistory.sort(playedChronology);
   if(resolvedHistory.length>260)resolvedHistory.splice(0,resolvedHistory.length-260);
   historyKnown=new Set(resolvedHistory.map(e=>e.id||[e.side,e.card_id,e.timestamp].join('|')));
-  const draw=(host,arr,keepSix=false)=>{
-    const sig=JSON.stringify(arr.map(e=>[e.id||'',e.side||'',e.card_id||'',Number(e.timestamp||0),e.resolution_state||'',e.result_lines||[],e.damage_summary||null,e.healing_by_hero||[],e.effect_results||[],e.card_movements||[],e.mana_result||null,e.card_movement_only||false,e.card_played_chain_id||'']))+'|six:'+String(!!keepSix);
+  const draw=(host,arr,slots=0)=>{
+    const sig=JSON.stringify(arr.map(e=>[e.id||'',e.side||'',e.card_id||'',Number(e.timestamp||0),e.resolution_state||'',e.result_lines||[],e.damage_summary||null,e.healing_by_hero||[],e.effect_results||[],e.card_movements||[],e.mana_result||null,e.card_movement_only||false,e.card_played_chain_id||'']))+'|slots:'+String(slots);
     if(host.dataset.glHistorySig===sig)return false;hideSidebarHoverPreview();host.dataset.glHistorySig=sig;host.innerHTML='';
     arr.forEach(e=>{const v=cv(e.card_id);if(!v)return;const d=document.createElement('button');d.type='button';d.className='played-card gl-played-clickable';d.title='View Card Played detail';const im=document.createElement('img');im.src=art(e.card_id);im.alt=v.name;im.draggable=false;d.appendChild(im);const badge=document.createElement('span');badge.className='gl-played-result-badge gl-played-owner-badge '+(e.side==='PLAYER'?'is-you':'is-opponent');badge.textContent=e.side==='PLAYER'?'YOU':'OPPONENT';d.appendChild(badge);
       if(e.card_movement_only){const tag=document.createElement('span');tag.className='gl-played-discarded-tag';tag.textContent='DISCARDED';d.appendChild(tag);d.classList.add('gl-played-discarded-tile');}
       d.addEventListener('click',ev=>{ev.preventDefault();ev.stopPropagation();hideSidebarHoverPreview();openPlayedDetail(e.side,e.id)});host.appendChild(d);bindSidebarPreview(im)});
-    if(keepSix){for(let i=host.children.length;i<6;i++){const ph=document.createElement('div');ph.className='played-card gl-played-placeholder';host.appendChild(ph)}}
+    if(slots){for(let i=host.children.length;i<slots;i++){const ph=document.createElement('div');ph.className='played-card gl-played-placeholder';host.appendChild(ph)}}
     return true;
   };
   // Card Played runs newest-first: the latest resolved card always occupies the top-left slot.
   // The Battle Log intentionally keeps its separate oldest-to-newest, newest-at-bottom layout.
   const newestFirst=resolvedHistory.slice().reverse();
-  const changed=draw(playedGrid,newestFirst.slice(0,6),true)|draw(historyGrid,newestFirst,false);if(changed)requestAnimationFrame(fitPlayedCards);
+  const capacity=playedCardCapacity();playedGrid.dataset.glPlayedRows=String(capacity/3);
+  const changed=draw(playedGrid,newestFirst.slice(0,capacity),capacity)|draw(historyGrid,newestFirst,false);
+  if(changed||playedGrid.dataset.glFitWidth!==String(playedGrid.clientWidth)){playedGrid.dataset.glFitWidth=String(playedGrid.clientWidth);requestAnimationFrame(fitPlayedCards);}
 }
 
 function renderLog(s){
@@ -4814,7 +4953,7 @@ function renderNow(){
   if(responseRollbackSnapshot&&s.pending?.type!=='response_payment_choice'&&!uiResponseSourceChoice&&s.responseWindow?.response_owner!=='PLAYER')responseRollbackSnapshot=null;
   autoSpecialChoices(s);glPvpWarmVisibleArtwork(s);const chain=renderCombatStacks(s);
   for(const side of ['PLAYER','AI'])for(const lane of laneOrder)renderHero(side,lane,pvpHeroVisualDuringArea(sideHeroes(s,side)?.[lane],side,lane),s);
-  renderHand(s);renderOpponentHand(s);syncExpButtonLock();renderExpInspector();renderMana();renderCenterChoiceStage(s);renderPhase(s);renderPay(s);renderInteractionFocus(s);renderResponseRouteGuide(s);renderPvpIncomingDamage(s);renderDeckActions(s);renderSidebar(s,chain);renderAttackLine(s,chain);renderAllowedModal(s);renderRails(s);syncSoundButton();syncMatchActionButton(s);preparePresentationTargets(presentationPlan);showGameResult(s);renderStatusReminder(s);queuePvpSwapNotices(s);
+  renderHand(s);renderOpponentHand(s);syncExpButtonLock();renderExpInspector();renderMana();renderCenterChoiceStage(s);renderPhase(s);renderPay(s);renderInteractionFocus(s);renderResponseRouteGuide(s);renderPvpIncomingDamage(s);renderDeckActions(s);renderSidebar(s,chain);renderAttackLine(s,chain);renderAllowedModal(s);renderRails(s);syncSoundButton();syncMatchActionButton(s);preparePresentationTargets(presentationPlan);showGameResult(s);renderStatusReminder(s);updateMobileStatusTip();queuePvpSwapNotices(s);
   requestAnimationFrame(()=>{syncPlayerManaPoolToHeroLeft();syncPlayerHandToHeroCenter();syncOpponentHand();syncPlayerNameBox();layoutManaPoolCards(playerManaHost);layoutManaPoolCards(aiManaHost);runPresentationPlan(presentationPlan,s)});
 }
 function clearAuthoredDummyState(){

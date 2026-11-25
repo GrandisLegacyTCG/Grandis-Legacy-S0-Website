@@ -1,0 +1,186 @@
+/* Approved latest standalone VS AI UI adaptation, visual-only.
+ * PvP retains its own whole-body rotation, privacy, thumbnail loader and network.
+ * Source: standalone donor 25 Nov; no AI controller/source cloned. */
+/* RC42 2026-11-25 - approved five-point responsive UI pass.  Geometry is in
+ * logical stage pixels; the stage itself already applies its viewport scale. */
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay{
+  --gl-hero-ui-scale:var(--gl-hero-scale-runtime,1);
+  --gl-hero-ui-unit:calc(1px * var(--gl-hero-ui-scale));
+  --gl-popup-copy:clamp(16px,calc(var(--gl-stage-logical-w,1600px) * .012),22px);
+  --gl-popup-label:calc(var(--gl-popup-copy) * .82);
+  --gl-popup-title:calc(var(--gl-popup-copy) * 1.25);
+}
+/* #1: same logical viewport for full review in both lobby and live play.
+ * Only the content scrolls; frame and header remain within the viewport. */
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .gl-card-review-overlay.open{
+  position:fixed!important;inset:auto!important;left:0!important;top:0!important;
+  width:var(--gl-stage-logical-w,1600px)!important;height:var(--gl-stage-logical-h,747px)!important;
+  min-width:0!important;min-height:0!important;max-width:none!important;max-height:none!important;
+  transform:none!important;transform-origin:0 0!important;
+  padding:0!important;overflow:hidden!important;
+}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .gl-card-review-overlay.open .gl-card-review-panel{
+  width:90%!important;max-width:90%!important;height:92%!important;max-height:92%!important;overflow:hidden!important;
+}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .gl-card-review-overlay.open .gl-card-review-body,
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .gl-card-review-overlay.open .gl-db158-review-frame{
+  width:100%!important;height:100%!important;max-height:100%!important;min-height:0!important;overflow:hidden!important;
+}
+/* Other content modals share the same responsive type scale. Preserve the
+ * established five-column card selection and one-row action card geometry. */
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay :is(.gl-played-detail-panel,.gl-exp-inspector-panel){
+  width:90%!important;max-width:90%!important;max-height:92%!important;overflow:hidden!important;
+}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay :is(.gl-played-detail-head,.gl-exp-inspector-head,.gl-vsai-choice-overlay .choice-head,.gl-vsai-choice-overlay .choice-foot){flex:0 0 auto!important;}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay :is(.gl-played-detail-head h2,.gl-exp-inspector-head h2,.gl-vsai-choice-overlay .choice-head h2,.gl-progression-card>header h2,.gl-result-card>header h2){font-size:var(--gl-popup-title)!important;line-height:1.2!important;}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay :is(.gl-played-detail-close,.gl-exp-inspector-close,.gl-vsai-choice-overlay .choice-foot button,.gl-progression-close,.sidebar .history-close){font-size:var(--gl-popup-label)!important;min-height:36px!important;height:auto!important;padding:8px 15px!important;}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay :is(.gl-played-detail-body,.gl-exp-inspector-list){min-height:0!important;overflow-y:auto!important;overflow-x:hidden!important;overscroll-behavior:contain!important;}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .gl-played-detail-body .played-detail-layout{grid-template-columns:minmax(0,27%) minmax(0,1fr)!important;gap:22px!important;}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .gl-played-detail-body .played-detail-card img{width:100%!important;height:auto!important;max-height:calc(var(--gl-stage-logical-h) * .76)!important;object-fit:contain!important;}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .gl-played-detail-body .played-detail-copy,
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .gl-played-detail-body .played-detail-copy :is(p,li){font-size:var(--gl-popup-copy)!important;line-height:1.45!important;}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .gl-played-detail-body .played-detail-copy :is(h3,h4){font-size:calc(var(--gl-popup-copy) * 1.12)!important;}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .gl-played-detail-body :is(.played-summary-field>strong,.played-related>strong,.played-damage-block>strong,.played-chain-step span,.played-result-hero-head span){font-size:var(--gl-popup-label)!important;}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .gl-vsai-choice-overlay:not(.gl-choice-swap) .choice-panel{width:90%!important;max-width:90%!important;}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .gl-vsai-choice-overlay.gl-choice-to-hand .choice-panel{width:min(90%,1280px)!important;max-width:90%!important;}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .gl-vsai-choice-overlay :is(.choice-instruction,.choice-body p,.choice-body label,.choice-body .choice-note){font-size:var(--gl-popup-copy)!important;line-height:1.35!important;}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .gl-vsai-choice-overlay :is(.discard-preview span,.gl-inspect-card span,.discard-select,.choice-footer-buttons button){font-size:var(--gl-popup-label)!important;}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .gl-vsai-choice-overlay:not(.gl-choice-swap) :is(.choice-grid,.card-search-choice-grid,.reorder-choice-grid,.inspect-card-grid){grid-template-columns:repeat(5,minmax(0,1fr))!important;grid-auto-columns:auto!important;max-width:1120px!important;margin-inline:auto!important;}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .gl-exp-inspector-summary span,html.gl-adaptive-stage.gl-pvp-mobile-gameplay .gl-exp-inspector-foot,html.gl-adaptive-stage.gl-pvp-mobile-gameplay .gl-exp-inspector-card span{font-size:var(--gl-popup-label)!important;}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .gl-exp-inspector-summary strong,html.gl-adaptive-stage.gl-pvp-mobile-gameplay .gl-exp-inspector-card strong{font-size:var(--gl-popup-copy)!important;}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .gl-exp-inspector-list{grid-template-columns:repeat(5,minmax(0,1fr))!important;}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .gl-exp-inspector-card img{max-width:100%!important;}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay :is(.gl-progression-card,.gl-coin-card,.gl-result-card){max-height:92%!important;overscroll-behavior:contain!important;}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay :is(.gl-progression-card,.gl-coin-card,.gl-result-card) :is(p,button,.gl-progression-rank){font-size:var(--gl-popup-copy)!important;}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .gl-progression-card-button img{width:min(210px,100%)!important;}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .gl-center-choice-stage .gl-center-choice-title{font-size:calc(var(--gl-popup-title) * 1.15)!important;}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .gl-center-choice-stage .gl-center-choice-helper{font-size:var(--gl-popup-copy)!important;line-height:1.3!important;}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .gl-center-choice-stage :is(.gl-center-choice-status,.gl-center-choice-actions button){font-size:var(--gl-popup-label)!important;}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .gl-center-choice-stage .gl-center-choice-copy{max-width:94%!important;}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .gl-center-choice-stage .gl-center-choice-actions{flex-shrink:0!important;}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .sidebar :is(.history-panel,.battlelog-panel){
+  left:auto!important;right:8px!important;top:12px!important;bottom:34px!important;
+  width:calc(var(--gl-stage-logical-w) * .84)!important;max-width:none!important;
+  padding:14px 20px!important;overflow-y:auto!important;overflow-x:hidden!important;
+}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .sidebar :is(.history-panel,.battlelog-panel)>.history-head{top:-14px!important;padding:10px 0!important;}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .sidebar .history-head h3{font-size:var(--gl-popup-title)!important;}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .sidebar .history-panel .history-grid{grid-template-columns:repeat(5,minmax(0,1fr))!important;gap:16px!important;}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .sidebar .history-panel .history-grid .played-card{width:min(100%,170px)!important;max-width:none!important;height:auto!important;}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .sidebar .history-panel .gl-played-result-badge{font-size:var(--gl-popup-label)!important;}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .sidebar .battlelog-panel .logline{font-size:var(--gl-popup-copy)!important;line-height:1.4!important;}
+/* #2: both hands remain in their own reserved strip.  Do not change the
+ * HUD row height, because that would move the field every time a card is drawn. */
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .bottom-hud .hand{transform:none!important;}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .hand .hand-track{
+  position:absolute!important;left:var(--gl-hand-left,0px)!important;
+  width:var(--gl-hand-space,100%)!important;height:100%!important;top:0!important;
+  --hand-w:var(--gl-fit-hand-w,81px);--hand-h:var(--gl-fit-hand-h,119.118px);
+  padding:0!important;transform:none!important;gap:4px!important;pointer-events:none!important;
+}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .hand .hand-track .hand-card{margin-left:0!important;pointer-events:auto!important;flex:0 0 var(--hand-w)!important;width:var(--hand-w)!important;height:var(--hand-h)!important;}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .hand .hand-track.gl-hand-dense .hand-card{--fan-rot:0deg!important;--opp-fan-rot:0deg!important;--fan-lift:0px!important;--opp-fan-lift:0px!important;}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .hand.bottom .hand-track.gl-hand-dense .hand-card:after{left:0!important;right:0!important;}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .hand.bottom .hand-track.gl-hand-dense .card-actions{width:min(100%,58px)!important;}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .hand.bottom .hand-track.gl-hand-dense .card-actions button{width:100%!important;min-width:0!important;padding-inline:1px!important;font-size:clamp(5px,calc(var(--hand-w) * .13),7px)!important;}
+/* #3: use one logical factor for all Hero micro-UI. Base is the approved
+ * non-expanded mobile Hero geometry (108px base, 1.14 artwork multiplier).
+ * Existing larger counter defaults are retained; viewport scaling occurs once. */
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .gl-hp-overlay{
+  /* Anchor to the contained 5:7 face, not the taller outer frame.
+   * The opaque badge extends above the artwork and covers its printed HP. */
+  --gl-hero-face-w:min(var(--hero-w),calc(var(--hero-h) * 5 / 7));
+  --gl-hero-face-h:calc(var(--gl-hero-face-w) * 7 / 5);
+  left:calc(50% + var(--gl-hero-face-w) / 2 + var(--gl-hero-ui-unit))!important;
+  top:calc(50% - var(--gl-hero-face-h) / 2 - 4 * var(--gl-hero-ui-unit))!important;
+  width:calc(46 * var(--gl-hero-ui-unit))!important;height:calc(21 * var(--gl-hero-ui-unit))!important;
+  border-radius:calc(6 * var(--gl-hero-ui-unit))!important;
+  background:#050d14!important;
+}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .hero-lane:has(.gl-hero-physical-stack.is-exhausted) .gl-hp-overlay{
+  /* Match the top-right of the rotated face; the live HP stays upright. */
+  left:calc(50% + var(--gl-hero-face-h) / 2 + var(--gl-hero-ui-unit))!important;
+  top:calc(50% - var(--gl-hero-face-w) / 2 - 4 * var(--gl-hero-ui-unit))!important;
+}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .gl-hp-text{width:100%!important;height:calc(14 * var(--gl-hero-ui-unit))!important;font-size:calc(9 * var(--gl-hero-ui-unit))!important;line-height:calc(14 * var(--gl-hero-ui-unit))!important;padding:0 calc(2 * var(--gl-hero-ui-unit))!important;}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .gl-hp-track{left:calc(6 * var(--gl-hero-ui-unit))!important;bottom:calc(2 * var(--gl-hero-ui-unit))!important;width:calc(34 * var(--gl-hero-ui-unit))!important;height:calc(5 * var(--gl-hero-ui-unit))!important;}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .gl-status-stack{left:calc(6 * var(--gl-hero-ui-unit))!important;top:calc(6 * var(--gl-hero-ui-unit))!important;gap:calc(4 * var(--gl-hero-ui-unit))!important;width:calc(22.5 * var(--gl-hero-ui-unit))!important;max-width:calc(22.5 * var(--gl-hero-ui-unit))!important;}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay :is(.gl-info-indicator,.gl-info-indicator>button,.gl-negative-status,.gl-negative-status>.gl-status,.gl-negative-status>.gl-status img){width:calc(22.5 * var(--gl-hero-ui-unit))!important;height:calc(22.5 * var(--gl-hero-ui-unit))!important;min-width:calc(22.5 * var(--gl-hero-ui-unit))!important;min-height:calc(22.5 * var(--gl-hero-ui-unit))!important;}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .gl-info-indicator>button{font-size:calc(11 * var(--gl-hero-ui-unit))!important;line-height:1!important;}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .gl-sleep-status-glyph{font-size:calc(11 * var(--gl-hero-ui-unit))!important;}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .gl-negative-status>.gl-status small{font-size:calc(10 * var(--gl-hero-ui-unit))!important;min-width:calc(14 * var(--gl-hero-ui-unit))!important;height:calc(14 * var(--gl-hero-ui-unit))!important;line-height:calc(12 * var(--gl-hero-ui-unit))!important;right:calc(-4 * var(--gl-hero-ui-unit))!important;bottom:calc(-4 * var(--gl-hero-ui-unit))!important;}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .hero-lane>.gl-hero-exp-indicator{left:calc(6 * var(--gl-hero-ui-unit))!important;bottom:calc(6 * var(--gl-hero-ui-unit))!important;height:calc(18 * var(--gl-hero-ui-unit))!important;min-height:calc(18 * var(--gl-hero-ui-unit))!important;min-width:calc(49 * var(--gl-hero-ui-unit))!important;padding-inline:calc(6 * var(--gl-hero-ui-unit))!important;font-size:calc(9 * var(--gl-hero-ui-unit))!important;line-height:calc(16 * var(--gl-hero-ui-unit))!important;}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .attachment-card .attachment-turn{font-size:calc(12 * var(--gl-hero-ui-unit))!important;min-width:calc(21 * var(--gl-hero-ui-unit))!important;height:calc(21 * var(--gl-hero-ui-unit))!important;line-height:calc(19 * var(--gl-hero-ui-unit))!important;padding-inline:calc(4 * var(--gl-hero-ui-unit))!important;}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .gl-hero-actions{right:calc(7 * var(--gl-hero-ui-unit))!important;top:calc(6 * var(--gl-hero-ui-unit))!important;gap:calc(4 * var(--gl-hero-ui-unit))!important;}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .gl-hero-actions .gl-hero-action.gl-hero-action-icon{width:calc(30 * var(--gl-hero-ui-unit))!important;min-width:calc(30 * var(--gl-hero-ui-unit))!important;max-width:calc(30 * var(--gl-hero-ui-unit))!important;height:calc(30 * var(--gl-hero-ui-unit))!important;min-height:calc(30 * var(--gl-hero-ui-unit))!important;max-height:calc(30 * var(--gl-hero-ui-unit))!important;}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .gl-hero-actions .gl-hero-action:not(.gl-hero-action-icon){height:calc(20 * var(--gl-hero-ui-unit))!important;min-height:calc(20 * var(--gl-hero-ui-unit))!important;max-height:calc(20 * var(--gl-hero-ui-unit))!important;line-height:calc(12 * var(--gl-hero-ui-unit))!important;}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .gl-hero-actions .gl-hero-action:not(.gl-hero-action-icon):not(.gl-action-font-fitted){font-size:calc(8.75 * var(--gl-hero-ui-unit))!important;}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .gl-legacy-under-hero{left:calc(6 * var(--gl-hero-ui-unit))!important;top:calc(6 * var(--gl-hero-ui-unit))!important;width:calc(19 * var(--gl-hero-ui-unit))!important;height:calc(19 * var(--gl-hero-ui-unit))!important;font-size:calc(11 * var(--gl-hero-ui-unit))!important;line-height:1!important;}
+/* #4: click/tap tooltip stays readable, upright in the game's orientation,
+ * and does not depend on hover or the lifespan of a rendered Status button. */
+.gl-mobile-status-tip{display:none;}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .gl-status-stack .gl-indicator-tooltip{display:none!important;}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .gl-mobile-status-tip.open{
+  display:block;position:fixed;left:0;top:0;z-index:29000;
+  transform:translate(var(--gl-status-tip-x,8px),var(--gl-status-tip-y,8px));transform-origin:0 0;
+  width:max-content;max-width:min(380px,calc(var(--gl-stage-logical-w) * .5));padding:10px 13px;
+  border:1px solid #b09244;border-radius:8px;background:#08131d;color:#e5edf5;
+  font-size:13px;line-height:1.4;box-shadow:0 12px 36px #000a;white-space:pre-line;pointer-events:none;
+}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .gl-mobile-status-tip strong{display:block;color:#f4ca52;font-size:15px;margin-bottom:4px;}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .gl-mobile-status-tip span{display:block;}
+/* #5: only the available number of Card Played rows changes, not card sizes. */
+.played[data-gl-played-rows="3"]{grid-template-rows:repeat(3,auto)!important;}
+/* The rotated game needs a custom scroll owner rather than native physical-axis
+ * panning. Only real scrolling surfaces opt out; landscape remains native. */
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay.gl-stage-portrait :is(.gl-vsai-choice-overlay .choice-body,.gl-vsai-choice-overlay .card-search-choice-grid,.gl-played-detail-body,.gl-exp-inspector-list,.gl-progression-card,.gl-result-card,.gl-coin-card,.history-panel,.battlelog-panel){touch-action:none!important;}
+/* Actual action icon slots and attachment badge offsets follow the same factor. */
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .attachment-card.left>.attachment-turn{left:calc(-4 * var(--gl-hero-ui-unit))!important;top:calc(-4 * var(--gl-hero-ui-unit))!important;}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .attachment-card.right>.attachment-turn{right:calc(-4 * var(--gl-hero-ui-unit))!important;top:calc(-4 * var(--gl-hero-ui-unit))!important;}
+/* Reflow width and flex basis immediately on draw/discard/resize; never let
+ * an intermediate width-animation push a crowded hand into the HUD rails. */
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .hand .hand-track .hand-card{transition:transform .14s ease,filter .14s ease!important;}
+html.gl-adaptive-stage.gl-pvp-mobile-gameplay .hand .hand-track.gl-hand-dense .hand-card{transition:none!important;}
+
+/* Universal direct-action geometry: center-stage modes share one count/space
+ * calculation. This is intentionally separate from Deck/Discard collection
+ * grids and enlarged preview sizing. Keep both desktop and mobile in one row.
+ * JS measures the untransformed row and reserved heading/action space. */
+html:root body.gl-center-choice-active .gl-center-choice-stage.open[data-gl-action-popup="1"] .gl-center-choice-cards{
+  box-sizing:border-box!important;
+  width:min(1500px,100%)!important;max-width:100%!important;min-width:0!important;
+  min-height:0!important;max-height:none!important;
+  flex-wrap:nowrap!important;justify-content:center!important;align-items:center!important;
+  gap:var(--gl-action-gap,8px)!important;padding:44px 24px 12px!important;
+  overflow:visible!important;touch-action:manipulation!important;
+}
+html:root body.gl-center-choice-active .gl-center-choice-stage.open[data-gl-action-popup="1"] .gl-center-choice-cards>.gl-center-choice-card{
+  box-sizing:border-box!important;
+  width:var(--gl-action-card-w,110px)!important;
+  min-width:0!important;max-width:none!important;
+  flex:0 0 var(--gl-action-card-w,110px)!important;
+  aspect-ratio:5/7!important;height:auto!important;max-height:none!important;
+}
+/* Keep the same center stage spacing for each direct-action mode. */
+html:root body.gl-center-choice-active .gl-center-choice-stage.open[data-gl-action-popup="1"] .gl-center-choice-actions{
+  margin-top:8px!important;max-width:96%!important;flex-wrap:wrap!important;
+}
+html:root body.gl-center-choice-active .gl-center-choice-stage.open[data-gl-action-popup="1"] .gl-center-choice-copy{
+  min-width:0;max-width:94%!important;
+}
+/* Optional Swap is a direct three-card decision, not a collection selector.
+ * It shares the sizing function while retaining its labeled three-slot UI. */
+html:root .gl-vsai-choice-overlay.gl-choice-swap .choice-panel{
+  width:min(680px,calc(100vw - 24px))!important;max-width:96vw!important;
+}
+html:root.gl-adaptive-stage .gl-vsai-choice-overlay.gl-choice-swap .choice-panel{
+  width:min(680px,92%)!important;max-width:92%!important;
+}
+html:root .gl-vsai-choice-overlay.gl-choice-swap .gl-swap-choice-actions{
+  gap:var(--gl-action-gap,8px)!important;
+}
+html:root .gl-vsai-choice-overlay.gl-choice-swap .gl-swap-choice-frame{
+  box-sizing:border-box!important;
+  width:var(--gl-action-card-w,110px)!important;max-width:100%!important;
+  height:auto!important;aspect-ratio:5/7!important;flex-shrink:0!important;
+}

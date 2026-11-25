@@ -1,3 +1,17 @@
+# GRANDIS LEGACY - WEBSITE RC42 ACTION UI UPDATE (25 NOVEMBER 2026)
+
+**Current release:** Homepage v2.3.17, Rulebook v3.5, Deck Builder v1.68, VS AI RC42, Main Deck R3.98, Legacy Deck R4.0, and 250 shared card artworks.
+
+VS AI integrates the cumulative minor UI improvements, unified direct-action popup sizing, Hero-relative action-card sizes (desktop 100%, mobile 89%), and upright mobile HP indicators for Ready/Exhausted Heroes. Website-specific shared header/navigation, gold-outline Import Deck, artwork loader/cache revision, routing, analytics, and all unrelated application files remain intact. Gameplay and AI engine files are unchanged.
+
+**Clean replacement:** The inactive R3.94 overlay and retired engine favicon alias have been removed. All supported Website and PvP entry points use the canonical shared favicon; current game routes load R3.98. The FULL archive intentionally excludes `/pvp/`; retain the existing PvP subtree during manual deployment. GitHub remains read-only for the Website development assistant.
+
+The accompanying release audit and SHA-256 manifest contain the verified baseline, exact file changes, and testing limitations.
+
+---
+
+## Historical release notes (earlier states; superseded by the current release above)
+
 # GRANDIS LEGACY — WEBSITE NON-PVP UPDATE (24 NOVEMBER 2026)
 
 **New update:** VS AI RC42 Mobile All 5 + touch-preview dismissal from latest 24 Nov standalone source; **P3 Shared Favicon Optimization completed for all non-PvP pages.** Gameplay/AI card logic from previously deployed RC42 (AI Conservation + Fire Flask, Main R3.98, Legacy R4.0) is preserved.

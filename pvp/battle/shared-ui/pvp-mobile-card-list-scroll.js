@@ -1,87 +1,55 @@
-/* Grandis Legacy PvP - adapted RC42 mobile card-list swipe bridge, 24 Nov 2026.
- * PvP rotates the entire BODY +90deg on portrait phones. Browser native
- * scrolling of a nested, rotated overflow-y element may not respond to the
- * corresponding physical horizontal finger swipe. This bridge maps physical
- * pointer movement into the logical vertical scroll coordinate, without
- * changing desktop or normal landscape behavior. It never changes game state.
- */
+/* PvP adaptation: unified mobile popup scroll bridge. Rotated portrait stages
+ * map physical horizontal drags to logical vertical scroll, without letting a
+ * swipe activate a card. Landscape uses native scrolling. */
 (() => {
   'use strict';
-  let gesture = null;
-  let suppressClick = null;
-  const root = document.documentElement;
-  const portraitStage = () => root.classList.contains('gl-adaptive-stage') &&
-    root.classList.contains('gl-pvp-mobile-gameplay') &&
-    root.classList.contains('gl-stage-portrait') &&
-    true;
-
-  function scrollOwner(target) {
-    const overlay = target?.closest?.('.gl-vsai-choice-overlay.open');
-    if (!overlay) return null;
-    const body = target.closest('.gl-choice-body');
-    if (!body || !overlay.contains(body)) return null;
-    // Preserve the approved F16 single-scroll-owner model: when a search
-    // returns a card to Hand, only its candidate grid may scroll.
-    const owner = overlay.classList.contains('gl-choice-to-hand')
-      ? target.closest('.card-search-choice-grid') : body;
-    if (!owner || !body.contains(owner) && owner !== body) return null;
-    if (owner.scrollHeight <= owner.clientHeight + 2) return null;
-    return owner;
+  const root=document.documentElement;
+  const bound=new WeakSet();
+  const portrait=()=>root.classList.contains('gl-pvp-mobile-gameplay')&&root.classList.contains('gl-stage-portrait');
+  const modalSelector='.gl-vsai-choice-overlay.open,.gl-played-detail-overlay.open,.gl-card-review-overlay.open,.gl-exp-inspector-overlay.open,.gl-progression-overlay.open,.gl-result-overlay.open,.gl-coin-overlay.open,.gl-center-choice-stage.open,.sidebar.history-open .history-panel,.sidebar.battlelog-open .battlelog-panel,.gl-sound-panel:not([hidden])';
+  function ownerFor(target,review){
+    const overlay=review?target.closest?.('#cardReviewDialog'):target.closest?.(modalSelector);
+    if(!overlay)return null;
+    if(!review&&target.closest('.gl-vsai-choice-overlay.gl-choice-to-hand')){
+      const grid=target.closest('.card-search-choice-grid');
+      return grid&&grid.scrollHeight>grid.clientHeight+2?grid:null;
+    }
+    for(let el=target;el;el=el.parentElement){
+      const cs=el.ownerDocument.defaultView.getComputedStyle(el);
+      if(/auto|scroll/.test(cs.overflowY)&&el.scrollHeight>el.clientHeight+2)return el;
+      if(el===overlay)break;
+    }
+    return null;
   }
-
-  document.addEventListener('touchstart', (event) => {
-    gesture = null;
-    if (!portraitStage() || event.touches.length !== 1) return;
-    const owner = scrollOwner(event.target);
-    if (!owner) return;
-    const touch = event.touches[0];
-    gesture = {
-      id: touch.identifier, owner, x: touch.clientX, y: touch.clientY,
-      scrollTop: owner.scrollTop, dragging: false,
-    };
-  }, {capture: true, passive: true});
-
-  document.addEventListener('touchmove', (event) => {
-    const g = gesture;
-    if (!g || !portraitStage()) return;
-    const touch = Array.from(event.touches).find(t => t.identifier === g.id);
-    if (!touch || !g.owner.isConnected) { gesture = null; return; }
-    const dx = touch.clientX - g.x;
-    const dy = touch.clientY - g.y;
-    // A physical horizontal gesture = vertical movement in the rotated game.
-    // Keep near-vertical physical gestures available to the browser normally.
-    if (!g.dragging) {
-      if (Math.abs(dx) < 7 || Math.abs(dx) < Math.abs(dy) * 1.08) return;
-      g.dragging = true;
+  function bind(doc,review=false){
+    if(!doc||bound.has(doc))return;bound.add(doc);
+    let gesture=null,suppress=null;
+    doc.addEventListener('touchstart',e=>{
+      gesture=null;suppress=null;if(!portrait()||e.touches.length!==1)return;
+      const owner=ownerFor(e.target,review);if(!owner)return;
+      const t=e.touches[0];gesture={id:t.identifier,owner,x:t.clientX,y:t.clientY,top:owner.scrollTop,drag:false};
+    },{capture:true,passive:true});
+    doc.addEventListener('touchmove',e=>{
+      const g=gesture;if(!g||!portrait())return;
+      const t=[...e.touches].find(x=>x.identifier===g.id);if(!t||!g.owner.isConnected){gesture=null;return;}
+      const dx=t.clientX-g.x,dy=t.clientY-g.y;
+      // An iframe receives coordinates in its own logical coordinate space.
+      // Parent-document events are in physical viewport coordinates.
+      const primary=review?-dy:dx,other=review?dx:dy;
+      if(!g.drag){if(Math.abs(primary)<7||Math.abs(primary)<Math.abs(other)*1.08)return;g.drag=true;}
+      if(e.cancelable)e.preventDefault();
+      const scale=review?1:parseFloat(root.style.getPropertyValue('--gl-pvp-mobile-touch-scroll-scale'))||parseFloat(root.style.getPropertyValue('--ui-scale'))||1;
+      g.owner.scrollTop=Math.max(0,Math.min(g.owner.scrollHeight-g.owner.clientHeight,g.top+primary/scale));
+    },{capture:true,passive:false});
+    function finish(e){
+      if(!gesture)return;const g=gesture;
+      if(e.type!=='touchcancel'&&![...e.changedTouches].some(t=>t.identifier===g.id))return;
+      gesture=null;if(g.drag){if(e.cancelable)e.preventDefault();suppress={owner:g.owner,until:Date.now()+350};}
     }
-    if (event.cancelable) event.preventDefault();
-    const scale = parseFloat(root.style.getPropertyValue('--gl-pvp-mobile-touch-scroll-scale')) ||
-      parseFloat(root.style.getPropertyValue('--ui-scale')) || 1;
-    const max = Math.max(0, g.owner.scrollHeight - g.owner.clientHeight);
-    // Rotate +90deg: physical +X means logical -Y, so scrollTop increases.
-    g.owner.scrollTop = Math.min(max, Math.max(0, g.scrollTop + dx / scale));
-  }, {capture: true, passive: false});
-
-  function finish(event) {
-    if (!gesture) return;
-    const g = gesture;
-    if (event.type === 'touchcancel' || !Array.from(event.changedTouches).some(t => t.identifier === g.id)) return;
-    gesture = null;
-    if (g.dragging) {
-      // A swipe must never accidentally select the card beneath the finger.
-      if (event.cancelable) event.preventDefault();
-      suppressClick = {owner: g.owner, until: Date.now() + 350};
-    }
+    doc.addEventListener('touchend',finish,{capture:true,passive:false});doc.addEventListener('touchcancel',finish,{capture:true,passive:false});
+    doc.addEventListener('click',e=>{if(!suppress||e.detail===0)return;if(Date.now()>suppress.until){suppress=null;return;}if(suppress.owner.contains(e.target)){e.preventDefault();e.stopImmediatePropagation();suppress=null;}},true);
   }
-  document.addEventListener('touchend', finish, {capture: true, passive: false});
-  document.addEventListener('touchcancel', finish, {capture: true, passive: false});
-  document.addEventListener('click', (event) => {
-    if (!suppressClick) return;
-    if (Date.now() > suppressClick.until) { suppressClick = null; return; }
-    if (suppressClick.owner.contains(event.target)) {
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      suppressClick = null;
-    }
-  }, true);
+  bind(document);
+  window.GL_MOBILE_POPUP_SCROLL={attachReview:doc=>bind(doc,true)};
+  const frame=document.querySelector('.gl-db158-review-frame');if(frame?.contentDocument)bind(frame.contentDocument,true);
 })();

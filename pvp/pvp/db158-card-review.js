@@ -69,12 +69,39 @@
       '<script>(function(){const card='+serialized+';const lineage='+serializedLineage+';window.GL_S0_REVIEW_RENDER(card);if(lineage.length){const panel=document.getElementById("reviewProgression"),host=document.getElementById("reviewProgressionCards");panel.hidden=false;lineage.forEach(function(x){const b=document.createElement("button");b.type="button";b.className="review-progression-card"+(x.id===card.id?" active":"");b.dataset.reviewRankId=x.id;b.setAttribute("aria-label","Review "+x.name);const img=document.createElement("img");img.src=x.image;img.alt=x.name;img.draggable=false;b.appendChild(img);b.addEventListener("click",function(){parent.postMessage({kind:"GL_S0_REVIEW_RANK",cardId:x.id},"*")});host.appendChild(b);});}function close(){parent.postMessage({kind:"GL_S0_REVIEW_CLOSE"},"*")}document.getElementById("reviewClose").addEventListener("click",close);document.addEventListener("keydown",function(e){if(e.key==="Escape"){e.preventDefault();close();}});function reportHeight(){var row=document.querySelector("#cardReviewDialog .review-card");if(row)parent.postMessage({kind:"GL_S0_REVIEW_FIT",height:Math.ceil(row.getBoundingClientRect().bottom)},location.origin);}requestAnimationFrame(reportHeight);setTimeout(reportHeight,80);document.fonts.ready.then(reportHeight);var img=document.getElementById("reviewArt");if(img&&!img.complete)img.addEventListener("load",reportHeight,{once:true});if(window.ResizeObserver)new ResizeObserver(reportHeight).observe(document.querySelector(".review-card"));window.addEventListener("resize",reportHeight);var reviewKey=card.id+"|"+lineage.map(function(x){return x.id;}).join("|");var notified=false;function signalReady(){if(notified)return;notified=true;reportHeight();parent.postMessage({kind:"GL_S0_REVIEW_READY",reviewKey:reviewKey,cardId:card.id},location.origin);}function afterArt(){Promise.resolve(document.fonts.ready).then(function(){requestAnimationFrame(function(){requestAnimationFrame(signalReady);});});}if(img&&!img.complete){img.addEventListener("load",afterArt,{once:true});img.addEventListener("error",afterArt,{once:true});}else afterArt();setTimeout(signalReady,2100);})();<\/script>'+ 
       '<script>(function(){window.addEventListener("message",function(ev){if(ev.source!==parent||ev.origin!==location.origin||ev.data?.kind!=="GL_S0_REVIEW_UPDATE")return;var data=ev.data,card=data.card;if(!card||!window.GL_S0_REVIEW_RENDER)return;window.GL_S0_REVIEW_RENDER(card);var footer=document.getElementById("reviewProgression"),host=document.getElementById("reviewProgressionCards"),lineage=Array.isArray(data.lineage)?data.lineage:[];footer.hidden=!lineage.length;host.replaceChildren();lineage.forEach(function(x){var b=document.createElement("button");b.type="button";b.className="review-progression-card"+(x.id===card.id?" active":"");b.dataset.reviewRankId=x.id;b.setAttribute("aria-label","Review "+x.name);var im=document.createElement("img");im.src=x.image;im.alt=x.name;im.draggable=false;b.appendChild(im);b.addEventListener("click",function(){parent.postMessage({kind:"GL_S0_REVIEW_RANK",cardId:x.id},location.origin)});host.appendChild(b)});document.documentElement.scrollTop=0;document.body.scrollTop=0;requestAnimationFrame(function(){var row=document.querySelector("#cardReviewDialog .review-card");if(row)parent.postMessage({kind:"GL_S0_REVIEW_FIT",height:Math.ceil(row.getBoundingClientRect().bottom)},location.origin)});var key=String(data.reviewKey||card.id+"|"+lineage.map(function(x){return x.id;}).join("|")),art=document.getElementById("reviewArt"),delivered=false;function loaded(){if(delivered)return;delivered=true;Promise.resolve(document.fonts.ready).then(function(){requestAnimationFrame(function(){requestAnimationFrame(function(){parent.postMessage({kind:"GL_S0_REVIEW_READY",reviewKey:key,cardId:card.id},location.origin);});});});}if(art&&!art.complete){art.addEventListener("load",loaded,{once:true});art.addEventListener("error",loaded,{once:true});}else loaded();setTimeout(loaded,2100)})})();<\/script></body></html>';
   }
+  // VS AI mobile review typography/scroll behavior, scoped to the read-only
+  // lobby iframe. It never touches PvP session, socket or gameplay choices.
+  function syncMobileLobbyReview(frame){
+    var d=frame?.contentDocument;if(!d?.head)return;
+    var mobile=g.document.documentElement.classList.contains('gl-pvp-mobile-desktop');
+    d.documentElement.classList.toggle('gl-review-mobile',mobile);
+    if(!mobile||d.getElementById('gl-pvp-mobile-review-style'))return;
+    var style=d.createElement('style');style.id='gl-pvp-mobile-review-style';
+    style.textContent=`
+      html.gl-review-mobile,html.gl-review-mobile body{width:100%!important;height:100%!important;min-height:0!important;overflow:hidden!important;background:transparent!important;}
+      html.gl-review-mobile #cardReviewDialog{display:block!important;width:100%!important;height:100%!important;min-height:0!important;overflow-y:auto!important;overflow-x:hidden!important;overscroll-behavior:contain!important;touch-action:pan-y!important;}
+      html.gl-review-mobile #cardReviewDialog .review-card{display:flex!important;flex-direction:column!important;min-height:100%!important;max-height:none!important;overflow:visible!important;}
+      html.gl-review-mobile #cardReviewDialog .review-header{position:sticky!important;top:0!important;z-index:20!important;background:#242630!important;flex:0 0 auto!important;padding:16px 22px!important;}
+      html.gl-review-mobile #cardReviewDialog .review-header h2{font-size:clamp(22px,2.1vw,32px)!important;}
+      html.gl-review-mobile #cardReviewDialog .dialog-eyebrow{font-size:clamp(13px,1.35vw,19px)!important;}
+      html.gl-review-mobile #cardReviewDialog .review-close{font-size:28px!important;min-width:44px!important;min-height:44px!important;}
+      html.gl-review-mobile #cardReviewDialog{--gl-review-art-w:clamp(180px,25vw,360px);}
+      html.gl-review-mobile #cardReviewDialog .review-layout{display:grid!important;grid-template-columns:var(--gl-review-art-w) minmax(0,1fr)!important;gap:22px!important;padding:18px 22px!important;flex:0 0 auto!important;max-height:none!important;overflow:visible!important;}
+      html.gl-review-mobile #cardReviewDialog .review-art{width:var(--gl-review-art-w)!important;height:calc(var(--gl-review-art-w) * 1.4)!important;object-fit:contain!important;}
+      html.gl-review-mobile #cardReviewDialog :is(.review-detail-column,.review-rows,.review-stats){min-width:0!important;max-height:none!important;height:auto!important;overflow:visible!important;}
+      html.gl-review-mobile #cardReviewDialog :is(.review-rows,.review-stats) :is(strong,p,li,dd){font-size:clamp(17px,1.55vw,25px)!important;line-height:1.38!important;overflow-wrap:anywhere!important;}
+      html.gl-review-mobile #cardReviewDialog :is(.review-rows,.review-stats) :is(span,small,dt){font-size:clamp(13px,1.15vw,19px)!important;line-height:1.25!important;overflow-wrap:anywhere!important;}
+      html.gl-review-mobile #cardReviewDialog .review-progression{flex:0 0 auto!important;max-height:none!important;overflow:visible!important;padding:14px 22px!important;}
+      html.gl-review-mobile #cardReviewDialog .review-progression-card img{width:100%!important;height:auto!important;aspect-ratio:5/7!important;object-fit:contain!important;}
+    `;d.head.appendChild(style);
+  }
   function mount(el,cardId,progressionIds){
     var c=getCard(cardId);if(!el||!c)return false;
     var ids=Array.isArray(progressionIds)?progressionIds:[];
     var key=cardId+'|'+ids.join('|');
     var existing=el.querySelector('.gl-db158-review-frame');
     if(existing){
+      syncMobileLobbyReview(existing);
       existing.setAttribute('title',c.name+' — Deck Builder v1.66 card review');
       existing.setAttribute('scrolling',ids.length?'auto':'no');
       existing.setAttribute('aria-label',c.name+' card review');
@@ -91,7 +118,7 @@
     frame.setAttribute('aria-label',c.name+' card review');
     frame.glReviewVisualReady=false;
     frame.glReviewPayload={kind:'GL_S0_REVIEW_UPDATE',reviewKey:key,card:c,lineage:ids.map(getCard).filter(Boolean).map(x=>({id:x.id,name:x.name,image:x.image}))};
-    frame.addEventListener('load',function(){frame.glReviewReady=true;if(frame.isConnected)frame.contentWindow?.postMessage(frame.glReviewPayload,g.location.origin)},{once:true});
+    frame.addEventListener('load',function(){syncMobileLobbyReview(frame);frame.glReviewReady=true;if(frame.isConnected)frame.contentWindow?.postMessage(frame.glReviewPayload,g.location.origin)},{once:true});
     frame.srcdoc=documentHtml(c,ids);el.appendChild(frame);return true;
   }
   // Idle-only CSS cache warmup: normal HTML/CSS over the existing static
@@ -112,5 +139,6 @@
   }
   if(g.document.readyState==='loading')g.document.addEventListener('DOMContentLoaded',scheduleWarmup,{once:true});
   else scheduleWarmup();
+  g.addEventListener('resize',function(){g.requestAnimationFrame(function(){syncMobileLobbyReview(g.document.querySelector('#pvpS0CardPreview .gl-db158-review-frame'));});},{passive:true});
   g.GL_DB158_REVIEW={mount:mount,getCard:getCard,documentHtml:documentHtml,source:'Main R3.8 / Legacy R3.7 (DB v1.66)',view:'Deck Builder v1.66',heroFooter:'lobby-only'};
 })(window);

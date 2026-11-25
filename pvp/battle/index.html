@@ -303,6 +303,7 @@ html.gl-adaptive-stage .played{column-gap:5px;row-gap:5px}
 <link rel="stylesheet" href="runtime/pvp-mobile-vsai-batch2-parity.css?v=20261124-step2-donor-batch2">
 
 <link rel="stylesheet" href="runtime/pvp-ui-sync.css?v=20261125-ui-sync1">
+<link rel="stylesheet" href="runtime/pvp-vsai-followup-20261125.css?v=pvp-ui-sync2-action-hp-hand-played">
 </head>
 <body>
 <div class="app gl-lobby-hidden">
@@ -454,11 +455,13 @@ html.gl-adaptive-stage .played{column-gap:5px;row-gap:5px}
         :`translate(0px,0px) scale(${scale})`);
       publish(scale,logicalW,logicalH);
       root.style.setProperty('--hero-base-w-logical',mobileBaseW+'px');
+      root.style.setProperty('--gl-hero-ui-scale',String(mobileBaseW/standardBase));
       refreshDependentGeometry();
       return;
     }
     root.classList.remove('gl-adaptive-stage','gl-stage-portrait','gl-stage-landscape');
     root.style.removeProperty('--gl-pvp-mobile-touch-scroll-scale');
+    root.style.removeProperty('--gl-hero-ui-scale');
     root.style.removeProperty('--gl-stage-logical-w');
     root.style.removeProperty('--gl-stage-logical-h');
     root.style.removeProperty('--gl-stage-phase-height');
@@ -516,7 +519,7 @@ html.gl-adaptive-stage .played{column-gap:5px;row-gap:5px}
   <script src="engine/js/runtime-authority.js?v=gl-s0-pvp-rc42-r398-r40-20261124-s3"></script>
   <script src="engine/shared-app/active-starters.js?v=gl-s0-pvp-rc42-r398-r40-20261124-s3"></script>
   <script src="assets/review-db158/js/db166-view-model.js?v=gl-s0-pvp-rc42-r398-r40-20261124-s3&amp;f15ui=20261121-03"></script>
-  <script src="shared-app/db158-card-review.js?v=gl-s0-pvp-rc42-r398-r40-20261124-s3&amp;mobile=20261120-v2&amp;f15ui=20261121-03"></script>
+  <script src="shared-app/db158-card-review.js?v=20261125-uisync2&amp;mobile=20261120-v2&amp;f15ui=20261121-03"></script>
   <script src="runtime/season0-generated/rc41-approved-print-overrides.js?v=gl-s0-pvp-rc41-r39"></script>
   <script src="runtime/season0-generated/rc42-main-deck-r398-overlay.js"></script>
   <script src="engine/shared-app/app.bundle.js?v=gl-s0-pvp-rc42-r398-r40-20261124-s3&amp;mobile=20261120-v2&amp;f15ui=20261121-03&amp;f19fix=20261121-v1"></script>
@@ -529,8 +532,8 @@ html.gl-adaptive-stage .played{column-gap:5px;row-gap:5px}
   <script src="runtime/pvp-card-thumbnails.js?v=20261125-ui-sync1"></script>
   <script src="runtime/pvp-artwork-loader.js?v=20261125-ui-sync1"></script>
   <script src="shared-ui/pvp-mobile-preview-hold.js?v=20261124-pvp-mobile-6to9-v1"></script>
-  <script src="shared-app/app-runtime.js?v=gl-s0-pvp-rc42-r398-r40-20261124-s3&amp;hotfix=handart-20261115&amp;itemarrow-paladin=20261115&amp;ui=20261120-preview&amp;music=20261120-v1&amp;smooth=20261120-2-mobile&amp;choicefix=20261121-a&amp;f15ui=20261121-03&amp;f19fix=20261121-v1&amp;all5ui=20261124-v1&amp;mobilefollowup=20261124-6to9-v1"></script>
-  <script src="shared-ui/pvp-mobile-card-list-scroll.js?v=20261124-pvp-all5-v1"></script>
+  <script src="shared-app/app-runtime.js?v=20261125-uisync2&amp;hotfix=handart-20261115&amp;itemarrow-paladin=20261115&amp;ui=20261120-preview&amp;music=20261120-v1&amp;smooth=20261120-2-mobile&amp;choicefix=20261121-a&amp;f15ui=20261121-03&amp;f19fix=20261121-v1&amp;all5ui=20261124-v1&amp;mobilefollowup=20261124-6to9-v1"></script>
+  <script src="shared-ui/pvp-mobile-card-list-scroll.js?v=20261125-pvp-popup-scroll-sync2"></script>
   <script src="shared-ui/mobile-landscape-lobby.js?v=gl-s0-pvp-rc42-r398-r40-20261124-s3"></script>
   
 
