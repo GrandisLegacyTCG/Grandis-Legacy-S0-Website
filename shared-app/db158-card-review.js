@@ -132,5 +132,5 @@
   else scheduleWarmReview();
   g.addEventListener('resize',function(){g.requestAnimationFrame(function(){syncMobileReview(g.document.querySelector('.gl-db158-review-frame'));});},{passive:true});
   g.GL_DB158_REVIEW={syncMobileReview:syncMobileReview,mount:mount,getCard:getCard,documentHtml:documentHtml,warm:warmReviewShell,
-    source:'Main Deck R3.9 / Legacy Deck R3.9',view:'Deck Builder v1.67',heroFooter:'lobby-only'};
+    source:'Main Deck R4.0 / Legacy Deck R4.0',view:'Deck Builder-derived canonical review',heroFooter:'lobby-only'};
 })(window);

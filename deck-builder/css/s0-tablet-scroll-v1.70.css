@@ -1,0 +1,106 @@
+/* Tablet landscape touch-scroll correction, separate from phone and desktop.
+   Active only when the early orientation gate positively identifies a tablet
+   held landscape. Portrait continues to use the existing rotated iframe. */
+:root[data-gl-tablet-landscape="true"] body,
+:root[data-gl-tablet-landscape="true"] {
+  overscroll-behavior-x: none;
+  -webkit-overflow-scrolling: touch;
+}
+:root[data-gl-tablet-landscape="true"] .library-content,
+:root[data-gl-tablet-landscape="true"] .deck-shell,
+:root[data-gl-tablet-landscape="true"] .card-library,
+:root[data-gl-tablet-landscape="true"] .deck-grid,
+:root[data-gl-tablet-landscape="true"] .review-detail-column,
+:root[data-gl-tablet-landscape="true"] .legacy-reference-grid,
+:root[data-gl-tablet-landscape="true"] .hero-picker-grid {
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+}
+/* Style 2 previously clipped Legacy into a viewport-height grid with
+   overflow:hidden all the way to the workspace: no node could scroll. */
+:root[data-gl-tablet-landscape="true"] body:has(.deck-tools-bar) .workspace {
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+}
+:root[data-gl-tablet-landscape="true"] body:has(.deck-tools-bar) .legacy-view {
+  height: auto !important;
+  min-height: 100% !important;
+}
+:root[data-gl-tablet-landscape="true"] body:has(.deck-tools-bar) .legacy-panel {
+  height: auto !important;
+  min-height: 100% !important;
+}
+:root[data-gl-tablet-landscape="true"] body:has(.deck-tools-bar) .legacy-content.legacy-split {
+  min-height: min-content !important;
+  height: auto !important;
+  grid-template-rows: auto !important;
+  overflow: visible !important;
+  align-items: start !important;
+}
+:root[data-gl-tablet-landscape="true"] body:has(.deck-tools-bar) .legacy-half,
+:root[data-gl-tablet-landscape="true"] body:has(.deck-tools-bar) .hero-stage,
+:root[data-gl-tablet-landscape="true"] body:has(.deck-tools-bar) .hero-slots-grid,
+:root[data-gl-tablet-landscape="true"] body:has(.deck-tools-bar) .legacy-slots-grid {
+  overflow: visible !important;
+}
+/* Preserve the desktop 50:50 split, while ensuring its card rows can enlarge
+   naturally when landscape height is limited. */
+:root[data-gl-tablet-landscape="true"] body:has(.deck-tools-bar) .legacy-half {
+  min-height: max-content !important;
+}
+/* Style 2 Main Deck retains its separate scrolling library and deck grids. */
+:root[data-gl-tablet-landscape="true"] body:has(.deck-tools-bar) .main-view {
+  min-height: max(520px, calc(100dvh - 220px));
+}
+:root[data-gl-tablet-landscape="true"] body:has(.deck-tools-bar) .main-view .card-library,
+:root[data-gl-tablet-landscape="true"] body:has(.deck-tools-bar) .main-view .deck-grid {
+  overflow-y: auto !important;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+}
+/* Style 1 keeps independent desktop panes rather than expanding hundreds of
+   cards into a single page. Both panes accept tablet swipes. */
+:root[data-gl-tablet-landscape="true"] body:not(:has(.deck-tools-bar)) .library-content,
+:root[data-gl-tablet-landscape="true"] body:not(:has(.deck-tools-bar)) .deck-shell {
+  overflow-y: auto !important;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+}
+/* All existing popup sizing/rotation stays intact; only scroll touch behavior
+   inside an overlong dialog is enabled. */
+:root[data-gl-tablet-landscape="true"] .dialog-card,
+:root[data-gl-tablet-landscape="true"] .review-detail-column,
+:root[data-gl-tablet-landscape="true"] .confirm-list {
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
+
+/* Long Card Review text must scroll INSIDE the dialog on landscape tablets.
+   Prior layout could clip the details because .review-card overflow is hidden. */
+:root[data-gl-tablet-landscape="true"] .review-card .review-layout {
+  min-height: 0 !important;
+}
+:root[data-gl-tablet-landscape="true"] #cardReviewDialog .review-card .review-detail-column {
+  min-height: 0 !important;
+  max-height: 100% !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+}
+/* Let long reviews scroll through the outer review card when their detail
+   grid is naturally taller than the viewport; do not trap touch gestures in
+   a non-scrollable inner panel. */
+:root[data-gl-tablet-landscape="true"] #cardReviewDialog .review-card {
+  overflow-y: auto !important;
+  overscroll-behavior-y: contain;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+}
+:root[data-gl-tablet-landscape="true"] #cardReviewDialog .review-detail-column {
+  overscroll-behavior-y: auto !important;
+}

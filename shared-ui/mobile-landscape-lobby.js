@@ -31,8 +31,8 @@
       root.style.removeProperty('--gl-mobile-lobby-h');
       return;
     }
-    const width = Math.max(1, window.innerWidth);
-    const height = Math.max(1, window.innerHeight);
+    const vp=window.GL_VIEWPORT?.read()||{width:Math.max(1,window.innerWidth),height:Math.max(1,window.innerHeight),x:0,y:0};
+    const width=vp.width,height=vp.height;
     const portrait = height > width;
     const stageWidth = portrait ? height : width;
     const stageHeight = portrait ? width : height;
@@ -45,13 +45,13 @@
     const logicalH=stageHeight/scale;
     root.classList.toggle('gl-mobile-landscape-lobby-portrait', portrait);
     const transform=portrait
-      ? `translate(${width}px,0px) rotate(90deg) scale(${scale})`
-      : `translate(0px,0px) scale(${scale})`;
+      ? `translate(${vp.x+width}px,${vp.y}px) rotate(90deg) scale(${scale})`
+      : `translate(${vp.x}px,${vp.y}px) scale(${scale})`;
     root.style.setProperty('--gl-mobile-lobby-transform', transform);
     root.style.setProperty('--gl-mobile-lobby-scale', String(scale));
     root.style.setProperty('--gl-mobile-lobby-w',logicalW+'px');
     root.style.setProperty('--gl-mobile-lobby-h',logicalH+'px');
-    root.dataset.glInternalRevision = 'RC43-PLATFORM-UNIFORM';
+    root.dataset.glInternalRevision = 'RC43-TOUCHSCREEN-UNIFORM';
   }
   function requestPosition() {
     if (scheduled) return;
@@ -83,6 +83,9 @@
   bodyObserver.observe(document.body, {childList: true});
   window.addEventListener('resize', requestPosition, {passive: true});
   window.addEventListener('orientationchange', requestPosition, {passive: true});
-  if (window.visualViewport) window.visualViewport.addEventListener('resize', requestPosition, {passive: true});
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', requestPosition, {passive: true});
+    window.visualViewport.addEventListener('scroll', requestPosition, {passive: true});
+  }
   attach();
 })();

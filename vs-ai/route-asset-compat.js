@@ -1,6 +1,6 @@
 /* Grandis Legacy Website-only VS AI RC41 asset URL adapter.
    Standalone engine is shared at Website root; game state and rules untouched.
-   Artwork query gets a NEW cache key because R3.9 replaced 32 printed WebPs. */
+   Artwork query follows the current R4.0 card-front revision. */
 (()=>{
   'use strict';
   const bridge=window.GL_GAME_ENGINE;
@@ -8,7 +8,7 @@
   const root=new URL('../',window.location.href);
   const nestedPath=new URL('vs-ai/',root).pathname;
   const cardPath=new URL('card-art/',root).pathname;
-  const artworkRevision='gl-vs-ai-rc42-r398-r40-20261124';
+  const artworkRevision='gl-vs-ai-rc44-r40-20261127';
   const fix=value=>{
     if(typeof value!=='string'||!value)return value;
     let original;

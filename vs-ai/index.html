@@ -3,9 +3,10 @@
 <head>
 <!-- Website route adapter: shared engine and assets are in the repository root. -->
 <base href="../">
+<script src="assets/js/s0-artwork-fallback.js?v=gl-web-r40-20261127"></script>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-<title>Grandis Legacy — VS AI Season 0 RC43 · Main Deck R3.98 / Legacy Deck R4.0 · Rulebook v3.5</title>
+<title>Grandis Legacy — VS AI Season 0 RC44 · Main Deck R4.0 / Legacy Deck R4.0 · Rulebook v3.6</title>
 <link rel="icon" type="image/png" sizes="120x120" href="/assets/site/web-s0/favicon.png?v=20261124-shared-v1">
 <style>
 @font-face{font-family:Noto;src:url('assets/fonts/NotoSans-Variable.woff2') format('woff2');font-weight:100 900;font-style:normal;font-display:swap}
@@ -292,7 +293,9 @@ html.gl-adaptive-stage .played{column-gap:5px;row-gap:5px}
 .opponent-field .zone>.count,.opponent-field .opponent-mana-pool>.count{left:-4px;right:auto;top:auto;bottom:-4px}
 </style>
 
-<link rel="stylesheet" href="shared-ui/battlefield-ui.css?v=rc43-20261126-web">
+<link rel="stylesheet" href="shared-ui/battlefield-ui.css?v=rc44-r40-20261127-web-v1">
+<link rel="stylesheet" href="shared-ui/touchscreen-layout.css?v=rc44-r40-20261127-web-v1">
+<link rel="stylesheet" href="shared-ui/combat-feedback.css?v=rc44-r40-20261127-web-v1">
 <link rel="stylesheet" href="assets/css/gl-header-parity.css?v=20261119-header-clean-v2">
 <link rel="stylesheet" href="assets/css/gl-site-brand.css?v=20261120-v3">
 <link rel="stylesheet" href="assets/css/gl-site-navigation.css?v=20261120-v1">
@@ -391,7 +394,7 @@ html.gl-adaptive-stage .played{column-gap:5px;row-gap:5px}
     <section class="history-panel" id="historyPanel" aria-hidden="true"><div class="history-head"><h3>Full Card History</h3><button class="history-close" id="historyClose" type="button">Close</button></div><div class="history-grid"></div></section>
   </aside>
 </div>
-<script src="shared-ui/platform.js?v=rc43-20261126"></script>
+<script src="shared-ui/platform.js?v=rc44-r40-20261127-web-v1"></script>
 <script id="gl-responsive-stage-js">
 (() => {
   const REF_W=1600, REF_H=747, STEP=.05, NORMAL_MIN=.85, NORMAL_MAX=1.20, EMERGENCY_MIN=.75;
@@ -415,13 +418,15 @@ html.gl-adaptive-stage .played{column-gap:5px;row-gap:5px}
       window.syncPlayerHandToHeroCenter?.();
       window.syncOpponentHand?.();
       window.GL_GAME_UI?.render?.();
+      if(touchDevice())window.dispatchEvent(new Event('glviewportchange'));
     });
   }
   function updateResponsiveScale(){
-    const cssW=Math.max(1,window.innerWidth),cssH=Math.max(1,window.innerHeight);
     const touch=touchDevice();
+    const vp=touch?window.GL_VIEWPORT.read():{width:Math.max(1,window.innerWidth),height:Math.max(1,window.innerHeight),x:0,y:0};
+    const cssW=vp.width,cssH=vp.height;
     // M02: all standalone gameplay popups use the same logical landscape
-    // canvas and transform as the battlefield on touch handsets.
+    // canvas and transform as the battlefield on tablets and phones.
     root.classList.toggle('gl-mobile-gameplay-stage',touch);
     if(touch){
       root.classList.add('gl-adaptive-stage');
@@ -446,15 +451,15 @@ html.gl-adaptive-stage .played{column-gap:5px;row-gap:5px}
       const standardBase=108, zonePerBase=.65/.68, handPerBase=(.75*.85)/.68;
       const laneFit=(logicalH-phaseH-66)/(2*handPerBase+4*zonePerBase);
       const manaFit=((logicalH-phaseH)/2-40)/(3*zonePerBase);
-      const mobileBaseW=Math.max(standardBase,
+      const mobileBaseW=Math.max(1,
         Math.floor(Math.min(standardBase*1.20,laneFit,manaFit)*10)/10);
       root.style.setProperty('--gl-stage-logical-w',logicalW+'px');
       root.style.setProperty('--gl-stage-logical-h',logicalH+'px');
       root.style.setProperty('--gl-stage-phase-height',phaseH+'px');
       if(portrait){
-        root.style.setProperty('--gl-stage-transform',`translate(${cssW}px,0px) rotate(90deg) scale(${scale})`);
+        root.style.setProperty('--gl-stage-transform',`translate(${vp.x+cssW}px,${vp.y}px) rotate(90deg) scale(${scale})`);
       }else{
-        root.style.setProperty('--gl-stage-transform',`translate(0px,0px) scale(${scale})`);
+        root.style.setProperty('--gl-stage-transform',`translate(${vp.x}px,${vp.y}px) scale(${scale})`);
       }
       publish(scale,logicalW,logicalH);
       // publish() is also used by the unchanged desktop path. Apply this
@@ -479,9 +484,16 @@ html.gl-adaptive-stage .played{column-gap:5px;row-gap:5px}
     publish(scale,cssW/scale,cssH/scale);
     refreshDependentGeometry();
   }
+  let scaleFrame=0;
+  function requestResponsiveScale(){
+    if(scaleFrame)return;
+    scaleFrame=requestAnimationFrame(()=>{scaleFrame=0;updateResponsiveScale();});
+  }
   updateResponsiveScale();
-  window.addEventListener('resize',updateResponsiveScale,{passive:true});
-  window.addEventListener('orientationchange',()=>setTimeout(updateResponsiveScale,50),{passive:true});
+  window.addEventListener('resize',requestResponsiveScale,{passive:true});
+  window.addEventListener('orientationchange',requestResponsiveScale,{passive:true});
+  window.visualViewport?.addEventListener('resize',requestResponsiveScale,{passive:true});
+  window.visualViewport?.addEventListener('scroll',requestResponsiveScale,{passive:true});
 })();
 </script>
 
@@ -499,22 +511,23 @@ html.gl-adaptive-stage .played{column-gap:5px;row-gap:5px}
   <script src="engine/shared-ui/battlefield-ui.js"></script>
   <script src="engine/js/static-data.js?v=rc41-r39-20261118"></script>
   <script src="engine/js/runtime-authority.js"></script>
-  <script src="engine/shared-app/active-starters.js?v=rc42-starters-r394-20261122"></script>
+  <script src="engine/shared-app/active-starters.js?v=rc42-starters-r394-20261122-sync2"></script>
   <script src="runtime/season0-generated/rc41-approved-print-overrides.js?v=rc41-r39-20261118"></script>
-  <script src="assets/review-db158/js/db166-view-model.js?v=rc41-r39-20261118"></script>
-  <script src="shared-app/rc42-card-thumbnails.js?v=rc42-instant-art-shared-header-20261125-v1"></script>
-  <script src="shared-app/rc42-card-art-loader.js?v=rc42-instant-art-shared-header-20261125-v1"></script>
-  <script src="shared-app/db158-card-review.js?v=rc43-20261126-web"></script>
-  <script src="runtime/season0-generated/rc42-main-deck-r398-overlay.js?v=rc42-r398-r40-20261124"></script>
-  <script src="engine/shared-app/app.bundle.js?v=rc43-20261126-web"></script>
-  <script src="vs-ai/route-asset-compat.js?v=rc42-r398-r40-20261124"></script>
+  <script src="assets/review-db158/js/db166-view-model.js?v=rc44-r40-20261127-web-v1"></script>
+  <script src="shared-app/rc42-card-thumbnails.js?v=rc44-r40-20261127-web-v1"></script>
+  <script src="shared-app/rc42-card-art-loader.js?v=rc44-r40-20261127-web-v1"></script>
+  <script src="shared-app/db158-card-review.js?v=rc44-r40-20261127-web-v1"></script>
+  <script src="runtime/season0-generated/rc42-main-deck-r398-overlay.js?v=rc42-r398-20261123"></script>
+  <script src="runtime/season0-generated/rc44-main-deck-r40-overlay.js?v=rc44-r40-20261127-web-v1"></script>
+  <script src="engine/shared-app/app.bundle.js?v=rc44-r40-20261127-web-v1"></script>
+  <script src="vs-ai/route-asset-compat.js?v=rc44-r40-20261127-web-v1"></script>
   <script src="runtime/adapters/authority-adapter.js"></script>
   <script src="runtime/adapters/local-ai-adapter.js"></script>
-  <script src="shared-ui/mobile-preview-hold.js?v=rc43-20261126-web"></script>
-  <script src="shared-app/app-runtime.js?v=rc43-20261126-web"></script>
-  <script src="shared-ui/mobile-card-list-scroll.js?v=rc43-20261126-web"></script>
-  <script src="shared-ui/mobile-landscape-lobby.js?v=rc43-20261126-web"></script>
-  <script src="vs-ai/route-nav-compat.js?v=rc42-instant-art-shared-header-20261125-v1"></script>
+  <script src="shared-ui/mobile-preview-hold.js?v=rc43-20261126"></script>
+  <script src="shared-app/app-runtime.js?v=rc44-r40-20261127-web-v1"></script>
+  <script src="shared-ui/mobile-card-list-scroll.js?v=rc43-20261126"></script>
+  <script src="shared-ui/mobile-landscape-lobby.js?v=rc44-r40-20261127-web-v1"></script>
 
+  <script src="vs-ai/route-nav-compat.js?v=rc42-instant-art-shared-header-20261125-v1"></script>
 </body>
 </html>

@@ -38,9 +38,16 @@
     (platform === 'MacIntel' && (navigator.maxTouchPoints || 0) > 1);
   const isWindowsDesktop = /Windows NT/i.test(ua) && !/Tablet/i.test(ua);
   const tabletInput = nativeTablet || ((touch || coarse) && coarse && !isWindowsDesktop);
-  // Mobile phones keep the original mobile layout, even in portrait.
-  // All tablet portrait content is rotated as one frame, native dialogs too.
-  if (!tabletInput || !portrait || tabletWidth < 600 || tabletWidth > 1100 || longEdge > 2200) return;
+  // Mobile and desktop preserve their existing scroll and responsive rules.
+  // Mark physical tablet landscape so its content can scroll via touch; never
+  // style arbitrary desktop browser windows or the portrait rotated iframe.
+  const inTabletRange = tabletWidth >= 600 && tabletWidth <= 1100 && longEdge <= 2200;
+  if (tabletInput && inTabletRange && !portrait) {
+    document.documentElement.dataset.glTabletLandscape = 'true';
+  }
+  // Tablet portrait uses the existing complete, rotated browsing context,
+  // including its native dialogs and working portrait swipe behavior.
+  if (!tabletInput || !portrait || !inTabletRange) return;
 
   const script = document.currentScript;
   if (!script || !script.src) return;

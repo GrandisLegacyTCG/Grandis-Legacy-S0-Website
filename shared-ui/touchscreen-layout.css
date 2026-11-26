@@ -1,0 +1,44 @@
+/* Safe-area tokens are measured once by the shared viewport helper. */
+:root{--gl-safe-top:env(safe-area-inset-top,0px);--gl-safe-right:env(safe-area-inset-right,0px);--gl-safe-bottom:env(safe-area-inset-bottom,0px);--gl-safe-left:env(safe-area-inset-left,0px);}
+/* Tablet and phone share the same adaptive stage. These selectors depend on
+ * the chosen profile, never physical screen width or primary pointer type. */
+html.gl-mobile-landscape-lobby .gl-lobby-picker{grid-template-columns:minmax(0,1fr) 122px!important}
+html.gl-mobile-landscape-lobby .gl-lobby-desktop-import{display:block!important}
+
+/* Notices are centered in the actual logical stage, including tall tablets.
+ * Both the resting transform and its animated frames use the same origin. */
+html.gl-mobile-gameplay-stage:not(.gl-mobile-landscape-stage) :is(.gl-turn-banner,.gl-counter-banner,.gl-counter-chain-banner){
+  transform:var(--gl-stage-transform) translate(calc(var(--gl-stage-logical-w,1600px) * .5),calc(var(--gl-stage-logical-h,747px) * .5)) translate(-50%,-50%)!important;
+}
+@keyframes glMobileTurnNotice{
+  0%{opacity:0;transform:var(--gl-stage-transform) translate(calc(var(--gl-stage-logical-w,1600px) * .5),calc(var(--gl-stage-logical-h,747px) * .5)) translate(-50%,-50%) scale(.92)}
+  18%,74%{opacity:1;transform:var(--gl-stage-transform) translate(calc(var(--gl-stage-logical-w,1600px) * .5),calc(var(--gl-stage-logical-h,747px) * .5)) translate(-50%,-50%) scale(1)}
+  100%{opacity:0;transform:var(--gl-stage-transform) translate(calc(var(--gl-stage-logical-w,1600px) * .5),calc(var(--gl-stage-logical-h,747px) * .5)) translate(-50%,-50%) scale(1.025)}
+}
+@keyframes glMobileArtNotice{
+  0%{opacity:0;transform:var(--gl-stage-transform) translate(calc(var(--gl-stage-logical-w,1600px) * .5),calc(var(--gl-stage-logical-h,747px) * .5)) translate(-50%,-50%) scale(.94)}
+  12%,79%{opacity:1;transform:var(--gl-stage-transform) translate(calc(var(--gl-stage-logical-w,1600px) * .5),calc(var(--gl-stage-logical-h,747px) * .5)) translate(-50%,-50%) scale(1)}
+  100%{opacity:0;transform:var(--gl-stage-transform) translate(calc(var(--gl-stage-logical-w,1600px) * .5),calc(var(--gl-stage-logical-h,747px) * .5)) translate(-50%,-50%) scale(1.02)}
+}
+@keyframes glMobileChainNotice{
+  from{opacity:0;transform:var(--gl-stage-transform) translate(calc(var(--gl-stage-logical-w,1600px) * .5),calc(var(--gl-stage-logical-h,747px) * .5)) translate(-50%,-50%) scale(.97)}
+  to{opacity:1;transform:var(--gl-stage-transform) translate(calc(var(--gl-stage-logical-w,1600px) * .5),calc(var(--gl-stage-logical-h,747px) * .5)) translate(-50%,-50%) scale(1)}
+}
+
+/* Only lists scroll; keep EXP summary, close action and instructions intact. */
+html.gl-mobile-gameplay-stage:not(.gl-mobile-landscape-stage) :is(.gl-exp-inspector-summary,.gl-exp-inspector-foot){flex:0 0 auto!important;}
+html.gl-mobile-landscape-lobby .gl-lobby-hero small{overflow:hidden;text-overflow:ellipsis;}
+
+/* Hero action help shares the safe logical stage, including the detached
+ * Surge explanation. Keep the existing proportions relative to Hero UI. */
+html.gl-mobile-gameplay-stage.gl-adaptive-stage:not(.gl-mobile-landscape-stage) .gl-hero-action-tip{
+  left:0!important;top:0!important;transform-origin:0 0;
+  transform:var(--gl-stage-transform) translate(var(--gl-hero-action-tip-x,8px),var(--gl-hero-action-tip-y,8px));
+  max-width:min(calc(315 * var(--gl-hero-ui-unit,1px)),calc(var(--gl-stage-logical-w,1600px) - 16px));
+  padding:calc(10 * var(--gl-hero-ui-unit,1px)) calc(12 * var(--gl-hero-ui-unit,1px));
+  border-radius:calc(7 * var(--gl-hero-ui-unit,1px));
+  font-size:calc(12 * var(--gl-hero-ui-unit,1px));gap:calc(4 * var(--gl-hero-ui-unit,1px));
+}
+html.gl-mobile-gameplay-stage.gl-adaptive-stage:not(.gl-mobile-landscape-stage) .gl-hero-action-tip strong{
+  font-size:calc(13 * var(--gl-hero-ui-unit,1px));
+}
