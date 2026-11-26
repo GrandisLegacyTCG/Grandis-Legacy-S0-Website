@@ -900,7 +900,7 @@
     var loc=heroRuntimeLocation(state,hero);if(!loc)return false;
     var sourceId=sourceCard&&sourceCard.card_id;
     if(pvpHeadlessFeedback()){
-      var previous=(state.pvpRc44FeedbackEvents||[]).find(function(e){var f=e.feedback;return e.sequence>GL_PVP_FEEDBACK_BOUNDARY&&e.await_cleanse&&e.source_card_id===sourceId&&f&&f.kind==='heal'&&f.side===loc.side&&String(f.hero_instance||f.hero_id)===battleHeroIdentity(hero);});
+      var previous=(state.pvpRc44FeedbackEvents||[]).find(function(e){var f=e.feedback;return e.await_cleanse&&e.source_card_id===sourceId&&f&&f.kind==='heal'&&f.side===loc.side&&String(f.hero_instance||f.hero_id)===battleHeroIdentity(hero);});
       if(previous){previous.await_cleanse=false;previous.feedback.cleanse=!!removed;return true;}
       return removed?recordPvpFeedback({kind:'cleanse',side:loc.side,lane:loc.lane,play_sound:true}):false;
     }

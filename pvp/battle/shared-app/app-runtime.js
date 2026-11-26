@@ -1296,7 +1296,7 @@ function s0PvpCoinResult(info={}){
 function s0PvpCoinRelease(){coinOverlay.classList.remove('open','gl-pvp-coin-result');appRoot?.classList.remove('gl-lobby-hidden');}
 window.GL_S0_RC32_PVP_COIN={showChoice:s0PvpCoinChoice,showResult:s0PvpCoinResult,release:s0PvpCoinRelease};
 const rc44SeenFeedback=new Set();
-function resetRc44FeedbackHistory(board){E()?.resetBattleFeedback?.();rc44SeenFeedback.clear();for(const e of board?.pvpRc44FeedbackEvents||[])if(e?.id)rc44SeenFeedback.add(e.id);}
+function resetRc44FeedbackHistory(board){E()?.resetBattleFeedback?.();rc44SeenFeedback.clear();for(const e of board?.pvpRc44FeedbackEvents||[])if(e?.id&&!e.await_cleanse)rc44SeenFeedback.add(e.id);}
 function resetPresentationState(){resetRc44FeedbackHistory(null);glPresentationEpoch++;for(const batch of [...glTrialReturnBatches])batch.cancel();glTrialHandFlightKeys.clear();if(expInspectorOverlay.classList.contains('open'))closeExpInspector();document.querySelectorAll('.gl-mana-loss-notice').forEach(el=>el.remove());pvpDeferredRankTransitions.length=0;pvpDeferredExpReturns.length=0;pvpPresentedExpReturnIds.clear();pvpPendingAttackVisual=null;pvpSeenCombatCommitIds.clear();seenCounterMessages.clear();shownCompletedCounterChains.clear();clearTimeout(counterChainHoldTimer);counterChainBanner.replaceChildren();counterChainBanner.classList.remove('show');seenRacialMessages.clear();seenPlayedActionEvents.clear();seenDiscardNotifications.clear();pvpSeenHealingResultKeys.clear();presentationNoticeQueue.length=0;presentationNoticeActive=false;clearTimeout(counterBannerTimer);counterBanner.classList.remove('show','is-racial','is-mana');counterBanner.style.removeProperty('--gl-notice-duration');presentationPrimed=false;previousVisualState=null;seenPresentationEvents.clear();resolvedHistory=[];historyKnown.clear();activeCardHold=null;glPendingDrawReservations.PLAYER.length=0;glPendingDrawReservations.AI.length=0;glHiddenCommittedDrawSlots.PLAYER.clear();glHiddenCommittedDrawSlots.AI.clear();glOpeningHiddenShardUids.clear();glExternalDrawSequence=Promise.resolve();glExternalManaDrawSequence=Promise.resolve();glExternallyPresentedShardUids.clear();resultShown=false;resultOverlay.classList.remove('open');syncMatchActionButton(null);closeLobbyProgression();resetMatchTimer()}
 function startMatchFromLobby(){
   lobbyErrorText='';const r=E().prepareLocalMatch?.();if(!r?.ok){lobbyErrorText=r?.error||'Could not start match.';renderLobby();return}
@@ -2073,6 +2073,10 @@ function buildPresentationPlan(s){
   plan.combatBatches=[];plan.healTargets=[];plan.rc44Feedback=[];
   for(const event of s.pvpRc44FeedbackEvents||[]){
     if(!event?.id||rc44SeenFeedback.has(event.id))continue;
+    // A committed Heal awaiting a mandatory Holy Rejuvenation choice is
+    // not yet a playable presentation event. Do not consume its identity.
+    // Subsequent snapshots finalize the SAME event; the game never waits.
+    if(event.await_cleanse){if(presentationPrimed&&!openingPresentationActive&&!s.gameOver)break;continue;}
     rc44SeenFeedback.add(event.id);
     if(presentationPrimed&&!openingPresentationActive)plan.rc44Feedback.push(event);
   }

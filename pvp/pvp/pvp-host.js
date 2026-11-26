@@ -9,7 +9,7 @@ const STORE_PREV={name:'grandis_legacy_pvp_v380_name',deck:null};
 // Connection identity is tab-scoped. Player 1 and Player 2 must be able to use two tabs
 // on the same origin without sharing one localStorage client id / seat token and kicking
 // each other into an endless reconnect loop. sessionStorage survives reload in one tab.
-const SESSION={client:'grandis_legacy_pvp_v3801_tab_client_id',seat:'grandis_legacy_pvp_v3801_tab_seat_token',role:'grandis_legacy_pvp_v3801_tab_role'};
+const SESSION={client:'grandis_legacy_pvp_v3801_tab_client_id',seat:'grandis_legacy_pvp_v3801_tab_seat_token',role:'grandis_legacy_pvp_v3801_tab_role',preparedDeck:'grandis_legacy_pvp_rc44_prepared_deck'};
 const state={ws:null,connected:false,snapshot:null,name:'',role:'player',deckKey:'',customDeck:null,customDeckName:'',formation:null,rank:1,clientId:'',seatToken:'',reconnectDelay:1200,reconnectTimer:null,connectionError:'',sessionInvalid:false,intentSeq:0,lastImportedRevision:-1,lastImportedStatus:'',lastCoinChoiceKey:'',lastOpeningKey:'',openingAssetKey:'',openingAssetPromise:null,fatalBuildMismatch:false,listeners:new Set(),pingTimer:null,pingSentAt:0,rttMs:null,peerConnections:new Map(),idleNotice:''};
 const INTENT_BATCH_LIMIT=2;
 
@@ -255,6 +255,19 @@ function matchClock(){const m=match()||{},start=Date.parse(m.startedAt||''),fini
 // Deck imports are not committed locally until an authoritative setup snapshot
 // confirms the exact JSON payload. "File loaded" is not "server changed deck".
 let pendingDeckImport=null;
+let preparedDeck=null,preparedDeckAttempted=false;
+function savePreparedDeck(){
+  preparedDeck={customDeck:state.customDeck?clone(state.customDeck):null,deckName:state.customDeckName,deckKey:state.deckKey,formation:currentFormation()};
+  preparedDeckAttempted=false;persistSession('preparedDeck',JSON.stringify(preparedDeck));
+}
+function clearPreparedDeck(){preparedDeck=null;preparedDeckAttempted=false;persistSession('preparedDeck','');}
+function restorePreparedDeck(){
+  try{const draft=JSON.parse(sessionStored('preparedDeck')||'null');if(!draft)return;
+    const d=draft.customDeck?validateImportedSeason0Deck(draft.customDeck):starterDeck(draft.deckKey);
+    if(!d||!formationValid(d,draft.formation))throw Error('Invalid local preparation');
+    preparedDeck=draft;state.customDeck=draft.customDeck;state.customDeckName=draft.deckName||'';state.deckKey=draft.deckKey||'';state.formation=clone(draft.formation);
+  }catch{clearPreparedDeck();}
+}
 let importRequestEpoch=0;
 function reportDeckImportStatus(kind,message){
   const el=document.getElementById('pvpLoadedDeckStatus');if(!el)return;
@@ -299,14 +312,20 @@ function importDeckSignature(raw){
 }
 function confirmImportedDeckFromSnapshot(msg){
   const job=pendingDeckImport;
-  if(!job||msg?.match?.status!=='setup')return;
+  if(!job||msg?.match?.status!=='setup'||msg?.local?.role!=='player')return;
+  if(job.deckKey){
+    if(msg.local.deckKey!==job.deckKey||['LEFT','CENTER','RIGHT'].some(k=>String(msg.local.formation?.[k]||'')!==String(job.formation?.[k]||'')))return;
+    if(job.timer)clearTimeout(job.timer);pendingDeckImport=null;clearPreparedDeck();
+    reportDeckImportStatus('success','DECK UPDATED — '+(msg.local.deckName||job.deckKey));return;
+  }
   const got=msg?.local?.customDeck;
   // JSON stringify is safe here: server sends the unchanged clone of the same
   // validated custom export; title alone and card counts cannot prove identity.
-  if(!got||importDeckSignature(got)!==job.payloadKey)return;
+  if(!got||importDeckSignature(got)!==job.payloadKey||msg.local.deckName!==job.name)return;
   if(['LEFT','CENTER','RIGHT'].some(k=>String(msg.local.formation?.[k]||'')!==String(job.formation?.[k]||'')))return;
   if(job.timer)clearTimeout(job.timer);
   pendingDeckImport=null;
+  if(preparedDeck)clearPreparedDeck();
   state.customDeck=clone(got);
   state.customDeckName=msg.local.deckName||job.name;
   state.deckKey='';
@@ -328,29 +347,35 @@ function commitImportedDeckFromFile(raw,fileName){
     return false;
   }
   const name=safeName(raw.display_name||raw.deck_name||raw.name||String(fileName).replace(/\.json$/i,''))||'Imported Deck';
-  if(!state.connected||!state.ws||state.ws.readyState!==WebSocket.OPEN){
-    reportDeckImportStatus('error','Import not applied: connect to the PvP server and retry.');return false;
+  if(match()?.status&&match().status!=='setup'){reportDeckImportStatus('error','Deck selection is locked during a match.');return false;}
+  if(local()?.role!=='player'){
+    cancelPendingDeckImport();state.customDeck=clone(raw);state.customDeckName=name;state.deckKey='';state.rank=1;state.formation=officialFormation;savePreparedDeck();
+    reportDeckImportStatus('success','DECK PREPARED — join as player to register it.');renderLobby();return true;
   }
-  if(local()?.role!=='player'||match()?.status!=='setup'){
-    reportDeckImportStatus('error','Import not applied: only a player in Lobby can change decks.');return false;
-  }
+  if(!state.connected||!state.ws||state.ws.readyState!==WebSocket.OPEN){reportDeckImportStatus('error','Import not applied: connect to the PvP server and retry.');return false;}
+  clearPreparedDeck();
+  return submitDeckRegistration({customDeck:raw,deckName:name,formation:officialFormation});
+}
+function submitDeckRegistration(payload){
   cancelPendingDeckImport();
-  const job={payloadKey:importDeckSignature(raw),name,formation:baseFormation(normalized),timer:null};
+  const raw=payload.customDeck,name=payload.deckName;
+  const job={payloadKey:importDeckSignature(raw),name,formation:payload.formation,deckKey:payload.deckKey||null,timer:null};
   pendingDeckImport=job;
   reportDeckImportStatus('pending','IMPORTING — waiting for server confirmation…');
-  if(!send('set-deck',{customDeck:raw,deckName:name,formation:job.formation})){
+  if(!send('set-deck',payload)){
     pendingDeckImport=null;
-    reportDeckImportStatus('error','Import failed: WebSocket is unavailable.');return false;
+    reportDeckImportStatus('error','Import failed: WebSocket is unavailable.');renderLobby();return false;
   }
   // If an intermediary loses a snapshot, request a fresh server view. Do not
   // claim success or alter the saved deck without the authoritative response.
+  renderLobby();
   job.timer=setTimeout(()=>{
     if(pendingDeckImport!==job)return;
     send('resync');
     job.timer=setTimeout(()=>{
       if(pendingDeckImport!==job)return;
       pendingDeckImport=null;
-      reportDeckImportStatus('error','Server did not confirm the import. Reconnect and try again.');
+      reportDeckImportStatus('error','Server did not confirm the import. Reconnect and try again.');renderLobby();
     },9000);
   },4500);
   return true;
@@ -359,6 +384,12 @@ function syncSetupSelection(){
   const me=local(),m=match();if(!state.connected||m?.status!=='setup'||me?.role!=='player')return;
   // Never overwrite a server-retained deck on refresh/reconnect. This is critical for
   // imported Custom Decks whose full payload may only exist on the server after reconnect.
+  if(preparedDeck){
+    if(pendingDeckImport||preparedDeckAttempted)return;
+    preparedDeckAttempted=true;
+    const payload=preparedDeck.customDeck?{customDeck:preparedDeck.customDeck,deckName:preparedDeck.deckName,formation:preparedDeck.formation}:{deckKey:preparedDeck.deckKey,formation:preparedDeck.formation};
+    submitDeckRegistration(payload);return;
+  }
   if(me?.hasDeck||me?.deckKey||me?.deckName)return;
   if(state.customDeck){send('set-deck',{customDeck:state.customDeck,deckName:state.customDeckName,formation:currentFormation()});return;}
   if(state.deckKey)send('set-deck',{deckKey:state.deckKey,formation:currentFormation()});
@@ -411,10 +442,11 @@ function onSnapshot(msg,opts={}){
   const previousSnapshot=state.snapshot,prevStatus=match()?.status||'setup',prevRev=Number(match()?.revision||0);if(msg?.match?.status==='setup')primeEarlyBattleFeedback(previousSnapshot,msg);state.snapshot=msg;state.connected=true;if(msg.local?.role==='player')state.idleNotice='';
   confirmImportedDeckFromSnapshot(msg);
   if(msg.local?.seatToken){state.seatToken=msg.local.seatToken;persistSession('seat',state.seatToken)}
+  if(msg.local?.role==='spectator'&&preparedDeck&&preparedDeckAttempted){cancelPendingDeckImport();preparedDeckAttempted=false;}
   if(msg.local?.role){state.role=msg.local.role;window.GL_PVP_LOCAL_ROLE=state.role;persistSession('role',state.role)}
-  if(msg.local?.customDeck){state.customDeck=clone(msg.local.customDeck);state.customDeckName=msg.local.deckName||state.customDeck?.display_name||state.customDeck?.deck_name||'Imported Deck';state.deckKey='';state.formation=msg.local.formation||baseFormation(state.customDeck);persist('custom',JSON.stringify(state.customDeck));persist('customName',state.customDeckName);persist('deck','')}
-  else if(msg.local?.deckKey){state.deckKey=msg.local.deckKey;state.customDeck=null;state.customDeckName='';state.formation=msg.local.formation||state.formation;persist('deck',state.deckKey);persist('custom','');persist('customName','')}
-  else if(msg.local?.hasDeck&&msg.local?.deckName&&!state.customDeck){state.deckKey='';state.customDeckName=msg.local.deckName;state.formation=msg.local.formation||state.formation}
+  if(!preparedDeck&&msg.local?.customDeck){state.customDeck=clone(msg.local.customDeck);state.customDeckName=msg.local.deckName||state.customDeck?.display_name||state.customDeck?.deck_name||'Imported Deck';state.deckKey='';state.formation=msg.local.formation||baseFormation(state.customDeck);persist('custom',JSON.stringify(state.customDeck));persist('customName',state.customDeckName);persist('deck','')}
+  else if(!preparedDeck&&msg.local?.deckKey){state.deckKey=msg.local.deckKey;state.customDeck=null;state.customDeckName='';state.formation=msg.local.formation||state.formation;persist('deck',state.deckKey);persist('custom','');persist('customName','')}
+  else if(!preparedDeck&&msg.local?.hasDeck&&msg.local?.deckName&&!state.customDeck){state.deckKey='';state.customDeckName=msg.local.deckName;state.formation=msg.local.formation||state.formation}
   if(['coin-flip','coin-result','started','finished'].includes(msg?.match?.status)){
     if(msg.match.status==='coin-flip'&&startupPerf.startClickAt){
       startupPerf.coinSnapshotMs=Math.round(perfNow()-startupPerf.startClickAt);
@@ -435,6 +467,7 @@ function recoverBuildMismatch(){
 }
 function connect(force=false){
   if(state.fatalBuildMismatch)return;
+  if(force&&preparedDeck){cancelPendingDeckImport();preparedDeckAttempted=false;}
   if(state.sessionInvalid&&force){forkConnectionIdentity();state.connectionError=''}
   if(state.sessionInvalid&&!force)return;
   if(state.ws&&!force&&(state.ws.readyState===WebSocket.OPEN||state.ws.readyState===WebSocket.CONNECTING))return;
@@ -482,7 +515,7 @@ function returnToLobby(){return send('return-to-lobby')?{ok:true,pending:true}:{
 
 // Lobby-only boundary: never load or execute a Season 1/0 gameplay engine in the
 // room. The authoritative RC34 battle is loaded only after /battle/ navigation.
-function setDeck(key){cancelPendingDeckImport();reportDeckImportStatus('', '');state.customDeck=null;state.customDeckName='';state.deckKey=key;state.rank=1;state.formation=baseFormation(starterDeck(key));persist('deck',key);persist('custom','');persist('customName','');if(state.connected&&local()?.role!=='spectator')send('set-deck',{deckKey:key,formation:currentFormation()});renderLobby()}
+function setDeck(key){if(!starterDeck(key))return;cancelPendingDeckImport();reportDeckImportStatus('', '');state.customDeck=null;state.customDeckName='';state.deckKey=key;state.rank=1;state.formation=baseFormation(starterDeck(key));if(local()?.role!=='player'){savePreparedDeck();renderLobby();return;}clearPreparedDeck();persist('deck',key);persist('custom','');persist('customName','');if(state.connected)send('set-deck',{deckKey:key,formation:currentFormation()});renderLobby()}
 // VS AI RC36 Deck Builder v1.58 Card Review, including HERO LINEAGES footer.
 // The lobby uses a read-only 55-card source-authoritative catalog: no AI/game engine.
 let lobbyReviewProgressionIds=[];
@@ -526,7 +559,7 @@ function openS0CardPreview(cardId,options=null){
   }
   el.classList.add('open');
 }
-function swapFormation(a,b){const lanes=['LEFT','CENTER','RIGHT'],f=currentFormation(),x=lanes[a],y=lanes[b];if(!x||!y)return;[f[x],f[y]]=[f[y],f[x]];state.formation=f;if(state.customDeck)send('set-deck',{customDeck:state.customDeck,deckName:state.customDeckName,formation:f});else send('set-deck',{deckKey:state.deckKey,formation:f});renderLobby()}
+function swapFormation(a,b){if(local()?.role==='player'&&(preparedDeck||pendingDeckImport))return;const lanes=['LEFT','CENTER','RIGHT'],f=currentFormation(),x=lanes[a],y=lanes[b];if(!x||!y)return;[f[x],f[y]]=[f[y],f[x]];state.formation=f;if(local()?.role!=='player'){savePreparedDeck();renderLobby();return;}if(state.customDeck)send('set-deck',{customDeck:state.customDeck,deckName:state.customDeckName,formation:f});else send('set-deck',{deckKey:state.deckKey,formation:f});renderLobby()}
 function closeProgression(){document.getElementById('pvpHeroProgressionModal')?.remove()}
 function openProgression(rankOne){
   const ids=heroProgressionIds(currentDeck(),rankOne);
@@ -652,14 +685,14 @@ function renderLobby(){
     $('pvpRankLabel').textContent='RANK '+['I','II','III'][state.rank-1];
     $('pvpDeckStats').innerHTML='<div><dt>Heroes</dt><dd>'+stats.heroes+'</dd></div><div><dt>Legacies</dt><dd>'+stats.legacies+'</dd></div><div class="total legacy-total"><dt>Legacy Deck</dt><dd>'+(d?.legacy_deck_expanded?.length||0)+'</dd></div><div class="deck-section-start"><dt>Skills</dt><dd>'+stats.skills+'</dd></div><div><dt>Items</dt><dd>'+stats.items+'</dd></div><div><dt>Events</dt><dd>'+stats.events+'</dd></div><div class="total main-total"><dt>Main Deck</dt><dd>'+stats.main+'</dd></div>';
   }
-  $('pvpSetupPeople').innerHTML=seatHtml(1)+seatHtml(2);if(document.activeElement!==$('pvpSetupName'))$('pvpSetupName').value=state.name||'';const me=local(),spec=me?.role==='spectator';prefetchBattlefieldWhenReady();scheduleWarmBattleFrame();$('pvpSetupReadyButton').textContent=me?.ready?'UNREADY':'READY';$('pvpSetupReadyButton').disabled=!state.connected||spec||(!d&&!me?.hasDeck);$('pvpSetupSpectatorButton').textContent=spec?'JOIN AS PLAYER':'SPECTATE';$('pvpSetupStartButton').disabled=!(me?.seat===1&&(state.snapshot?.players||[]).length===2&&(state.snapshot?.players||[]).every(p=>p.connected&&p.ready&&p.hasDeck));$('pvpSetupReconnectButton').textContent=state.sessionInvalid?'NEW SESSION':'RECONNECT';$('pvpSetupHint').textContent=state.idleNotice||(state.fatalBuildMismatch?'PvP Website/backend build mismatch. Deploy matching backend, then refresh.':state.connectionError||(!state.connected?'Connecting to PvP service…':spec?'Spectator mode is read-only. Both Hands remain hidden.':me?.seat===1?'Waiting for both players to be ready.':'Ready up when your deck is selected.'));const ic=$('pvpNameStateIcon');ic.className='pvp-v260-name-icon'+(spec?' spectate':me?.ready?' ready':'');
+  $('pvpSetupPeople').innerHTML=seatHtml(1)+seatHtml(2);if(document.activeElement!==$('pvpSetupName'))$('pvpSetupName').value=state.name||'';const me=local(),spec=me?.role==='spectator';prefetchBattlefieldWhenReady();scheduleWarmBattleFrame();$('pvpSetupReadyButton').textContent=me?.ready?'UNREADY':'READY';$('pvpSetupReadyButton').disabled=!state.connected||spec||!!preparedDeck||!!pendingDeckImport||!me?.hasDeck;$('pvpSetupSpectatorButton').textContent=spec?'JOIN AS PLAYER':'SPECTATE';$('pvpSetupStartButton').disabled=!!preparedDeck||!!pendingDeckImport||!(me?.seat===1&&(state.snapshot?.players||[]).length===2&&(state.snapshot?.players||[]).every(p=>p.connected&&p.ready&&p.hasDeck));$('pvpSetupReconnectButton').textContent=state.sessionInvalid?'NEW SESSION':'RECONNECT';$('pvpSetupHint').textContent=state.idleNotice||(state.fatalBuildMismatch?'PvP Website/backend build mismatch. Deploy matching backend, then refresh.':state.connectionError||(!state.connected?'Connecting to PvP service…':spec?'Spectator mode is read-only. Both Hands remain hidden.':me?.seat===1?'Waiting for both players to be ready.':'Ready up when your deck is selected.'));const ic=$('pvpNameStateIcon');ic.className='pvp-v260-name-icon'+(spec?' spectate':me?.ready?' ready':'');
 }
 function boot(){
   document.addEventListener?.('visibilitychange',()=>{
     if(document.visibilityState==='hidden'&&battleFrameWarm)removeBattleFrame();
     else if(document.visibilityState==='visible'&&!battleFrame)scheduleWarmBattleFrame();
   },{passive:true});
-  state.clientId=makeClientId();try{const u=new URL(location.href),explicitDeck=u.searchParams.get('deck')||'';state.name=safeName(u.searchParams.get('name')||stored('name')||'Player');state.role=(u.searchParams.get('role')||sessionStored('role')||'player')==='spectator'?'spectator':'player';state.seatToken=sessionStored('seat')||'';const rawCustom=localStorage.getItem(STORE.custom)||'';if(rawCustom&&!explicitDeck){try{state.customDeck=JSON.parse(rawCustom);state.customDeckName=localStorage.getItem(STORE.customName)||state.customDeck?.display_name||state.customDeck?.deck_name||'Imported Deck';state.formation=baseFormation(state.customDeck)}catch{persist('custom','');persist('customName','')}}state.deckKey=explicitDeck||(!state.customDeck?stored('deck'):'')||''}catch{}persist('name',state.name);persistSession('role',state.role);window.GL_PVP_LOCAL_ROLE=state.role;installImageDecodeGuard();installActivityTracking();ensureLobby();renderLobby();window.addEventListener('resize',syncLobbyScale,{passive:true});connect(false)}
+  state.clientId=makeClientId();try{const u=new URL(location.href),explicitDeck=u.searchParams.get('deck')||'';state.name=safeName(u.searchParams.get('name')||stored('name')||'Player');state.role=(u.searchParams.get('role')||sessionStored('role')||'player')==='spectator'?'spectator':'player';state.seatToken=sessionStored('seat')||'';const rawCustom=localStorage.getItem(STORE.custom)||'';if(rawCustom&&!explicitDeck){try{state.customDeck=JSON.parse(rawCustom);state.customDeckName=localStorage.getItem(STORE.customName)||state.customDeck?.display_name||state.customDeck?.deck_name||'Imported Deck';state.formation=baseFormation(state.customDeck)}catch{persist('custom','');persist('customName','')}}state.deckKey=explicitDeck||(!state.customDeck?stored('deck'):'')||'';if(!explicitDeck)restorePreparedDeck();else clearPreparedDeck()}catch{}persist('name',state.name);persistSession('role',state.role);window.GL_PVP_LOCAL_ROLE=state.role;installImageDecodeGuard();installActivityTracking();ensureLobby();renderLobby();window.addEventListener('resize',syncLobbyScale,{passive:true});connect(false)}
 
 window.GL_PVP_HOST={version:VERSION,buildId:BUILD_ID,getSnapshot:()=>state.snapshot,subscribe(fn){state.listeners.add(fn);return()=>state.listeners.delete(fn)},sendIntent,sendIntentBatch,startMatch,chooseCoin,chooseTurnOrder:order=>send('choose-turn-order',{order}),coinPresented,confirmCoin,matchClock,surrender,returnToLobby,identity,reconnect:()=>connect(true),getConnection:()=>({connected:state.connected,buildMismatch:state.fatalBuildMismatch,rttMs:Number.isFinite(Number(state.rttMs))?Number(state.rttMs):null,peers:[...state.peerConnections.entries()].map(([seat,v])=>({seat,...v}))})};
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
