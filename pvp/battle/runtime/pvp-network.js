@@ -432,7 +432,7 @@ registry.register('s0-pvp',{mode:'PVP',engine:()=>native,bridge:()=>bridge});
 registry.use('s0-pvp');
 window.GL_PVP_SHARED_BOARD_ACTIVE=true;
 window.GL_PVP_LOCAL_ROLE='player';
-function update(snap,{force=false,receivedAt=null}={}){
+function update(snap,{force=false,receivedAt=null,skipFeedbackHistory=false}={}){
  const m=snap?.match||{},me=snap?.local||{};
  state.status=m.status||'setup';state.role=me.role||'spectator';state.seat=me.seat||null;
  window.GL_PVP_IDENTITY={playerName:String(me.name||'PLAYER'),opponentName:String((snap.players||[]).find(p=>Number(p.seat)!==Number(me.seat))?.name||'OPPONENT'),playerDeck:String(me.deckName||'Player Deck'),opponentDeck:String((snap.players||[]).find(p=>Number(p.seat)!==Number(me.seat))?.deckName||'Opponent Deck')};
@@ -473,6 +473,7 @@ function update(snap,{force=false,receivedAt=null}={}){
    try{
      const renderStarted=clock();
      bridge.importSnapshot(board,{skipImportAnimations:true});
+     if(skipFeedbackHistory)window.GL_GAME_UI?.resetRc44FeedbackHistory?.(board.appState);
      state.lastBoardImportMs=Math.round((clock()-renderStarted)*10)/10;
      // Reconcile the browser-only selection with each authoritative revision.
      window.GL_PVP_MANA_DRAFT?.sync(board.appState,state.revision,engine.getManaPlan?.()?.surge||null);
@@ -530,7 +531,7 @@ function update(snap,{force=false,receivedAt=null}={}){
 }
 function onServerMessage(ev){
 const receivedAt=clock();let msg;try{msg=JSON.parse(ev.data)}catch{return}
-   if(msg.type==='snapshot'){recordFirstGamePacket();update(msg,{force:!!msg.forceImport,receivedAt})}
+   if(msg.type==='snapshot'){recordFirstGamePacket();update(msg,{force:!!msg.forceImport,receivedAt,skipFeedbackHistory:!!msg.forceImport})}
    else if(msg.type==='intent-result'){
      // Delayed/duplicated ACKs never own the currently pending request.
      if(!state.inflightActionId||String(msg.clientActionId)!==state.inflightActionId){

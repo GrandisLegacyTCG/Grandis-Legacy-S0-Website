@@ -658,6 +658,7 @@ function bindFixedChoicePreview(img,cardId){
 }
 function placeModalHoverPreview(anchor){
   if(pvpPlaceMobilePopupPreview(anchor))return;
+  if(choiceOverlay.classList.contains('open')&&choiceOverlay.classList.contains('gl-collection-popup')){placeFixedOppositeChoicePreview(anchor);return;}
   const panel=choiceOverlay.querySelector('.choice-panel');
   const r=uiRect(panel||anchor);if(!r)return;
   const cs=getComputedStyle(modalHoverPreview),w=parseFloat(cs.width)||225,h=parseFloat(cs.height)||315,g=12,vp=uiViewportSize(),vw=vp.width,vh=vp.height;
@@ -687,6 +688,7 @@ function bindModalPreview(img){
 function placeContextualModalHoverPreview(anchor,compactHero){
   if(!anchor||!modalHoverPreview)return;
   if(pvpPlaceMobilePopupPreview(anchor))return;
+  if(choiceOverlay.classList.contains('open')&&choiceOverlay.classList.contains('gl-collection-popup')){placeFixedOppositeChoicePreview(anchor);return;}
   modalHoverPreview.classList.toggle('is-context-hero',!!compactHero);
   const cs=getComputedStyle(modalHoverPreview),w=parseFloat(cs.width)||259,h=parseFloat(cs.height)||362,g=10,vp=uiViewportSize(),vw=vp.width,vh=vp.height,ar=uiRect(anchor);
   // Contextual popup previews belong to the hovered card, but should not cover the
@@ -709,50 +711,40 @@ function placeContextualModalHoverPreview(anchor,compactHero){
 /* RC25 follow-up: Class Ability preview is docked OUTSIDE the *visible cards*,
    not outside the full-width invisible row. This gives the same left/right
    interaction as the Legacy Deck hover even when the selection row fills 94vw. */
-function placeClassChoiceHoverPreview(anchor){
+function placeFixedOppositeChoicePreview(anchor){
   if(!anchor)return;
-  if(pvpPlaceMobilePopupPreview(anchor))return;
-  const vp=uiViewportSize(),margin=12,gap=12,card=anchor.closest?.('.gl-center-choice-card')||anchor;
-  const bounds=[...centerChoiceStage.querySelectorAll('.gl-center-choice-card')]
-    .map(uiRect).filter(r=>r&&r.width>0&&r.height>0);
-  if(!bounds.length)return;
-  const groupLeft=Math.min(...bounds.map(r=>r.left));
-  const groupRight=Math.max(...bounds.map(r=>r.right));
-  const ar=uiRect(card);
-  const spaceLeft=Math.max(0,groupLeft-margin-gap);
-  const spaceRight=Math.max(0,vp.width-groupRight-margin-gap);
-  const onRightHalf=ar.left+ar.width/2>=(groupLeft+groupRight)/2;
-  let onRight=onRightHalf;
-  if((onRight?spaceRight:spaceLeft)<110&&(onRight?spaceLeft:spaceRight)>(onRight?spaceRight:spaceLeft))onRight=!onRight;
-  let space=onRight?spaceRight:spaceLeft;
-  const idealW=Math.min(272,Math.max(180,Math.floor(vp.width*.22)));
-  const heightFit=Math.max(100,(vp.height-margin*2)*5/7);
-  // On narrow screens, leave the selection fully usable and allow a smaller
-  // side preview. Do not cover the choice cards or the action buttons.
-  const width=Math.max(0,Math.min(idealW,space,heightFit));
-  if(width<110){
-    // No physically usable side column: dock above the selection, not on top
-    // of the CONFIRM/SKIP buttons as the previous RC25 fallback did.
-    const w=Math.min(220,vp.width-margin*2,heightFit);
-    const h=w*7/5;
-    const center=ar.left+ar.width/2;
-    const x=Math.max(margin,Math.min(center-w/2,vp.width-w-margin));
-    const rowTop=Math.min(...bounds.map(r=>r.top));
-    const y=Math.max(margin,Math.min(rowTop-gap-h,vp.height-h-margin));
-    modalHoverPreview.style.setProperty('width',Math.round(w)+'px','important');
-    modalHoverPreview.style.setProperty('height',Math.round(h)+'px','important');
-    modalHoverPreview.style.left=Math.round(x)+'px';
-    modalHoverPreview.style.top=Math.round(y)+'px';
-    return;
+  const vp=uiViewportSize(),margin=14;
+  const card=anchor.closest?.('.gl-center-choice-card,.card-search-choice,.discard-choice,.gl-inspect-card')||anchor;
+  const ar=uiRect(card);if(!ar)return;
+  // UI31 RC44 v4: two viewport-fixed opposite-side docks, shifted inward
+  // from the old edge-aligned preview. Candidate count and grid edges NEVER
+  // move either dock. Keep the familiar art size and 5:7 aspect ratio.
+  const inset=Math.min(68,Math.max(margin,Math.round(vp.width*.042)));
+  const width=Math.max(1,Math.min(230,(vp.height-2*margin)*5/7,(vp.width-2*inset-margin)/2));
+  const height=width*7/5;
+  const dock={left:inset,right:vp.width-inset-width};
+  let y=Math.max(margin,Math.min(Math.round(vp.height*.36),vp.height-height-margin));
+  const preferred=(ar.left+ar.width/2)<vp.width/2?'right':'left';
+  let side=preferred;
+  const overlap=(x,top)=>x<ar.right+4&&x+width>ar.left-4&&top<ar.bottom+4&&top+height>ar.top-4;
+  if(overlap(dock[side],y)){
+    const other=side==='left'?'right':'left';
+    if(!overlap(dock[other],y))side=other;
+    else{
+      // Extremely narrow desktop windows: keep a fixed horizontal dock,
+      // but use free vertical space instead of covering the selected card.
+      const choices=[margin,Math.max(margin,vp.height-height-margin)];
+      const safe=choices.find(t=>!overlap(dock[side],t));
+      if(safe!==undefined)y=safe;
+    }
   }
-  const w=width,h=w*7/5;
-  const x=onRight?groupRight+gap:groupLeft-gap-w;
-  const y=Math.max(margin,Math.min(ar.top+ar.height/2-h/2,vp.height-h-margin));
-  modalHoverPreview.style.setProperty('width',Math.round(w)+'px','important');
-  modalHoverPreview.style.setProperty('height',Math.round(h)+'px','important');
-  modalHoverPreview.style.left=Math.round(x)+'px';
+  modalHoverPreview.style.setProperty('width',Math.round(width)+'px','important');
+  modalHoverPreview.style.setProperty('height',Math.round(height)+'px','important');
+  modalHoverPreview.style.left=Math.round(dock[side])+'px';
   modalHoverPreview.style.top=Math.round(y)+'px';
+  modalHoverPreview.dataset.glFixedDock=side;
 }
+function placeClassChoiceHoverPreview(anchor){if(!anchor)return;if(pvpPlaceMobilePopupPreview(anchor))return;placeFixedOppositeChoicePreview(anchor);}
 let classChoiceHoverOwner=null;
 function bindClassChoiceHoverPreview(card,cardId){
   if(!card||!cardId||card.dataset.glClassChoicePreviewBound==='1')return;
@@ -1303,7 +1295,9 @@ function s0PvpCoinResult(info={}){
 }
 function s0PvpCoinRelease(){coinOverlay.classList.remove('open','gl-pvp-coin-result');appRoot?.classList.remove('gl-lobby-hidden');}
 window.GL_S0_RC32_PVP_COIN={showChoice:s0PvpCoinChoice,showResult:s0PvpCoinResult,release:s0PvpCoinRelease};
-function resetPresentationState(){glPresentationEpoch++;for(const batch of [...glTrialReturnBatches])batch.cancel();glTrialHandFlightKeys.clear();if(expInspectorOverlay.classList.contains('open'))closeExpInspector();document.querySelectorAll('.gl-mana-loss-notice').forEach(el=>el.remove());pvpDeferredRankTransitions.length=0;pvpDeferredExpReturns.length=0;pvpPresentedExpReturnIds.clear();pvpPendingAttackVisual=null;pvpSeenCombatCommitIds.clear();seenCounterMessages.clear();shownCompletedCounterChains.clear();clearTimeout(counterChainHoldTimer);counterChainBanner.replaceChildren();counterChainBanner.classList.remove('show');seenRacialMessages.clear();seenPlayedActionEvents.clear();seenDiscardNotifications.clear();pvpSeenHealingResultKeys.clear();presentationNoticeQueue.length=0;presentationNoticeActive=false;clearTimeout(counterBannerTimer);counterBanner.classList.remove('show','is-racial','is-mana');counterBanner.style.removeProperty('--gl-notice-duration');presentationPrimed=false;previousVisualState=null;seenPresentationEvents.clear();resolvedHistory=[];historyKnown.clear();activeCardHold=null;glPendingDrawReservations.PLAYER.length=0;glPendingDrawReservations.AI.length=0;glHiddenCommittedDrawSlots.PLAYER.clear();glHiddenCommittedDrawSlots.AI.clear();glOpeningHiddenShardUids.clear();glExternalDrawSequence=Promise.resolve();glExternalManaDrawSequence=Promise.resolve();glExternallyPresentedShardUids.clear();resultShown=false;resultOverlay.classList.remove('open');syncMatchActionButton(null);closeLobbyProgression();resetMatchTimer()}
+const rc44SeenFeedback=new Set();
+function resetRc44FeedbackHistory(board){E()?.resetBattleFeedback?.();rc44SeenFeedback.clear();for(const e of board?.pvpRc44FeedbackEvents||[])if(e?.id)rc44SeenFeedback.add(e.id);}
+function resetPresentationState(){resetRc44FeedbackHistory(null);glPresentationEpoch++;for(const batch of [...glTrialReturnBatches])batch.cancel();glTrialHandFlightKeys.clear();if(expInspectorOverlay.classList.contains('open'))closeExpInspector();document.querySelectorAll('.gl-mana-loss-notice').forEach(el=>el.remove());pvpDeferredRankTransitions.length=0;pvpDeferredExpReturns.length=0;pvpPresentedExpReturnIds.clear();pvpPendingAttackVisual=null;pvpSeenCombatCommitIds.clear();seenCounterMessages.clear();shownCompletedCounterChains.clear();clearTimeout(counterChainHoldTimer);counterChainBanner.replaceChildren();counterChainBanner.classList.remove('show');seenRacialMessages.clear();seenPlayedActionEvents.clear();seenDiscardNotifications.clear();pvpSeenHealingResultKeys.clear();presentationNoticeQueue.length=0;presentationNoticeActive=false;clearTimeout(counterBannerTimer);counterBanner.classList.remove('show','is-racial','is-mana');counterBanner.style.removeProperty('--gl-notice-duration');presentationPrimed=false;previousVisualState=null;seenPresentationEvents.clear();resolvedHistory=[];historyKnown.clear();activeCardHold=null;glPendingDrawReservations.PLAYER.length=0;glPendingDrawReservations.AI.length=0;glHiddenCommittedDrawSlots.PLAYER.clear();glHiddenCommittedDrawSlots.AI.clear();glOpeningHiddenShardUids.clear();glExternalDrawSequence=Promise.resolve();glExternalManaDrawSequence=Promise.resolve();glExternallyPresentedShardUids.clear();resultShown=false;resultOverlay.classList.remove('open');syncMatchActionButton(null);closeLobbyProgression();resetMatchTimer()}
 function startMatchFromLobby(){
   lobbyErrorText='';const r=E().prepareLocalMatch?.();if(!r?.ok){lobbyErrorText=r?.error||'Could not start match.';renderLobby();return}
   resetPresentationState();lobbyIsOpen=false;lobbyOverlay.classList.remove('open');appRoot?.classList.add('gl-lobby-hidden');renderCoinChoice();
@@ -2076,8 +2070,13 @@ function buildPresentationPlan(s){
     seenPlayedActionEvents.add(evt.id);
     if(presentationPrimed)plan.playedActions.push(evt);
   }
-  plan.combatBatches=pvpAttackVisualPlan(s,cur,prev)||[];
-  plan.healTargets=pvpCommittedHealingTargets(s);
+  plan.combatBatches=[];plan.healTargets=[];plan.rc44Feedback=[];
+  for(const event of s.pvpRc44FeedbackEvents||[]){
+    if(!event?.id||rc44SeenFeedback.has(event.id))continue;
+    rc44SeenFeedback.add(event.id);
+    if(presentationPrimed&&!openingPresentationActive)plan.rc44Feedback.push(event);
+  }
+  while(rc44SeenFeedback.size>256)rc44SeenFeedback.delete(rc44SeenFeedback.values().next().value);
   if(openingPresentationActive){
     (cur.presentation||[]).forEach(e=>{if(e?.id&&e.reason==='OPENING_HAND')seenPresentationEvents.add(e.id)});
     previousVisualState=cur;return plan;
@@ -2369,7 +2368,7 @@ function renderPvpIncomingDamage(s){
     notice.append(title,amount);field.appendChild(notice);
   }
   const name=ability?(attack.ability_name||'Ability Damage'):(cv(attack.card_id)?.name||attack.card_id);
-  const wording=pvpIncomingDamageWording(attack);
+  const wording=pvpIncomingDamageWording(Number.isFinite(s.pvpRc44IncomingDamage)?{...attack,damage:s.pvpRc44IncomingDamage}:attack);
   const signature=[attack.card_id,wording].join('|');
   if(notice.dataset.attackKey!==signature){
     notice.dataset.attackKey=signature;
@@ -3445,6 +3444,7 @@ function closeExpInspector(){
 }
 function renderExpInspector(){
   const loc=expInspectorLocation;if(!loc)return;
+  expInspectorOverlay.querySelector('.gl-exp-inspector-foot').textContent=isPvpMobilePreviewStage()?'Hold to enlarge; tap for full Card Review.':'Hover to enlarge; click for full Card Review.';
   const h=sideHeroes(st(),loc.side)?.[loc.lane];
   if(!h||h.legacy_mode){closeExpInspector();return;}
   const ids=Array.isArray(h.exp_cards)?h.exp_cards.slice():[],total=Math.max(0,Math.floor(Number(h.exp_total)||0));
@@ -3513,24 +3513,26 @@ function renderHero(side,lane,h,s){
      !pack.querySelector(':scope > .gl-rank-old-hero') &&
      !hc.classList.contains('gl-presentation-hidden'))
     laneEl.classList.remove('gl-rank-transitioning');
-  const id=heroImageId(h),v=cv(id);let img=hc.querySelector(':scope > img');if(!img){img=document.createElement('img');hc.prepend(img)}
-  if(id)glPvpStableHeroArtwork(img,art(id),h?.legacy_mode?'/pvp/assets/ui/back-legacy.webp':'/pvp/assets/ui/back-main.webp');img.alt=v?.name||'Hero';img.classList.add('heroImg');bindBattlefieldPreview(img,'hero',hc);
+  const visualHero=E()?.getBattlePresentationHero?.(side,lane,h)||h;
+  const id=heroImageId(visualHero),v=cv(id);let img=hc.querySelector(':scope > img');if(!img){img=document.createElement('img');hc.prepend(img)}
+  if(id)glPvpStableHeroArtwork(img,art(id),visualHero?.legacy_mode?'/pvp/assets/ui/back-legacy.webp':'/pvp/assets/ui/back-main.webp');img.alt=v?.name||'Hero';img.classList.add('heroImg');bindBattlefieldPreview(img,'hero',hc);
   // HP/state UI belongs to the lane overlay and never rotates with the physical Hero package.
   // Legacy is not a Hero and has no HP. Match the VS AI renderer: never show an HP bar / 0/0 in Legacy Mode.
   hc.querySelector(':scope > .hp')?.remove();
   const legacyMode=!!h?.legacy_mode;
+  hc.classList.toggle('gl-revive-return-hidden',!!visualHero?._gl_revive_return);
   laneEl.classList.toggle('gl-legacy-slot',legacyMode);
   laneEl.querySelector(':scope > .gl-legacy-under-hero')?.remove();
   if(legacyMode){const under=h?.defeated_hero_snapshot?.card_id||h?.original_hero_card_id;if(under){const info=document.createElement('button');info.type='button';info.className='gl-legacy-under-hero';info.textContent='!';info.title='Hover to view Hero under this Legacy';info.setAttribute('aria-label','Hover to view Hero under this Legacy');const showUnder=()=>{img.src=art(under);img.alt=cv(under)?.name||'Hero under Legacy';laneEl.classList.add('gl-legacy-peek')};const restoreLegacy=()=>{img.src=art(id);img.alt=v?.name||'Legacy';laneEl.classList.remove('gl-legacy-peek')};info.addEventListener('mouseenter',showUnder);info.addEventListener('mouseleave',restoreLegacy);info.addEventListener('focus',showUnder);info.addEventListener('blur',restoreLegacy);info.onclick=e=>{e.preventDefault();e.stopPropagation()};laneEl.appendChild(info)}}
   let hp=laneEl.querySelector(':scope > .gl-hp-overlay');
-  if(legacyMode){ if(hp)hp.remove(); hp=null; }
+  if(visualHero?.legacy_mode){ if(hp)hp.remove(); hp=null; }
   else{
     if(!hp){hp=document.createElement('span');hp.className='gl-hp-overlay';laneEl.appendChild(hp)}
-    const hpNow=Math.max(0,Number(h?.hp||0)),hpMax=Math.max(0,Number(h?.maxHp||h?.hp||0)),hpPct=hpMax>0?Math.max(0,Math.min(100,(hpNow/hpMax)*100)):0;
+    const hpNow=Math.max(0,Number(visualHero?.hp||0)),hpMax=Math.max(0,Number(visualHero?.maxHp||visualHero?.hp||0)),hpPct=hpMax>0?Math.max(0,Math.min(100,(hpNow/hpMax)*100)):0;
     hp.classList.toggle('is-warning',hpPct>40&&hpPct<=60);hp.classList.toggle('is-low',hpPct<=40);
     hp.style.setProperty('--hp-ratio',String(hpPct/100));
     const hpLabel=Math.round(hpNow)+'/'+Math.round(hpMax);
-    if(hp.dataset.glHpLabel!==hpLabel){hp.dataset.glHpLabel=hpLabel;hp.innerHTML='<span class="gl-hp-text">'+hpLabel+'</span><span class="gl-hp-track"><span class="gl-hp-fill"></span></span>';}
+    if(!hp.querySelector('.gl-hp-track'))hp.innerHTML='<span class="gl-hp-text"></span><span class="gl-hp-track"><span class="gl-hp-fill"></span></span>';hp.querySelector('.gl-hp-text').textContent=hpLabel;
   }
   // v2.13: the existing lower-left EXP label becomes a public EXP inspector
   // button. Keep the same location and hide it for 0 EXP or Legacy, as before.
@@ -4667,7 +4669,7 @@ function watchHandSpotlight(){
 // existing compact tile appearance, and measure the real header/footer and
 // row overhead (names/buttons) before allocating two complete rows.
 function fitCollectionPopup(){
-  if(!choiceOverlay.classList.contains('open')||!choiceOverlay.classList.contains('gl-collection-popup')||choiceOverlay.classList.contains('gl-choice-to-hand'))return;
+  if(!choiceOverlay.classList.contains('open')||!choiceOverlay.classList.contains('gl-collection-popup'))return;
   const panel=choiceOverlay.querySelector('.choice-panel'),body=panel.querySelector('.choice-body'),grid=body.querySelector('.choice-grid');
   if(!grid||!grid.children.length)return;
   const root=document.documentElement, mobile=adaptiveStageActive(),style=getComputedStyle(root);
@@ -4692,7 +4694,15 @@ function fitCollectionPopup(){
   const first=grid.firstElementChild;
   const normal=mobile?Math.min(138,Math.max(96,(document.querySelector(".hero-card img.heroImg")?.offsetWidth||123)*.92+12)):96;
   const normalCols=Math.max(1,Math.floor((maxGridW+gap)/(normal+gap)));
-  const availableRows=grid.children.length>normalCols?2:1;
+  // UI28 RC44 v5: all Desktop collection popups reserve exactly eight
+  // columns, regardless of viewport width or how many choices exist. On a
+  // smaller desktop, reduce TILE width, NOT the number of columns. Tablet and
+  // mobile retain their viewport-driven adaptive columns and touch behavior.
+  const baseCols=mobile?Math.max(1,Math.min(8,normalCols)):8;
+  const availableRows=grid.children.length>baseCols?2:1;
+  // Grid includes a small scrollbar gutter. Derive a hard width limit BEFORE
+  // measuring the visible rows so even 8 columns fit on compact Desktops.
+  const widthCap=Math.floor((maxGridW-(baseCols-1)*gap-10)/baseCols);
   // Measure actual tile chrome; a name and Select button are part of a row.
   set(grid,'grid-template-columns',`repeat(1,${normal}px)`);
   set(first,'width',normal+'px');set(first,'min-width','0');set(first,'max-width','none');
@@ -4700,9 +4710,9 @@ function fitCollectionPopup(){
   const chrome=Math.max(12,first.offsetHeight-(im?.offsetHeight||0));
   const artInset=Math.max(0,first.offsetWidth-(im?.offsetWidth||first.offsetWidth));
   const fitWidth=Math.floor((maxGridH-(availableRows-1)*gap-availableRows*chrome)/availableRows/1.4+artInset);
-  let tile=Math.max(24,Math.min(normal,fitWidth,maxGridW));
-  let cols=Math.max(1,Math.min(grid.children.length,Math.floor((maxGridW+gap)/(tile+gap))));
-  if(grid.children.length<=cols){cols=grid.children.length;tile=Math.max(24,Math.min(normal,Math.floor((maxGridW-(cols-1)*gap)/cols),Math.floor((maxGridH-chrome)/1.4+artInset)));}
+  let tile=Math.max(18,Math.min(normal,fitWidth,maxGridW,widthCap));
+  let cols=mobile?Math.max(1,Math.min(baseCols,Math.floor((maxGridW+gap)/(tile+gap)))):8;
+  if(grid.children.length<=cols){tile=Math.max(18,Math.min(normal,widthCap,Math.floor((maxGridH-chrome)/1.4+artInset)));}
   set(first,'width','100%');
   set(panel,'min-width','0');set(panel,'max-width',Math.max(1,W-2*top)+'px');
   set(panel,'max-height',maxH+'px');set(panel,'height','auto');set(panel,'transform','none');
@@ -4713,8 +4723,13 @@ function fitCollectionPopup(){
   // real panel width is applied. Re-measure the second row and reduce the
   // tile just enough to guarantee two complete rows when needed and feasible.
   for(let attempt=0;attempt<8;attempt++){
-    cols=Math.max(1,Math.min(grid.children.length,Math.floor((maxGridW+gap)/(tile+gap))));
+    cols=mobile?Math.max(1,Math.min(baseCols,Math.floor((maxGridW+gap)/(tile+gap)))):8;
     const gridW=cols*tile+(cols-1)*gap+10;
+    // UI28 owner correction: 8-column width is reserved capacity, NOT a
+    // centering rule. Always place choices in their original order starting
+    // at the upper-left cell, then fill left-to-right and top-to-bottom.
+    // Clear stale offsets from older popup layouts on every responsive fit.
+    [...grid.children].forEach(el=>{for(const prop of ['grid-column-start','left','position'])el.style.removeProperty(prop)});
     set(panel,'width',Math.min(W-2*top,gridW+pad)+'px');
     set(grid,'grid-template-columns',`repeat(${cols},${tile}px)`);set(grid,'grid-auto-columns',tile+'px');
     set(grid,'width',gridW+'px');set(grid,'max-width','100%');set(grid,'max-height',maxGridH+'px');
@@ -4724,10 +4739,15 @@ function fitCollectionPopup(){
     if(rows.length<2||rows[1]<=realGridBudget+1||tile<=24||attempt===7)break;
     tile=Math.max(24,tile-Math.max(1,Math.ceil((rows[1]-realGridBudget+3)/2.8)));
   }
-  // Display as many complete rows as fit; the rest scroll. Never snap a
-  // feasible two-row collection down to a single row due to rounding.
-  const complete=rows.filter(h=>h<=realGridBudget+1);
-  if(complete.length&&complete.length<rows.length&&(complete.length>=2||rows.length===1||tile<=24))set(grid,'max-height',complete.at(-1)+'px');
+  // UI28 RC44 v4: a collection never expands to a third VISIBLE row.
+  // 1..columns => one row, columns+1..N => two rows; all later cards scroll
+  // inside the grid. Derive the cap from the measured rows (including tile
+  // names and Select buttons), not an estimated artwork-only height.
+  // If a short viewport cannot fit two complete rows, viewport clipping and
+  // scrolling take priority over forcing the panel onto the Hand.
+  const visibleRowCount=Math.min(2,rows.length);
+  const targetRowHeight=visibleRowCount?rows[visibleRowCount-1]:0;
+  set(grid,'max-height',Math.max(1,Math.min(maxGridH,Math.ceil(targetRowHeight+1)))+'px');
   const panelH=panel.offsetHeight;
   set(choiceOverlay,'padding-top',(rows.length<=1?Math.max(top,Math.floor((top+bottom-panelH)/2)):top)+'px');
   choiceOverlay.dataset.collectionColumns=String(cols);
@@ -4738,6 +4758,7 @@ function resetCollectionPopup(){
   const panel=choiceOverlay.querySelector('.choice-panel'),body=panel.querySelector('.choice-body');
   for(const k of ['width','min-width','max-width','height','max-height','transform'])panel.style.removeProperty(k);
   body.style.removeProperty('max-height');
+  body.querySelectorAll('.choice-grid > *').forEach(el=>{for(const prop of ['grid-column-start','left','position'])el.style.removeProperty(prop)});
 }
 window.addEventListener('resize',()=>requestAnimationFrame(fitCollectionPopup),{passive:true});
 
@@ -5080,12 +5101,16 @@ function renderNow(){
   // Only normalize objectively inconsistent Response state. Mandatory gameplay choices are never force-cleared.
   if(repairBlockingStateIfNeeded(s)){setTimeout(renderNow,0);return;}
   const presentationPlan=buildPresentationPlan(s);
+  for(const event of presentationPlan.rc44Feedback||[]){
+    if(event.feedback?.kind==='attachment_discard')queueBattlefieldAttachmentDiscard(event.feedback);
+    else E()?.enqueuePvpCommittedFeedback?.(event);
+  }
   if(uiResponseSourceChoice&&s.responseWindow?.response_owner!=='PLAYER')uiResponseSourceChoice=null;
   if(responseRollbackSnapshot&&s.pending?.type!=='response_payment_choice'&&!uiResponseSourceChoice&&s.responseWindow?.response_owner!=='PLAYER')responseRollbackSnapshot=null;
   autoSpecialChoices(s);glPvpWarmVisibleArtwork(s);const chain=renderCombatStacks(s);
   for(const side of ['PLAYER','AI'])for(const lane of laneOrder)renderHero(side,lane,pvpHeroVisualDuringArea(sideHeroes(s,side)?.[lane],side,lane),s);
   renderHand(s);renderOpponentHand(s);syncExpButtonLock();renderExpInspector();renderMana();renderCenterChoiceStage(s);renderPhase(s);renderPay(s);renderInteractionFocus(s);renderResponseRouteGuide(s);renderPvpIncomingDamage(s);renderDeckActions(s);renderSidebar(s,chain);renderAttackLine(s,chain);renderAllowedModal(s);renderRails(s);syncSoundButton();syncMatchActionButton(s);preparePresentationTargets(presentationPlan);showGameResult(s);renderStatusReminder(s);updateMobileStatusTip();queuePvpSwapNotices(s);
-  requestAnimationFrame(()=>{syncPlayerManaPoolToHeroLeft();syncPlayerHandToHeroCenter();syncOpponentHand();syncPlayerNameBox();layoutManaPoolCards(playerManaHost);layoutManaPoolCards(aiManaHost);runPresentationPlan(presentationPlan,s)});
+  requestAnimationFrame(()=>{syncPlayerManaPoolToHeroLeft();syncPlayerHandToHeroCenter();syncOpponentHand();syncPlayerNameBox();layoutManaPoolCards(playerManaHost);layoutManaPoolCards(aiManaHost);runPresentationPlan(presentationPlan,s);E()?.flushBattleFeedback?.()});
 }
 function clearAuthoredDummyState(){
   document.querySelectorAll('.hand-track').forEach(x=>x.innerHTML='');
@@ -5132,7 +5157,34 @@ function queueBattlefieldReservedManaDraw(reservation,commit){
   });
   glExternalManaDrawSequence=glExternalManaDrawSequence.then(run,run);return true;
 }
-window.GL_GAME_PRESENTATION={queueReservedMainDeckDraw:queueBattlefieldReservedDraw,queueReservedManaDraw:queueBattlefieldReservedManaDraw,isBusy:battlefieldPresentationBusy};
+function queueReviveLegacyReturn(side,lane,cardId,onFinish){
+  const epoch=glPresentationEpoch,from=heroCardEl(side,lane),to=zoneEl(side,'Legacy Deck');
+  const done=()=>{if(epoch===glPresentationEpoch&&typeof onFinish==='function')onFinish();};
+  return flyBetween(art(cardId),from?.querySelector('.heroImg')||from,to?.querySelector('.zoneCard')||to,470,done,true);
+}
+// Attachment discard is committed by the engine BEFORE this is invoked.
+// Capture the current visible Attachment slot and show a lightweight flight
+// to that owner's Discard. Gameplay never waits for this presentation.
+let glLastAttachmentDiscardSoundAt=-Infinity;
+function queueBattlefieldAttachmentDiscard({side,lane,slot,card_id:id}={}){
+  if(!id||!['PLAYER','AI'].includes(side)||!laneOrder.includes(lane)||!Number.isInteger(slot)||slot<0||slot>1)return false;
+  const host=uiLaneElement(side,lane);
+  const from=[...(host?.querySelectorAll(':scope > .attachment-card')||[])].find(el=>
+    el.dataset.glAttachmentSlot===String(slot)&&el.dataset.glCardId===id);
+  const pile=zoneEl(side,'Discard Pile');
+  const to=pile?.querySelector('img.zoneCard, img')||pile;
+  if(!from||!to||!uiRect(from)?.width||!uiRect(to)?.width)return false;
+  if(battlefieldHoverSource&&from.contains(battlefieldHoverSource))hideBattlefieldHoverPreview();
+  // If both Attachment slots expire in one transaction, one Card Sound is
+  // enough, while both flight visuals may run simultaneously. Sound starts
+  // together with the visual (not on arrival at the Discard).
+  const now=performance.now();
+  const sound=now-glLastAttachmentDiscardSoundAt>=100;
+  if(sound)glLastAttachmentDiscardSoundAt=now;
+  return flyBetween(art(id),from,to,390,null,sound);
+}
+
+window.GL_GAME_PRESENTATION={queueReservedMainDeckDraw:queueBattlefieldReservedDraw,queueReservedManaDraw:queueBattlefieldReservedManaDraw,queueReviveLegacyReturn,queueAttachmentDiscard:queueBattlefieldAttachmentDiscard,isBusy:battlefieldPresentationBusy};
 
 function initStableBattlefieldReviewGestures(){
   if(!BF||BF.dataset.glStableReviewBound==='1')return;BF.dataset.glStableReviewBound='1';
@@ -5193,6 +5245,6 @@ function requestPvpRender(){
   if(pvpRenderQueued)return;
   pvpRenderQueued=true;requestAnimationFrame(()=>{pvpRenderQueued=false;renderNow();window.GL_PVP_TOUCH_SYNC?.()});
 }
-function boot(){if(!E()||!B()){setTimeout(boot,50);return}B().setExternalHumanUi?.(true);E().setExternalHumanUi?.(true);B().setRenderSuppressed(true);document.getElementById('glPendingAttackDirectionLayer')?.remove();clearAuthoredDummyState();configureStaticZones();initStableBattlefieldReviewGestures();initPvpMobilePreviewDismiss();initSidebarControls();lockPrimaryActionWidth();if(window.GL_APP_MODE==='PVP'){lobbyIsOpen=false;lobbyOverlay.classList.remove('open');appRoot?.classList.remove('gl-lobby-hidden');}else renderLobby();updateMatchTimer();setInterval(updateMatchTimer,250);if(window.GL_APP_MODE==='PVP')setInterval(refreshPostMatchCountdown,1000);if(window.GL_APP_MODE!=='PVP')setInterval(()=>{if(!lobbyIsOpen)renderNow()},120);window.addEventListener('resize',()=>requestAnimationFrame(()=>{if(lobbyIsOpen)return;syncPlayerManaPoolToHeroLeft();syncPlayerHandToHeroCenter();syncOpponentHand();syncPlayerNameBox();layoutManaPoolCards(playerManaHost);layoutManaPoolCards(aiManaHost);placePhaseIndicator(document.querySelector('.phase-label.active'),false);renderAttackLine(st(),chainActions(st()))}),{passive:true});window.GL_GAME_UI={render:requestPvpRender,renderLocalChoiceDraft:()=>renderCenterChoiceStage(st()),renderManaDraft:renderManaDraftOnly,renderBlindManaDraft:renderBlindManaDraftOnly,manaModalVisible:()=>centerChoiceStage.classList.contains('open')&&centerChoiceStage.classList.contains('gl-center-mode-pay'),state:st,intent,playPvPOpening:beginPvPOpeningPresentation,openingBusy:()=>{if(window.GL_APP_MODE==='PVP'&&openingPresentationActive&&pvpOpeningStartedAt&&Date.now()-pvpOpeningStartedAt>12000)finishPvPOpeningPresentation(pvpOpeningSerial,true);return openingPresentationActive},openLobby:()=>{lobbyIsOpen=true;renderLobby()},closeInspect:closeInspectModal};window.addEventListener('gl-pvp-intent-error',()=>{resetCenterChoiceVisualState();requestPvpRender()});}
+function boot(){if(!E()||!B()){setTimeout(boot,50);return}B().setExternalHumanUi?.(true);E().setExternalHumanUi?.(true);B().setRenderSuppressed(true);document.getElementById('glPendingAttackDirectionLayer')?.remove();clearAuthoredDummyState();configureStaticZones();initStableBattlefieldReviewGestures();initPvpMobilePreviewDismiss();initSidebarControls();lockPrimaryActionWidth();if(window.GL_APP_MODE==='PVP'){lobbyIsOpen=false;lobbyOverlay.classList.remove('open');appRoot?.classList.remove('gl-lobby-hidden');}else renderLobby();updateMatchTimer();setInterval(updateMatchTimer,250);if(window.GL_APP_MODE==='PVP')setInterval(refreshPostMatchCountdown,1000);if(window.GL_APP_MODE!=='PVP')setInterval(()=>{if(!lobbyIsOpen)renderNow()},120);window.addEventListener('resize',()=>requestAnimationFrame(()=>{if(lobbyIsOpen)return;syncPlayerManaPoolToHeroLeft();syncPlayerHandToHeroCenter();syncOpponentHand();syncPlayerNameBox();layoutManaPoolCards(playerManaHost);layoutManaPoolCards(aiManaHost);placePhaseIndicator(document.querySelector('.phase-label.active'),false);renderAttackLine(st(),chainActions(st()))}),{passive:true});window.GL_GAME_UI={render:requestPvpRender,resetRc44FeedbackHistory,renderLocalChoiceDraft:()=>renderCenterChoiceStage(st()),renderManaDraft:renderManaDraftOnly,renderBlindManaDraft:renderBlindManaDraftOnly,manaModalVisible:()=>centerChoiceStage.classList.contains('open')&&centerChoiceStage.classList.contains('gl-center-mode-pay'),state:st,intent,playPvPOpening:beginPvPOpeningPresentation,openingBusy:()=>{if(window.GL_APP_MODE==='PVP'&&openingPresentationActive&&pvpOpeningStartedAt&&Date.now()-pvpOpeningStartedAt>12000)finishPvPOpeningPresentation(pvpOpeningSerial,true);return openingPresentationActive},openLobby:()=>{lobbyIsOpen=true;renderLobby()},closeInspect:closeInspectModal};window.addEventListener('gl-pvp-intent-error',()=>{resetCenterChoiceVisualState();requestPvpRender()});}
 boot();
 })();

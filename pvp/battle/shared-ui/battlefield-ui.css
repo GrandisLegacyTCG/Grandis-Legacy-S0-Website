@@ -2527,3 +2527,17 @@ html.gl-pvp-mobile-gameplay .gl-vsai-choice-overlay.gl-choice-swap .choice-body{
 
 /* Never let obsolete donor loading state hide the persistent Card Review frame. */
 .gl-card-review-body.gl-review-loading .gl-db158-review-frame{opacity:1!important;visibility:visible!important;pointer-events:auto!important}
+
+
+/* RC43: desktop choice cards reserve one legible 272px preview lane.
+   Touch layouts keep their native fullscreen preview rather than this rule. */
+@media (min-width:1250px) {
+ html[data-gl-platform="desktop"] body.gl-center-choice-active .gl-center-choice-cards {
+   max-width:min(94vw, calc(100vw - 610px))!important;
+ }
+}
+
+/* RC44 revised UI30: attachment 1 counter shares Mobile's outer upper-left anchor on Desktop. */
+html[data-gl-platform] .attachment-card.left > .attachment-turn{
+  left:-4px!important;right:auto!important;top:-4px!important;bottom:auto!important;
+}

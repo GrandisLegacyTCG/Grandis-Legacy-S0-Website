@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Grandis Legacy — Season 0 PvP RC42 · Main R3.98 / Legacy R4.0</title>
+<title>Grandis Legacy — Season 0 PvP RC44 · Main R4.0 / Legacy R4.0</title>
 <link rel="icon" type="image/png" href="/assets/site/web-s0/favicon.png">
 
 
@@ -295,16 +295,17 @@ html.gl-adaptive-stage .played{column-gap:5px;row-gap:5px}
 .opponent-field .zone>.count,.opponent-field .opponent-mana-pool>.count{left:-4px;right:auto;top:auto;bottom:-4px}
 </style>
 
-<link rel="stylesheet" href="shared-ui/battlefield-ui.css?v=gl-s0-pvp-rc42-r398-r40-20261124-s3&amp;f15ui=20261121-03&amp;f19fix=20261121-v1">
-<link rel="stylesheet" href="runtime/pvp-mobile-landscape-fix.css?v=gl-s0-pvp-rc42-r398-r40-20261124-s3&amp;ui=20261120-preview&amp;mobile=20261120-v2">
+<link rel="stylesheet" href="shared-ui/battlefield-ui.css?v=gl-s0-pvp-rc44-r40-r40-20261127&amp;f15ui=20261121-03&amp;f19fix=20261121-v1">
+<link rel="stylesheet" href="runtime/pvp-mobile-landscape-fix.css?v=gl-s0-pvp-rc44-r40-r40-20261127&amp;ui=20261120-preview&amp;mobile=20261120-v2">
 <link rel="stylesheet" href="runtime/pvp-image-stability.css?v=20261120-smooth-1">
 <link rel="stylesheet" href="runtime/pvp-mobile-all5.css?v=20261124-pvp-all5-v1">
 <link rel="stylesheet" href="runtime/pvp-mobile-followup.css?v=20261124-pvp-mobile-6to9-v1">
 <link rel="stylesheet" href="runtime/pvp-mobile-vsai-batch2-parity.css?v=20261124-step2-donor-batch2">
 
-<link rel="stylesheet" href="runtime/pvp-ui-sync.css?v=20261125-ui-sync1&amp;fix=20261126-p01-p04">
+<link rel="stylesheet" href="runtime/pvp-ui-sync.css?v=20261125-ui-sync1&amp;fix=20261127-rc44">
 <link rel="stylesheet" href="runtime/pvp-vsai-followup-20261125.css?v=pvp-ui-sync2-action-hp-hand-played">
-<link rel="stylesheet" href="runtime/pvp-vsai-rc43-ui.css?v=pvp-rc43-ui-20261126">
+<link rel="stylesheet" href="runtime/pvp-vsai-rc43-ui.css?v=pvp-rc44-ui-20261126">
+<link rel="stylesheet" href="shared-ui/combat-feedback.css?v=rc44">
 </head>
 <body>
 <div class="app gl-lobby-hidden">
@@ -397,7 +398,7 @@ html.gl-adaptive-stage .played{column-gap:5px;row-gap:5px}
     <section class="history-panel" id="historyPanel" aria-hidden="true"><div class="history-head"><h3>Full Card History</h3><button class="history-close" id="historyClose" type="button">Close</button></div><div class="history-grid"></div></section>
   </aside>
 </div>
-<script src="shared-ui/pvp-platform.js?v=pvp-rc43-ui-20261126"></script>
+<script src="shared-ui/pvp-platform.js?v=pvp-rc44-ui-20261126"></script>
 <script id="gl-responsive-stage-js">
 (() => {
   const REF_W=1600, REF_H=747, STEP=.05, NORMAL_MIN=.85, NORMAL_MAX=1.20, EMERGENCY_MIN=.75;
@@ -421,15 +422,15 @@ html.gl-adaptive-stage .played{column-gap:5px;row-gap:5px}
       window.syncPlayerHandToHeroCenter?.();
       window.syncOpponentHand?.();
       window.GL_GAME_UI?.render?.();
+      if(touchDevice())window.dispatchEvent(new Event('glviewportchange'));
     });
   }
   function updateResponsiveScale(){
     // Chromium mobile can enlarge innerWidth to fit the unscaled 1600px
     // gameplay canvas. Use the *visible* CSS viewport, never that overflow
     // width, or a phone can accidentally get a 4x zoomed stage.
-    const vp=window.visualViewport;
-    const cssW=Math.max(1,Math.round(vp?.width||document.documentElement.clientWidth||window.innerWidth));
-    const cssH=Math.max(1,Math.round(vp?.height||document.documentElement.clientHeight||window.innerHeight));
+    const vp=touchDevice()?window.GL_VIEWPORT.read():{width:Math.max(1,window.innerWidth),height:Math.max(1,window.innerHeight),x:0,y:0};
+    const cssW=vp.width,cssH=vp.height;
     if(touchDevice()){
       root.classList.add('gl-adaptive-stage');
       const portrait=cssH>cssW;
@@ -445,7 +446,7 @@ html.gl-adaptive-stage .played{column-gap:5px;row-gap:5px}
       const standardBase=108,zonePerBase=.65/.68,handPerBase=(.75*.85)/.68;
       const laneFit=(logicalH-phaseH-66)/(2*handPerBase+4*zonePerBase);
       const manaFit=((logicalH-phaseH)/2-40)/(3*zonePerBase);
-      const mobileBaseW=Math.max(standardBase,
+      const mobileBaseW=Math.max(1,
         Math.floor(Math.min(standardBase*1.20,laneFit,manaFit)*10)/10);
       root.style.setProperty('--gl-stage-logical-w',logicalW+'px');
       root.style.setProperty('--gl-stage-logical-h',logicalH+'px');
@@ -453,8 +454,8 @@ html.gl-adaptive-stage .played{column-gap:5px;row-gap:5px}
       // Shared with the PvP rotated-axis touch scroll adapter.
       root.style.setProperty('--gl-pvp-mobile-touch-scroll-scale',String(scale));
       root.style.setProperty('--gl-stage-transform',portrait
-        ?`translate(${cssW}px,0px) rotate(90deg) scale(${scale})`
-        :`translate(0px,0px) scale(${scale})`);
+        ?`translate(${vp.x+cssW}px,${vp.y}px) rotate(90deg) scale(${scale})`
+        :`translate(${vp.x}px,${vp.y}px) scale(${scale})`);
       publish(scale,logicalW,logicalH);
       root.style.setProperty('--hero-base-w-logical',mobileBaseW+'px');
       root.style.setProperty('--gl-hero-ui-scale',String(mobileBaseW/standardBase));
@@ -515,28 +516,29 @@ html.gl-adaptive-stage .played{column-gap:5px;row-gap:5px}
 <script>window.GL_APP_MODE="PVP";window.GL_PVP_SHARED_BOARD_ACTIVE=true;window.GL_PVP_LOCAL_ROLE="player";</script>
   <script src="../config.js"></script>
   <script src="../shared-artwork-urls.js"></script>
-  <script src="engine/shared-ui/battlefield-ui.js?v=gl-s0-pvp-rc42-r398-r40-20261124-s3"></script>
-  <script src="engine/js/static-data.js?v=gl-s0-pvp-rc42-r398-r40-20261124-s3"></script>
-  <script src="runtime/overrides/grand-finale-designer-nerf.js?v=gl-s0-pvp-rc42-r398-r40-20261124-s3"></script>
-  <script src="engine/js/runtime-authority.js?v=gl-s0-pvp-rc42-r398-r40-20261124-s3"></script>
-  <script src="engine/shared-app/active-starters.js?v=gl-s0-pvp-rc42-r398-r40-20261124-s3"></script>
-  <script src="assets/review-db158/js/db166-view-model.js?v=gl-s0-pvp-rc42-r398-r40-20261124-s3&amp;f15ui=20261121-03"></script>
+  <script src="engine/shared-ui/battlefield-ui.js?v=gl-s0-pvp-rc44-r40-r40-20261127"></script>
+  <script src="engine/js/static-data.js?v=gl-s0-pvp-rc44-r40-r40-20261127"></script>
+  <script src="runtime/overrides/grand-finale-designer-nerf.js?v=gl-s0-pvp-rc44-r40-r40-20261127"></script>
+  <script src="engine/js/runtime-authority.js?v=gl-s0-pvp-rc44-r40-r40-20261127"></script>
+  <script src="engine/shared-app/active-starters.js?v=gl-s0-pvp-rc44-r40-r40-20261127"></script>
+  <script src="assets/review-db158/js/db166-view-model.js?v=gl-s0-pvp-rc44-r40-r40-20261127&amp;f15ui=20261121-03"></script>
   <script src="shared-app/db158-card-review.js?v=20261125-uisync2&amp;mobile=20261120-v2&amp;f15ui=20261121-03"></script>
   <script src="runtime/season0-generated/rc41-approved-print-overrides.js?v=gl-s0-pvp-rc41-r39"></script>
   <script src="runtime/season0-generated/rc42-main-deck-r398-overlay.js"></script>
-  <script src="engine/shared-app/app.bundle.js?v=gl-s0-pvp-rc42-r398-r40-20261124-s3&amp;fix=20261126-p01-p04&amp;mobile=20261120-v2&amp;f15ui=20261121-03&amp;f19fix=20261121-v1"></script>
-  <script src="runtime/adapters/authority-adapter.js?v=gl-s0-pvp-rc42-r398-r40-20261124-s3"></script>
-  <script src="runtime/adapters/local-ai-adapter.js?v=gl-s0-pvp-rc42-r398-r40-20261124-s3"></script>
-  <script src="runtime/adapters/pvp-adapter.js?v=gl-s0-pvp-rc42-r398-r40-20261124-s3"></script>
+<script src="runtime/season0-generated/rc44-main-deck-r40-overlay.js"></script>
+  <script src="engine/shared-app/app.bundle.js?v=gl-s0-pvp-rc44-r40-r40-20261127&amp;fix=20261127-rc44&amp;mobile=20261120-v2&amp;f15ui=20261121-03&amp;f19fix=20261121-v1"></script>
+  <script src="runtime/adapters/authority-adapter.js?v=gl-s0-pvp-rc44-r40-r40-20261127"></script>
+  <script src="runtime/adapters/local-ai-adapter.js?v=gl-s0-pvp-rc44-r40-r40-20261127"></script>
+  <script src="runtime/adapters/pvp-adapter.js?v=gl-s0-pvp-rc44-r40-r40-20261127"></script>
   <script src="../build-meta.js"></script>
-  <script src="runtime/pvp-mana-draft.js?v=gl-s0-pvp-rc42-r398-r40-20261124-s3&amp;f15ui=20261121-03"></script>
-  <script src="runtime/pvp-network.js?v=gl-s0-pvp-rc42-r398-r40-20261124-s3&amp;choicefix=20261121-a"></script>
-  <script src="runtime/pvp-card-thumbnails.js?v=20261125-ui-sync1"></script>
+  <script src="runtime/pvp-mana-draft.js?v=gl-s0-pvp-rc44-r40-r40-20261127&amp;f15ui=20261121-03"></script>
+  <script src="runtime/pvp-network.js?v=gl-s0-pvp-rc44-r40-r40-20261127&amp;choicefix=20261121-a"></script>
+  <script src="runtime/pvp-card-thumbnails.js?v=20261127-rc44-r40"></script>
   <script src="runtime/pvp-artwork-loader.js?v=20261125-ui-sync1"></script>
   <script src="shared-ui/pvp-mobile-preview-hold.js?v=20261124-pvp-mobile-6to9-v1"></script>
-  <script src="shared-app/app-runtime.js?v=20261126-rc43-ui&amp;fix=20261126-p01-p04&amp;hotfix=handart-20261115&amp;itemarrow-paladin=20261115&amp;ui=20261120-preview&amp;music=20261120-v1&amp;smooth=20261120-2-mobile&amp;choicefix=20261121-a&amp;f15ui=20261121-03&amp;f19fix=20261121-v1&amp;all5ui=20261124-v1&amp;mobilefollowup=20261124-6to9-v1"></script>
+  <script src="shared-app/app-runtime.js?v=20261126-rc44-ui&amp;fix=20261127-rc44&amp;hotfix=handart-20261115&amp;itemarrow-paladin=20261115&amp;ui=20261120-preview&amp;music=20261120-v1&amp;smooth=20261120-2-mobile&amp;choicefix=20261121-a&amp;f15ui=20261121-03&amp;f19fix=20261121-v1&amp;all5ui=20261124-v1&amp;mobilefollowup=20261124-6to9-v1"></script>
   <script src="shared-ui/pvp-mobile-card-list-scroll.js?v=20261126-rc43-collection-scroll"></script>
-  <script src="shared-ui/mobile-landscape-lobby.js?v=gl-s0-pvp-rc42-r398-r40-20261124-s3"></script>
+  <script src="shared-ui/mobile-landscape-lobby.js?v=gl-s0-pvp-rc44-r40-r40-20261127"></script>
   
 
 </body>
