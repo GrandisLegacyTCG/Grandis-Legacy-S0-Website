@@ -2,7 +2,7 @@
  * Desktop / phone behaviour remains unchanged. This runs before the card
  * catalog, art, or app code loads so a tablet portrait visit does not
  * initialise two galleries.
- * The outer landscape frame is an *unsandboxed, same-origin* page: the full
+ * The outer landscape frame is an unsandboxed, same-origin page: the full
  * Deck Builder, including native <dialog> top-layer Review and pickers,
  * is composited into a single rotated surface (not merely the workspace).
  */
@@ -22,8 +22,17 @@
   const width = window.innerWidth;
   const height = window.innerHeight;
   const portrait = height > width;
-  const tabletWidth = Math.min(width, height);
-  const longEdge = Math.max(width, height);
+
+  // IMPORTANT: classify the physical display using Screen dimensions, not
+  // only innerWidth/innerHeight. Browser chrome, tab bars, and system UI can
+  // reduce a tablet's landscape innerHeight below 600 CSS px (for example,
+  // a 1024x600 tablet may expose only ~448px to the web page). Using the
+  // viewport for the size test incorrectly skipped tablet scroll CSS.
+  const screenWidth = Number(window.screen && window.screen.width) || width;
+  const screenHeight = Number(window.screen && window.screen.height) || height;
+  const screenShortEdge = Math.min(screenWidth, screenHeight);
+  const screenLongEdge = Math.max(screenWidth, screenHeight);
+
   // Tablet is a device mode, not a universal viewport CSS breakpoint.
   // Coarse-pointer touch devices in tablet dimensions qualify; iPadOS may
   // identify as Mac with a fine pointer when a trackpad is connected.
@@ -33,20 +42,29 @@
   try { coarse = window.matchMedia('(pointer: coarse)').matches; } catch (_) {}
   const ua = navigator.userAgent || '';
   const platform = navigator.platform || '';
+  const uaDataMobile = navigator.userAgentData && navigator.userAgentData.mobile;
   const nativeTablet = /iPad|Tablet/i.test(ua) ||
     (/Android/i.test(ua) && !/Mobile/i.test(ua)) ||
+    (uaDataMobile === false && (touch || coarse)) ||
     (platform === 'MacIntel' && (navigator.maxTouchPoints || 0) > 1);
   const isWindowsDesktop = /Windows NT/i.test(ua) && !/Tablet/i.test(ua);
   const tabletInput = nativeTablet || ((touch || coarse) && coarse && !isWindowsDesktop);
-  // Mobile and desktop preserve their existing scroll and responsive rules.
-  // Mark physical tablet landscape so its content can scroll via touch; never
-  // style arbitrary desktop browser windows or the portrait rotated iframe.
-  const inTabletRange = tabletWidth >= 600 && tabletWidth <= 1100 && longEdge <= 2200;
+
+  // A native tablet may report a compact CSS screen size; other coarse-touch
+  // devices need a larger short edge so ordinary phones remain mobile.
+  const minTabletEdge = nativeTablet ? 480 : 540;
+  const inTabletRange = screenShortEdge >= minTabletEdge &&
+    screenShortEdge <= 1200 && screenLongEdge <= 2400;
+
+  // Mark physical tablet landscape so all required scroll containers become
+  // touch-scrollable. The check is independent of the browser's reduced
+  // content viewport height.
   if (tabletInput && inTabletRange && !portrait) {
     document.documentElement.dataset.glTabletLandscape = 'true';
   }
+
   // Tablet portrait uses the existing complete, rotated browsing context,
-  // including its native dialogs and working portrait swipe behavior.
+  // including its native dialogs and working portrait swipe behaviour.
   if (!tabletInput || !portrait || !inTabletRange) return;
 
   const script = document.currentScript;

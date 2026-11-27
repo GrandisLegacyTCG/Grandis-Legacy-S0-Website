@@ -104,3 +104,80 @@
 :root[data-gl-tablet-landscape="true"] #cardReviewDialog .review-detail-column {
   overscroll-behavior-y: auto !important;
 }
+
+/* v1.70 tablet scroll hotfix:
+   The tablet gate now uses physical screen dimensions. Once activated, make
+   Style 2 Legacy content grow naturally so the workspace itself can scroll;
+   keep Main Deck panes independently scrollable like the desktop layout. */
+:root[data-gl-tablet-landscape="true"] body:has(.deck-tools-bar) .workspace {
+  min-height: 0 !important;
+  flex: 1 1 auto !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  touch-action: pan-y !important;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+}
+
+:root[data-gl-tablet-landscape="true"] body:has(.deck-tools-bar) #legacyView,
+:root[data-gl-tablet-landscape="true"] body:has(.deck-tools-bar) #legacyView > .legacy-panel {
+  height: auto !important;
+  min-height: 100% !important;
+  overflow: visible !important;
+}
+:root[data-gl-tablet-landscape="true"] body:has(.deck-tools-bar) #legacyView .legacy-content.legacy-split {
+  height: auto !important;
+  min-height: max-content !important;
+  grid-template-rows: auto !important;
+  overflow: visible !important;
+  align-items: start !important;
+}
+:root[data-gl-tablet-landscape="true"] body:has(.deck-tools-bar) #legacyView .legacy-half {
+  height: auto !important;
+  min-height: max-content !important;
+  overflow: visible !important;
+}
+:root[data-gl-tablet-landscape="true"] body:has(.deck-tools-bar) #legacyView .hero-stage {
+  height: auto !important;
+  min-height: max-content !important;
+  flex: 0 0 auto !important;
+  overflow: visible !important;
+}
+:root[data-gl-tablet-landscape="true"] body:has(.deck-tools-bar) #legacyView .hero-slots-grid,
+:root[data-gl-tablet-landscape="true"] body:has(.deck-tools-bar) #legacyView .legacy-slots-grid {
+  height: auto !important;
+  min-height: max-content !important;
+  flex: 0 0 auto !important;
+  overflow: visible !important;
+}
+:root[data-gl-tablet-landscape="true"] body:has(.deck-tools-bar) #legacyView .hero-slot,
+:root[data-gl-tablet-landscape="true"] body:has(.deck-tools-bar) #legacyView .legacy-slot {
+  height: auto !important;
+  overflow: visible !important;
+}
+:root[data-gl-tablet-landscape="true"] body:has(.deck-tools-bar) #legacyView .card-stage,
+:root[data-gl-tablet-landscape="true"] body:has(.deck-tools-bar) #legacyView .legacy-card-stage {
+  max-height: none !important;
+}
+
+:root[data-gl-tablet-landscape="true"] body:has(.deck-tools-bar) #mainView {
+  /* Bound the grid on the Website so its two card panes scroll independently. */
+  height: max(520px, calc(100dvh - 220px)) !important;
+  min-height: max(520px, calc(100dvh - 220px)) !important;
+}
+:root[data-gl-tablet-landscape="true"] body:has(.deck-tools-bar) #mainView .library-panel,
+:root[data-gl-tablet-landscape="true"] body:has(.deck-tools-bar) #mainView .main-deck-panel {
+  min-height: 0 !important;
+}
+:root[data-gl-tablet-landscape="true"] body:has(.deck-tools-bar) #mainView #cardLibrary,
+:root[data-gl-tablet-landscape="true"] body:has(.deck-tools-bar) #mainView #deckGrid {
+  min-height: 0 !important;
+  max-height: none !important;
+  flex: 1 1 auto !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  touch-action: pan-y !important;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  align-content: start;
+}

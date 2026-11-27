@@ -1,6 +1,6 @@
 # GRANDIS LEGACY - SEASON 0 WEBSITE
 
-Current deployment: 27 November 2026. Homepage v2.3.17; VS AI RC44 Revised v7 (cleanup); Deck Builder v1.70 (both styles); online Player Rulebook v3.6 and original 18-page PDF; Main Deck R4.0, Legacy Deck R4.0, Mana Deck R2.
+Current deployment: 28 November 2026. Homepage v2.3.17; VS AI RC44 Revised v7 (cleanup); Deck Builder v1.70 (both styles; tablet landscape scroll hotfix, 28 November); online Player Rulebook v3.6 and original 18-page PDF; Main Deck R4.0, Legacy Deck R4.0, Mana Deck R2.
 
 - Website integration uses canonical shared logo, favicon, header/navigation, analytics and 250 card artworks. VS AI retains the Website lobby header and Import Deck styling. Deck Builder retains its independent layout, shared artwork routing and both styles. Deck Builder construction/export rulebook authority is still v3.4 as specified by its standalone source.
 - RC44 uses the consolidated active R4.0 snapshot, 244-card review registry, single review stylesheet, and thumbnail-first review without a startup bulk-decode gate. It retains the cumulative RC43 combat feedback, 17 R4.0 artworks, Cross Bolt and Intimidate updates, current desktop collection/preview sizing, AI lethal-BLOCK conservation, exact Skill Mana recommendations, immediate Casting cancellation and attachment discard motion.
