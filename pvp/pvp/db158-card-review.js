@@ -1,58 +1,10 @@
 /* Card Review UI: Deck Builder v1.66 layout/typography/keyword explanations.
-   Read-only presentation. Uses read-only Deck Builder v1.66 printed card data; gameplay stays server-authoritative.
+   Read-only presentation. Uses read-only Deck Builder v1.70 current printed card data; gameplay stays server-authoritative.
    Kept isolated in an iframe to avoid changing the v6.91.9 battlefield CSS. */
 (function(g){'use strict';
-  var files=['app.css', 's0-enhancements-v1.32.2.css', 's0-shared-header-review.css', 's0-part7-revision-v1.36.css', 's0-part7-revision-v1.38.css', 's0-part7-revision-v1.39.css', 's0-review-v1.41.css', 's0-review-v1.42.css', 's0-review-v1.43.css', 's0-review-v1.44.css', 's0-ui-v1.49.css', 's0-hotfix-v1.49.1.css', 's0-layout-v1.50.css', 's0-modal-parity-v1.52.css', 's0-review-v1.54.css', 's0-review-v1.56.css', 's0-review-v1.57.css', 's0-launch-v1.58.css', 's0-rulebook-v2.9-review-v1.58.css', 's0-mobile-header-v1.63.css', 's0-filter-layout-v1.64.css', 's0-validation-tooltip-v1.64.css', 's0-filter-parity-v1.64.css', 's0-filter-responsive-fix-v1.65.css', 's0-card-image-loader-v1.68.css', 's0-ui-polish-v1.66.css', 's0-toast-feedback.css'];
+  var files=['rc44-review-current.css'];
   function escape(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
-  function source(id){var d=g.GL_CARD_DEFINITIONS||{};return(d.cards||[]).find(function(c){return c.card_id===id;})||null;}
-  function rankRoman(v){var m=String(v||'').match(/(?:Rank\s*)?(I{1,3}|[123])\b/i);return m?({1:'I',2:'II',3:'III'}[m[1]]||m[1].toUpperCase()):'I';}
-  // Translate OSA S0 canonical printed records to the v1.58 review view-model.
-  // No card values are copied from Deck Builder/S1 data. Differences must be
-  // recorded as OSA discrepancies, not silently patched in a read-only UI.
-  function getCard(id){
-    var rc40=g.GL_DB166_REVIEW_CARDS?.[id];if(rc40)return rc40;
-    var c=source(id);if(!c)return null;
-    var ident=c.identity||{},original=(c.printed||{}).rows||[];
-    var rows=original.map(function(r,i){return {
-      row_id:r.row_id||String(i+1),label:r.label||'Effect',
-      damage_text:String(r.damage!=null?r.damage:(r.damage_text||'')),
-      effect_text:r.effect||r.effect_text||r.text||'',
-      text:r.text||r.effect||r.effect_text||''};});
-    if((c.family==='Item'||c.family==='Event')&&rows.length&&!rows.some(function(r){return r.text||r.effect_text;})){
-      rows[0].effect_text=c.card_text||c.printed?.text||'';rows[0].text=rows[0].effect_text;
-    }
-    if(c.family==='Legacy'){
-      var ab=rows.find(function(r){return /LEGACY_ABILITY/i.test(r.label);});
-      var replace=rows.find(function(r){return /LEGACY_REPLACEMENT/i.test(r.label);});
-      rows=ab?[{label:'Legacy Ability',text:ab.text,effect_text:ab.effect_text}]:rows;
-    }
-    // Designer-approved local front (pending synchronization into a later OSA):
-    // Card Review must reflect the latest supplied print, not the older OSA
-    // consumer's cached Item effect. This does not modify gameplay legality.
-    var reviewedText=c.card_text||c.printed?.text||'';
-    var reviewedClasses=((c.requirement||{}).legal_base_classes||[]);
-    if(c.card_id==='S0-ITM-011'){
-      reviewedText="This turn, attach this card to the Hero that used it. When that Hero's Skill card deals Physical damage, inflict Poison for 2 turns.";
-      reviewedClasses=['Archer','Thief','Warrior'];
-      rows=[{row_id:'1',label:'Item Effect',damage_text:'',effect_text:reviewedText,text:reviewedText}];
-    }
-    var roman=rankRoman(ident.rank||c.class_rank||c.rank_numeric);
-    var rank=({I:1,II:2,III:3})[roman]||1;
-    var cost=c.cost_display||((c.cost||{}).mana!=null?String(c.cost.mana)+' Mana':'No Mana cost');
-    var ult=((c.requirement||{}).ultimate||{});
-    var code=c.class_group||c.card_id.split('-')[1]||'';
-    var baseClass={WAR:'Warrior',MAG:'Mage',ARC:'Archer',CLE:'Cleric',THF:'Thief'}[code]||'';
-    var reviewName=c.name;
-    return {id:c.card_id,name:reviewName,family:c.family==='Legacy'?'LegacyModeDefinition':c.family,
-      classification:c.classification||c.action_category||'',classGroup:ident.class||c.display_class||c.class_family||baseClass||'',
-      rank:rank,rankNumeric:rank,race:c.race||ident.race||'',hp:c.hp,
-      image:window.GL_PVP_CARD_ART_URL(c.card_id),cost:cost,text:reviewedText,rows:rows,
-      ultimate:{isUltimate:!!c.is_ultimate,owner:c.card_id==='S0-ARC-018'?'Fenrir Ironfang':c.card_id==='S0-CLE-031'
-        ?'Only Melody can use this card or tribute it with a White Mana Shard for EXP.'
-        :(ult.owner||'')},
-      requiredBaseClasses:reviewedClasses,
-      rules:c.family==='Legacy'?((replace||{}).text||''):(c.printed?.rules||''),sourceCardId:c.card_id};
-  }
+  function getCard(id){return g.GL_DB166_REVIEW_CARDS?.[id]||null;}
   function documentHtml(c,progressionIds){
     var base=escape(new URL(/\/battle(?:\/|\/index\.html)?$/.test(g.location.pathname)?'./':'battle/',g.document.baseURI).href);
     var styles=files.map(function(f){return '<link rel="stylesheet" href="assets/review-db158/css/'+f+'">';}).join('');
@@ -102,7 +54,7 @@
     var existing=el.querySelector('.gl-db158-review-frame');
     if(existing){
       syncMobileLobbyReview(existing);
-      existing.setAttribute('title',c.name+' — Deck Builder v1.66 card review');
+      existing.setAttribute('title',c.name+' — Deck Builder v1.70 card review');
       existing.setAttribute('scrolling',ids.length?'auto':'no');
       existing.setAttribute('aria-label',c.name+' card review');
       if(existing.dataset.glReviewKey===key)return true;
@@ -113,7 +65,7 @@
     }
     var frame=g.document.createElement('iframe');frame.className='gl-db158-review-frame';
     frame.style.colorScheme='light';frame.dataset.glReviewKey=key;
-    frame.setAttribute('title',c.name+' — Deck Builder v1.66 card review');
+    frame.setAttribute('title',c.name+' — Deck Builder v1.70 card review');
     frame.setAttribute('loading','eager');frame.setAttribute('scrolling',ids.length?'auto':'no');
     frame.setAttribute('aria-label',c.name+' card review');
     frame.glReviewVisualReady=false;
@@ -140,5 +92,5 @@
   if(g.document.readyState==='loading')g.document.addEventListener('DOMContentLoaded',scheduleWarmup,{once:true});
   else scheduleWarmup();
   g.addEventListener('resize',function(){g.requestAnimationFrame(function(){syncMobileLobbyReview(g.document.querySelector('#pvpS0CardPreview .gl-db158-review-frame'));});},{passive:true});
-  g.GL_DB158_REVIEW={mount:mount,getCard:getCard,documentHtml:documentHtml,source:'Main R3.8 / Legacy R3.7 (DB v1.66)',view:'Deck Builder v1.66',heroFooter:'lobby-only'};
+  g.GL_DB158_REVIEW={mount:mount,getCard:getCard,documentHtml:documentHtml,source:'Main R4.0 / Legacy R4.0 (DB v1.70)',view:'Deck Builder v1.70',heroFooter:'lobby-only'};
 })(window);

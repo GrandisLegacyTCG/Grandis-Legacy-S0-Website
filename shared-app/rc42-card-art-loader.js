@@ -179,5 +179,7 @@
   }
   root.addEventListener('online',()=>{for(const job of jobs.values())if(job.status==='failed'){job.status='idle';job.attempt=0;}document.querySelectorAll('img[data-gl-art-quality="thumbnail"]').forEach(request);});
   root.GL_CARD_ART={id:idOf,first,original,set,warm,preloadAll,attach,diagnostics:stats};
-  attach(document);preloadAll();
+  // Thumbnail sources are inline: render them on demand. Avoid decoding all 250
+  // card faces during startup; full art loads only for visible cards.
+  attach(document);
 })(window);

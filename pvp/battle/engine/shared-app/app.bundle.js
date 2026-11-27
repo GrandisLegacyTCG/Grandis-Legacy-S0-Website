@@ -1783,20 +1783,20 @@
       throw new Error('R3.8 Area Attack canonical mismatch: '+c.card_id);
     return c;
   }
-  // RC41: Preserve DEV45 raw OSA and its source-hash guards. Apply only the
-  // owner-approved R3.9 printed deltas AFTER verifying original Hero caches.
-  function applyRC41ApprovedPrint(c){
-    var official=(window.GL_RC41_R39_PRINT_OVERRIDES||{})[c&&c.card_id];
+  // RC44 current release baseline: apply only verified live print corrections
+  // after original authority integrity checks, before R4.0 card-specific deltas.
+  function applyRC44VerifiedPrintBaseline(c){
+    var official=(window.GL_RC44_APPROVED_PRINT_BASELINE||{})[c&&c.card_id];
     if(!official)return c;
     var result=clone(c),rows=official.rows||[],text=String(official.text||'');
-    if(!text)throw new Error('RC41 empty approved printed card: '+c.card_id);
+    if(!text)throw new Error('RC44 empty verified printed card: '+c.card_id);
     result.card_text=(result.family==='Legacy')?'LEGACY_ABILITY: '+text+'\nLEGACY_REPLACEMENT: '+String(official.replacement_rule||''):text;
     result.effect_text=result.card_text;
     result.printed=Object.assign({},result.printed||{}, {text:result.card_text,
       rows:rows.map(function(x){return {label:x.label||'',damage:x.damage_text||null,effect:x.effect_text||null,text:x.text||''};}),
       blocks:rows.map(function(x){return {label:x.label||'',damage:x.damage_text||null,effect:x.effect_text||null,text:x.text||''};}),
-      source:'Official R3.9 Main/Legacy printed artwork (2026-11-18)'});
-    result.active_print_authority='S0-MAIN-R3.9-LEGACY-R3.9';
+      source:'RC44 verified current Main/Legacy printed artwork'});
+    result.active_print_authority='RC44-R4.0-PRINT-BASELINE';
     if(result.family==='Hero'){
       rows.forEach(function(x){var label=String(x.label||'');
         if(/^Racial Trait/i.test(label)&&result.racial_ability)result.racial_ability=Object.assign({},result.racial_ability,{text:x.effect_text||x.text});
@@ -1812,12 +1812,20 @@
     }
     return result;
   }
-  function applyRC42MainDeckPrint(source){
-    var active=(window.GL_RC42_MAINDECK_OVERLAY||{})[source&&source.card_id];
-    if(!active)return source;
+  function applyRC44MainDeckPrint(source){
+    // The 244 current artwork SHA-256 values are authoritative for ALL active
+    // cards, not only the 49 Main Deck deltas. Never retain old OSA asset hashes.
+    var liveAssets=window.GL_RC44_MAIN_CARD_ASSETS||{};
+    var hash=liveAssets[source&&source.card_id];
+    if(!hash)throw new Error('RC44 current artwork missing: '+String(source&&source.card_id));
     var c=clone(source);
-    if(active.sha256)c.asset=Object.assign({},c.asset||{},{file:window.GL_PVP_CARD_ART_URL(c.card_id),sha256:active.sha256,format:'webp'});
-    // R3.98 card-front metadata must override both active preview and runtime
+    c.asset=Object.assign({},c.asset||{},{file:'/card-art/'+c.card_id+'.webp',sha256:hash,format:'webp'});
+    var active=(window.GL_RC44_MAINDECK_OVERLAY||{})[source&&source.card_id];
+    if(!active){
+      c.active_print_authority=(c.family==='Hero'||c.family==='Legacy')?'Legacy Deck R4.0':'Main Deck R4.0';
+      return c;
+    }
+    // R4.0 card-front metadata must override both active preview and runtime
     // classifiers. The immutable DEV44/DEV45 source is kept for audit only.
     if(active.name){c.name=active.name;c.printed=Object.assign({},c.printed||{},{name:active.name});}
     if(active.subtype){
@@ -1851,7 +1859,7 @@
       if(active.cost!==undefined){c.cost=Object.assign({},c.cost||{},{mana:Number(active.cost)});c.canonical_cost=Object.assign({},c.canonical_cost||{},{mana:Number(active.cost)});c.cost_mana=Number(active.cost);c.cost_display=Number(active.cost)?active.cost+' Mana':'No Mana cost';}
       // Do not keep effects manufactured from the superseded printed wording.
       if(c.card_id==='S0-CLE-024')c.effect=(c.effect||[]).filter(function(e){return e.kind!=='inflict_status';});
-      // R3.98 Deflection: the old Thief/-70 Physical/REFLECT data is revoked.
+      // Active R4.0 Deflection: superseded Thief/-70/REFLECT is forbidden.
       // The new card-front contains only Spell Blade II's universal -60 BLOCK.
       if(c.card_id==='S0-THF-022'){
         c.effect=[{kind:'block_damage',amount_by_class:{'Spell Blade':60},
@@ -1860,15 +1868,20 @@
         else c.runtime_tags=String(c.runtime_tags||'').split(/[;,|]/).filter(function(t){return !/REFLECT/i.test(t);}).join(';');
       }
     }
-    c.active_print_authority='Main Deck R3.98 printed artwork';
+    c.active_print_authority='Main Deck R4.0 printed artwork';
     return c;
   }
   function initCards(){
     assertActiveRuntimeSourceStack();
+    if(!window.GL_RC44_APPROVED_PRINT_BASELINE||Object.keys(window.GL_RC44_APPROVED_PRINT_BASELINE).length!==38||
+       !window.GL_RC44_MAINDECK_OVERLAY||Object.keys(window.GL_RC44_MAINDECK_OVERLAY).length!==49||
+       !window.GL_RC44_NEW_MAIN_CARDS||Object.keys(window.GL_RC44_NEW_MAIN_CARDS).length!==2||
+       !window.GL_RC44_MAIN_CARD_ASSETS||Object.keys(window.GL_RC44_MAIN_CARD_ASSETS).length!==244)
+      throw new Error('RC44 R4.0 active card snapshot not loaded; refusing old-effect fallback.');
     CARDS=flattenCards(window.GL_CARD_DEFINITIONS||{}).map(function(c){return c.card_id==='S0-ITM-011'?clone(c):c;}).map(s0MaterializeHybridHero);
     validateHeroComponentRuntimeData();
-    CARDS=CARDS.map(applyRC41ApprovedPrint).map(applyRC42MainDeckPrint);
-    var extra=window.GL_RC42_NEW_MAIN_CARDS||{};
+    CARDS=CARDS.map(applyRC44VerifiedPrintBaseline).map(applyRC44MainDeckPrint);
+    var extra=window.GL_RC44_NEW_MAIN_CARDS||{};
     CARDS=CARDS.concat(Object.keys(extra).map(function(id){return clone(extra[id]);}));
     CARDS=CARDS.map(materializeS0SimpleRuntimeEffects).map(materializeS0LegacyAbility).map(applyApprovedAreaAttackRuling);
     CARD_BY_ID={};CARDS.forEach(function(c){CARD_BY_ID[c.card_id]=c;});materializeS0UltimateTributeContracts();
@@ -5802,7 +5815,7 @@
         if(/begin anew/i.test(name))return (state.playerHand||[]).length<4;
         if(fam==='Event'&&/special/i.test(String(incoming.classification||incoming.card_subtype||'')))return true;
         if(fam==='Event')return false;
-        if(/enrage|taunt|provoke|sixth sense|god.s blessing/i.test(name))return false;
+        if(/enrage|taunt|intimidate|sixth sense|god.s blessing/i.test(name))return false;
         if(/mana burn|mana steal|mana regen/i.test(String(incoming.card_text||'')))return false;
         return true; // Other meaningful Tactical threats can be stopped.
       }
@@ -9258,7 +9271,7 @@
     // An INVINCIBLE Response must suppress new Status as well as damage.
     // Previously connectionPrevented was missing here and Burn/Poison/Stun
     // could slip through a valid temporary INVINCIBLE defense.
-    var statuses=[],poisonVialApplied=false;if(!dodged&&!connectionPrevented&&!grandFinaleImmune&&!blessingImmune){statuses=applyAttackStatuses(c,target,source);
+    var statuses=[],poisonVialApplied=false;if(attackEffectAllowed('INFLICT',{dodged:!!dodged,connected:connected})&&!connectionPrevented&&!grandFinaleImmune&&!blessingImmune){statuses=applyAttackStatuses(c,target,source);
       if(connected && enrageAppliesToAttack(c,source)){
         var bleed=applyStatusEffectToHero({kind:'inflict_status',status:'Bleed',duration_turns:1},target,source,'Enrage connected Physical Attack',card('S0-WAR-013'));
         if(bleed) statuses.push(bleed+' from Enrage');

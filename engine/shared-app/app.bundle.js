@@ -1758,20 +1758,20 @@
       throw new Error('R3.8 Area Attack canonical mismatch: '+c.card_id);
     return c;
   }
-  // RC41: Preserve DEV45 raw OSA and its source-hash guards. Apply only the
-  // owner-approved R3.9 printed deltas AFTER verifying original Hero caches.
-  function applyRC41ApprovedPrint(c){
-    var official=(window.GL_RC41_R39_PRINT_OVERRIDES||{})[c&&c.card_id];
+  // RC44 current release baseline: apply only verified live print corrections
+  // after original authority integrity checks, before R4.0 card-specific deltas.
+  function applyRC44VerifiedPrintBaseline(c){
+    var official=(window.GL_RC44_APPROVED_PRINT_BASELINE||{})[c&&c.card_id];
     if(!official)return c;
     var result=clone(c),rows=official.rows||[],text=String(official.text||'');
-    if(!text)throw new Error('RC41 empty approved printed card: '+c.card_id);
+    if(!text)throw new Error('RC44 empty verified printed card: '+c.card_id);
     result.card_text=(result.family==='Legacy')?'LEGACY_ABILITY: '+text+'\nLEGACY_REPLACEMENT: '+String(official.replacement_rule||''):text;
     result.effect_text=result.card_text;
     result.printed=Object.assign({},result.printed||{}, {text:result.card_text,
       rows:rows.map(function(x){return {label:x.label||'',damage:x.damage_text||null,effect:x.effect_text||null,text:x.text||''};}),
       blocks:rows.map(function(x){return {label:x.label||'',damage:x.damage_text||null,effect:x.effect_text||null,text:x.text||''};}),
-      source:'Official R3.9 Main/Legacy printed artwork (2026-11-18)'});
-    result.active_print_authority='S0-MAIN-R3.9-LEGACY-R3.9';
+      source:'RC44 verified current Main/Legacy printed artwork'});
+    result.active_print_authority='RC44-R4.0-PRINT-BASELINE';
     if(result.family==='Hero'){
       rows.forEach(function(x){var label=String(x.label||'');
         if(/^Racial Trait/i.test(label)&&result.racial_ability)result.racial_ability=Object.assign({},result.racial_ability,{text:x.effect_text||x.text});
@@ -1787,12 +1787,20 @@
     }
     return result;
   }
-  function applyRC42MainDeckPrint(source){
-    var active=(window.GL_RC42_MAINDECK_OVERLAY||{})[source&&source.card_id];
-    if(!active)return source;
+  function applyRC44MainDeckPrint(source){
+    // The 244 current artwork SHA-256 values are authoritative for ALL active
+    // cards, not only the 49 Main Deck deltas. Never retain old OSA asset hashes.
+    var liveAssets=window.GL_RC44_MAIN_CARD_ASSETS||{};
+    var hash=liveAssets[source&&source.card_id];
+    if(!hash)throw new Error('RC44 current artwork missing: '+String(source&&source.card_id));
     var c=clone(source);
-    if(active.sha256)c.asset=Object.assign({},c.asset||{},{file:'card-art/'+c.card_id+'.webp',sha256:active.sha256,format:'webp'});
-    // R3.98 card-front metadata must override both active preview and runtime
+    c.asset=Object.assign({},c.asset||{},{file:'card-art/'+c.card_id+'.webp',sha256:hash,format:'webp'});
+    var active=(window.GL_RC44_MAINDECK_OVERLAY||{})[source&&source.card_id];
+    if(!active){
+      c.active_print_authority=(c.family==='Hero'||c.family==='Legacy')?'Legacy Deck R4.0':'Main Deck R4.0';
+      return c;
+    }
+    // R4.0 card-front metadata must override both active preview and runtime
     // classifiers. The immutable DEV44/DEV45 source is kept for audit only.
     if(active.name){c.name=active.name;c.printed=Object.assign({},c.printed||{},{name:active.name});}
     if(active.subtype){
@@ -1826,7 +1834,7 @@
       if(active.cost!==undefined){c.cost=Object.assign({},c.cost||{},{mana:Number(active.cost)});c.canonical_cost=Object.assign({},c.canonical_cost||{},{mana:Number(active.cost)});c.cost_mana=Number(active.cost);c.cost_display=Number(active.cost)?active.cost+' Mana':'No Mana cost';}
       // Do not keep effects manufactured from the superseded printed wording.
       if(c.card_id==='S0-CLE-024')c.effect=(c.effect||[]).filter(function(e){return e.kind!=='inflict_status';});
-      // R3.98 Deflection: the old Thief/-70 Physical/REFLECT data is revoked.
+      // Active R4.0 Deflection: superseded Thief/-70/REFLECT is forbidden.
       // The new card-front contains only Spell Blade II's universal -60 BLOCK.
       if(c.card_id==='S0-THF-022'){
         c.effect=[{kind:'block_damage',amount_by_class:{'Spell Blade':60},
@@ -1835,15 +1843,20 @@
         else c.runtime_tags=String(c.runtime_tags||'').split(/[;,|]/).filter(function(t){return !/REFLECT/i.test(t);}).join(';');
       }
     }
-    c.active_print_authority='Main Deck R3.98 printed artwork';
+    c.active_print_authority='Main Deck R4.0 printed artwork';
     return c;
   }
   function initCards(){
     assertActiveRuntimeSourceStack();
+    if(!window.GL_RC44_APPROVED_PRINT_BASELINE||Object.keys(window.GL_RC44_APPROVED_PRINT_BASELINE).length!==38||
+       !window.GL_RC44_MAINDECK_OVERLAY||Object.keys(window.GL_RC44_MAINDECK_OVERLAY).length!==49||
+       !window.GL_RC44_NEW_MAIN_CARDS||Object.keys(window.GL_RC44_NEW_MAIN_CARDS).length!==2||
+       !window.GL_RC44_MAIN_CARD_ASSETS||Object.keys(window.GL_RC44_MAIN_CARD_ASSETS).length!==244)
+      throw new Error('RC44 R4.0 active card snapshot not loaded; refusing old-effect fallback.');
     CARDS=flattenCards(window.GL_CARD_DEFINITIONS||{}).map(function(c){return c.card_id==='S0-ITM-011'?clone(c):c;}).map(s0MaterializeHybridHero);
     validateHeroComponentRuntimeData();
-    CARDS=CARDS.map(applyRC41ApprovedPrint).map(applyRC42MainDeckPrint);
-    var extra=window.GL_RC42_NEW_MAIN_CARDS||{};
+    CARDS=CARDS.map(applyRC44VerifiedPrintBaseline).map(applyRC44MainDeckPrint);
+    var extra=window.GL_RC44_NEW_MAIN_CARDS||{};
     CARDS=CARDS.concat(Object.keys(extra).map(function(id){return clone(extra[id]);}));
     CARDS=CARDS.map(materializeS0SimpleRuntimeEffects).map(materializeS0LegacyAbility).map(applyApprovedAreaAttackRuling);
     CARD_BY_ID={};CARDS.forEach(function(c){CARD_BY_ID[c.card_id]=c;});materializeS0UltimateTributeContracts();
@@ -5775,7 +5788,7 @@
         if(/begin anew/i.test(name))return (state.playerHand||[]).length<4;
         if(fam==='Event'&&/special/i.test(String(incoming.classification||incoming.card_subtype||'')))return true;
         if(fam==='Event')return false;
-        if(/enrage|taunt|provoke|sixth sense|god.s blessing/i.test(name))return false;
+        if(/enrage|taunt|intimidate|sixth sense|god.s blessing/i.test(name))return false;
         if(/mana burn|mana steal|mana regen/i.test(String(incoming.card_text||'')))return false;
         return true; // Other meaningful Tactical threats can be stopped.
       }
@@ -6949,15 +6962,15 @@
       }
     });
   }
-  function resolveS0ProvokeAtOpponentEnd(state,endingSide){
+  function resolveS0IntimidateAtOpponentEnd(state,endingSide){
     if(!state||state.gameOver)return false;
     var owner=oppositeSide(endingSide);
     var attachments=(state.activeAttachments||[]).filter(function(a){return a&&a.side===owner&&a.card_id==='S0-MAG-028';});
     if(!attachments.length)return false;
-    state.s0_provoke_processed_turns=state.s0_provoke_processed_turns||{};
+    state.s0_intimidate_processed_turns=state.s0_intimidate_processed_turns||{};
     var key=endingSide+':'+Number(state.round||1);
-    if(state.s0_provoke_processed_turns[key])return false;
-    state.s0_provoke_processed_turns[key]=true;
+    if(state.s0_intimidate_processed_turns[key])return false;
+    state.s0_intimidate_processed_turns[key]=true;
     var direct=state.s0_intimidate_direct_attacks||{};
     var eligible=attachments.filter(function(a){
       var id=String(a.attachment_id||a.commit_token||a.side+':'+a.lane+':'+a.slot);
@@ -6966,9 +6979,9 @@
     if(!eligible.length){pushLog(state,'Intimidate: every affected Hero received a direct Physical/Magical Attack Skill; no Mana Burn.');return false;}
     var amount=2*eligible.length;
     pushLog(state,'Intimidate: '+eligible.length+' Hero(s) were not directly attacked by Physical/Magical Attack Skills; MANA BURN '+amount+'.');
-    state.s0_provoke_resolving_end=true;
-    try{return startOpponentManaSelection(state,{side:owner,amount:amount,mode:'REMOVE_ONLY',reason:'Intimidate — no direct Physical/Magical Attack Skill aimed at its Hero',s0_provoke_end_phase:true});}
-    finally{state.s0_provoke_resolving_end=false;}
+    state.s0_intimidate_resolving_end=true;
+    try{return startOpponentManaSelection(state,{side:owner,amount:amount,mode:'REMOVE_ONLY',reason:'Intimidate — no direct Physical/Magical Attack Skill aimed at its Hero',s0_intimidate_end_phase:true});}
+    finally{state.s0_intimidate_resolving_end=false;}
   }
   function resolveEndPhaseCleanupForSide(state, side){
     if(!state)return;
@@ -6980,7 +6993,7 @@
       if(!state.pending&&!state.responseWindow&&!state.gameOver)progress.status_ticks_done=true;
     }
     if(!progress.status_ticks_done){syncCounts(state);return;}
-    if(!state.pending&&!state.gameOver)resolveS0ProvokeAtOpponentEnd(state,side);
+    if(!state.pending&&!state.gameOver)resolveS0IntimidateAtOpponentEnd(state,side);
     if(state.pending){ syncCounts(state); return; }
     if(state.gameOver){ state.autoEndTurnPending=false;state.autoEndResumeScheduled=false;delete state.endPhaseCleanupProgress;syncCounts(state); return; }
     // RC36 designer ruling: a Sleep that was present during this owner's End
@@ -9840,7 +9853,7 @@
       return resolvePostAttackChoices(state,cont.action||{},cont.post||{},cont.result||{},cont.options||{});
     }
     state.pending=null; closeChoice(); syncCounts(state); render();
-    if(p.s0_provoke_end_phase&&!state.s0_provoke_resolving_end&&state.phase==='End'&&state===appState){
+    if(p.s0_intimidate_end_phase&&!state.s0_intimidate_resolving_end&&state.phase==='End'&&state===appState){
       if(state.turn==='PLAYER') scheduleAutomaticPlayerEndResume(state);
       else if(GL_AI_TURN_DIRECTOR.active) aiDirectorEnterEnd(state);
       else {
@@ -9860,7 +9873,7 @@
     opts=opts||{}; var side=opts.side||'PLAYER',targetSide=oppositeSide(side),pool=manaPoolCardsForSide(state,targetSide),required=opts.mode==='REMOVE_AND_GAIN_OWN'
       ? manaStealEffectiveCount(state,side,Number(opts.amount||1))
       : Math.min(Math.max(0,Number(opts.amount||1)),pool.length);
-    var rawCandidates=pool.map(function(sh){return{uid:sh.uid};}), p={type:'opponent_mana_selection',side:side,decision_side:side,target_side:targetSide,mode:opts.mode==='REMOVE_AND_GAIN_OWN'?'REMOVE_AND_GAIN_OWN':'REMOVE_ONLY',reason:opts.reason||'Mana effect',required_count:required,candidates:blindShuffleCandidates(rawCandidates),selected_indices:[],title:opts.title||'Choose Opponent Mana',instruction:opts.instruction||null,confirm_text:opts.confirm_text||null,commit_stage:'committed',direct_source:opts.direct_source||null,continuation:opts.continuation||null,s0_provoke_end_phase:!!opts.s0_provoke_end_phase};
+    var rawCandidates=pool.map(function(sh){return{uid:sh.uid};}), p={type:'opponent_mana_selection',side:side,decision_side:side,target_side:targetSide,mode:opts.mode==='REMOVE_AND_GAIN_OWN'?'REMOVE_AND_GAIN_OWN':'REMOVE_ONLY',reason:opts.reason||'Mana effect',required_count:required,candidates:blindShuffleCandidates(rawCandidates),selected_indices:[],title:opts.title||'Choose Opponent Mana',instruction:opts.instruction||null,confirm_text:opts.confirm_text||null,commit_stage:'committed',direct_source:opts.direct_source||null,continuation:opts.continuation||null,s0_intimidate_end_phase:!!opts.s0_intimidate_end_phase};
     if(!required) return finishOpponentManaInteraction(state,p,[]);
     var noMeaningfulChoice=required>=pool.length || !pool.some(function(sh){return sh&&sh.kind==='CLASS';});
     if(side==='PLAYER'&&!state.pvpHumanVsHuman&&noMeaningfulChoice){
@@ -18631,7 +18644,7 @@ function withUnshuffledSelfTest(fn){ return function(){ var old=STARTUP_SHUFFLE_
 
       // Active racial traits plus the existing response/trigger racial regression suite.
       s=buildInitialMatchState();appState=s;s.turn='PLAYER';s.phase='Deploy';s.racial=1;s.playerHeroes.LEFT.card_id='S0-ARC-H007';s.playerDeck=['S0-WAR-001','S0-WAR-002'];s.playerHand=[];resolveActivatedRacialAbility(s,'PLAYER','LEFT','human_ambition',null);if(s.playerHand.length!==2||s.racial!==0) return {ok:false,reason:'Human Ambition draw 2 failed',hand:s.playerHand,racial:s.racial};
-      s=buildInitialMatchState();appState=s;s.turn='PLAYER';s.phase='Deploy';s.racial=1;fillV1400Mana(s,'PLAYER',2);s.playerHeroes.LEFT.card_id='S0-MAG-H001';resolveActivatedRacialAbility(s,'PLAYER','LEFT','ancestral_focus',null);if(s.mana!==4||s.racial!==0) return {ok:false,reason:'Ancestral Focus gain 2 Mana failed',mana:s.mana,racial:s.racial};
+      s=buildInitialMatchState();appState=s;s.turn='PLAYER';s.phase='Deploy';s.racial=1;fillV1400Mana(s,'PLAYER',2);s.playerHeroes.LEFT.card_id='S0-MAG-H001';resolveActivatedRacialAbility(s,'PLAYER','LEFT','ancestral_focus',null);if(s.mana!==5||s.racial!==0) return {ok:false,reason:'Ancestral Focus gain 3 Mana failed',mana:s.mana,racial:s.racial};
       var racialAudit=simulateHeroRacialEffectFixAudit();if(!racialAudit||!racialAudit.ok) return {ok:false,reason:'Response/trigger racial suite failed',audit:racialAudit};
 
       var abilityNames={};Object.keys(CARDS||{}).forEach(function(id){var c=CARDS[id],n=c&&c.class_ability&&c.class_ability.name;if(n)abilityNames[s0RulesParseText(n)]=true;});
@@ -19157,7 +19170,7 @@ function withUnshuffledSelfTest(fn){ return function(){ var old=STARTUP_SHUFFLE_
 
       s=fresh('Battle');s.aiHeroes.LEFT.card_id='S0-ARC-H001';s.playerHeroes.CENTER.hp=20;s.playerHeroes.CENTER.maxHp=100;ra=aiChooseBattleFinisherRacialAction(s);if(!ra||String(ra.ability_id).toLowerCase()!=='primal_strike'||ra.target_lane!=='CENTER')return{ok:false,reason:'Primal Strike did not select 20 HP finisher target',action:ra};s.playerHeroes.CENTER.hp=21;if(aiChooseBattleFinisherRacialAction(s))return{ok:false,reason:'Primal Strike activated above 20 HP finisher threshold'};
 
-      s=fresh('Deploy');s.aiHeroes.LEFT.card_id='S0-MAG-H001';s.aiHand=['S0-MAG-001'];manaPoolCardsForSide(s,'AI').splice(0);syncManaCountForSide(s,'AI');ra=aiChooseDeployRacialAction(s);if(!ra||String(ra.ability_id).toLowerCase()!=='ancestral_focus')return{ok:false,reason:'Ancestral Focus did not activate when +2 Shards unlocked a Battle Attack',action:ra};
+      s=fresh('Deploy');s.aiHeroes.LEFT.card_id='S0-MAG-H001';s.aiHand=['S0-MAG-001'];manaPoolCardsForSide(s,'AI').splice(0);syncManaCountForSide(s,'AI');ra=aiChooseDeployRacialAction(s);if(!ra||String(ra.ability_id).toLowerCase()!=='ancestral_focus')return{ok:false,reason:'Ancestral Focus did not activate when +3 Shards unlocked a Battle Attack',action:ra};
 
       s=fresh('Draw');s.aiHeroes.LEFT.card_id='S0-ARC-H008';s.aiDeck=['S0-WAR-001','S0-MAG-003'];s.aiHand=[];s.cardsDrawnThisTurn={PLAYER:0,AI:0};var d=drawOne(s,'AI',true,{reason:'MANDATORY_DRAW_PHASE',deferAnimation:true});if(!d||s.aiHand.length!==1||s.aiDeck.length!==1||s.aiHeroes.LEFT.draw_replacement_used_turn!==runtimeTurnStamp(s)||Number(s.cardsDrawnThisTurn.AI)!==2)return{ok:false,reason:'Quick Reload did not auto-redraw/count both actual Draws',state:{hand:s.aiHand,deck:s.aiDeck,counter:s.cardsDrawnThisTurn.AI,stamp:s.aiHeroes.LEFT.draw_replacement_used_turn}};
       s=fresh('Draw');s.aiHeroes.LEFT.card_id='S0-ARC-H009';s.aiDeck=['S0-WAR-001','S0-MAG-003'];s.aiHand=[];s.cardsDrawnThisTurn={PLAYER:0,AI:0};d=drawOne(s,'AI',true,{reason:'MANDATORY_DRAW_PHASE',deferAnimation:true});if(!d||s.aiHand.length!==1||s.aiDeck.length!==1||s.aiHeroes.LEFT.draw_replacement_used_turn!==runtimeTurnStamp(s)||Number(s.cardsDrawnThisTurn.AI)!==2)return{ok:false,reason:'Rapid Chamber did not auto-redraw/count both actual Draws',state:{hand:s.aiHand,deck:s.aiDeck,counter:s.cardsDrawnThisTurn.AI,stamp:s.aiHeroes.LEFT.draw_replacement_used_turn}};

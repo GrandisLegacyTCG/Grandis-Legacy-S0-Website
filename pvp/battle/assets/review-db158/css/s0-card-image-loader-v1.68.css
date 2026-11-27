@@ -1,9 +1,0 @@
-/* Instant-art hotfix: actual small card thumbnail, then full-size original.
- * The thumbnail is the IMG source; it preserves card layout, drag, and review.
- */
-img.gl-s0-card-image {
-  color: transparent !important;
-  font-size: 0 !important;
-}
-img.gl-s0-card-image-thumb { image-rendering: auto; }
-img.gl-s0-card-image-ready { image-rendering: auto; }

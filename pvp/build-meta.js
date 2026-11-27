@@ -1,1 +1,1 @@
-window.GL_PVP_BUILD_META=Object.freeze({"version":"S0-PVP-RC44-R40-R40-20261127","versionLabel":"Grandis Legacy PvP | Season 0 | RC44 | Main R4.0 / Legacy R4.0 | Integration Candidate","buildId":"gl-s0-pvp-rc44-r40-r40-20261127"});
+window.GL_PVP_BUILD_META=Object.freeze({"version":"S0-PVP-RC44-R40-R40-20261127","versionLabel":"Grandis Legacy PvP | Season 0 | RC44 | Main R4.0 / Legacy R4.0 | Local QA Candidate","buildId":"gl-s0-pvp-rc44-r40-r40-20261127-clean1"});

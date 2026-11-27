@@ -802,6 +802,22 @@ function closeCardReview(){
   lobbyReviewProgressionIds=[];
   // Preserve the ready iframe. Reopening the same card does not recreate 19 stylesheets.
 }
+// RC44 immediate preview: render the exact current artwork thumbnail on the first
+// interaction, even while the canonical review iframe boots or decodes its full art.
+function showInstantCardReviewCover(body,cardId){
+  if(!body)return;
+  let cover=body.querySelector('.gl-review-instant-cover');
+  if(!cover){
+    cover=document.createElement('div');cover.className='gl-review-instant-cover';
+    const img=document.createElement('img');img.alt='';img.decoding='sync';
+    const title=document.createElement('strong');cover.append(img,title);body.appendChild(cover);
+  }
+  const img=cover.querySelector('img'),title=cover.querySelector('strong');
+  const preview=cardArtwork.first(art(cardId));
+  if(img&&preview)img.src=preview;
+  if(title)title.textContent=cv(cardId)?.name||cardId;
+  cover.hidden=false;
+}
 function openCardReview(cardId,options=null){
   if(!cardId)return;
   warmCardArtwork(cardId);
@@ -815,6 +831,7 @@ function openCardReview(cardId,options=null){
     cardReviewOverlay.classList.add('open');return;
   }
   body.classList.remove('gl-review-ready');
+  showInstantCardReviewCover(body,cardId);
   body.dataset.glReviewKey=key;
   if(!window.GL_DB158_REVIEW?.mount?.(body,cardId,lobbyReviewProgressionIds)){
     let html='';try{html=window.GL_CARD_PREVIEW_QA?.html?.(cardId)||''}catch{}
@@ -1194,7 +1211,8 @@ let glStartingLobby=false;
 async function startMatchFromLobby(){
   if(glStartingLobby||!lobbyIsOpen)return;
   glStartingLobby=true;const start=document.getElementById('glLobbyStart');if(start)start.disabled=true;
-  try{await cardArtwork.preloadAll();}finally{glStartingLobby=false;if(start)start.disabled=false;}
+  // Inline thumbnails are ready immediately; do not block match startup on 250 decodes.
+  glStartingLobby=false;if(start)start.disabled=false;
   if(!lobbyIsOpen)return;
   lobbyErrorText='';syncS0MusicForGameState();const r=E().prepareLocalMatch?.();if(!r?.ok){lobbyErrorText=r?.error||'Could not start match.';renderLobby();return}
   resetPresentationState();lobbyIsOpen=false;lobbyOverlay.classList.remove('open');appRoot?.classList.add('gl-lobby-hidden');renderCoinChoice();syncS0MusicForGameState();

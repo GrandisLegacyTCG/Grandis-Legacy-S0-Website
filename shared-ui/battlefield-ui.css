@@ -2108,13 +2108,16 @@ body.gl-center-purify .gl-center-choice-card.is-selected{border-color:#fce383;bo
 .gl-played-detail-body .played-related-card{display:block;width:61px;padding:0;border:1px solid #426484;border-radius:6px;background:#05121c;cursor:pointer;overflow:hidden;}
 .gl-played-detail-body .played-related-card img{display:block;width:100%;aspect-ratio:63/88;object-fit:contain;}
 .gl-played-detail-body .played-related-card:hover,.gl-played-detail-body .played-related-card:focus-visible{outline:2px solid #f0ce67;outline-offset:2px;}
-/* Hide iframe until first layout, stylesheet, font and artwork are ready; no half-painted layers. */
+/* RC44 instant Card Review. The current-card thumbnail is visible on the very
+   first paint; there is no blocking loading message or full-art decode gate. */
 .gl-card-review-body{position:relative!important;min-height:min(530px,75vh)!important;}
-.gl-card-review-body .gl-db158-review-frame{visibility:hidden!important;opacity:0!important;transition:opacity .12s ease!important;}
-.gl-card-review-body.gl-review-ready .gl-db158-review-frame{visibility:visible!important;opacity:1!important;}
-.gl-card-review-body:not(.gl-review-ready)::after{content:'OPENING CARD REVIEW';position:absolute;inset:0;display:grid;place-items:center;color:#e5d091;letter-spacing:.12em;font-size:11px;font-weight:800;pointer-events:none;}
+.gl-card-review-body .gl-db158-review-frame{visibility:visible!important;opacity:1!important;transition:none!important;}
+.gl-card-review-body:not(.gl-review-ready)::after{display:none!important;content:none!important;}
+.gl-review-instant-cover{position:absolute;inset:0;z-index:5;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:#0c1621;color:#f3d56c;pointer-events:none;}
+.gl-review-instant-cover[hidden],.gl-card-review-body.gl-review-ready .gl-review-instant-cover{display:none!important;}
+.gl-review-instant-cover img{display:block;width:min(260px,65%);height:auto;max-height:73vh;aspect-ratio:5 / 7;object-fit:contain;border-radius:10px;}
+.gl-review-instant-cover strong{font-size:14px;font-weight:800;text-align:center;}
 .gl-card-review-body.gl-review-ready{min-height:0!important;}
-@media(prefers-reduced-motion:reduce){.gl-card-review-body .gl-db158-review-frame{transition:none!important;}}
 
 /* Part 5 — identity colors are inherited from Card Played (YOU / OPPONENT). */
 :root{--gl-owner-you:#1d5ba9;--gl-owner-opponent:#a52c37}

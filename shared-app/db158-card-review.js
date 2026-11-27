@@ -1,17 +1,15 @@
 /* Card Review UI: Deck Builder v1.66 view-model/renderer/keyword explanations.
-   Read-only presentation. Printed values are copied from the 242-card Deck Builder v1.66 source registry.
+   Read-only presentation. Current values are locked to 244 printed R4.0 card identities.
    Kept isolated in an iframe to avoid changing the v6.91.9 battlefield CSS. */
 (function(g){'use strict';
-  var files=['app.css', 's0-enhancements-v1.32.2.css', 's0-shared-header-review.css', 's0-part7-revision-v1.36.css', 's0-part7-revision-v1.38.css', 's0-part7-revision-v1.39.css', 's0-review-v1.41.css', 's0-review-v1.42.css', 's0-review-v1.43.css', 's0-review-v1.44.css', 's0-ui-v1.49.css', 's0-hotfix-v1.49.1.css', 's0-layout-v1.50.css', 's0-modal-parity-v1.52.css', 's0-review-v1.54.css', 's0-review-v1.56.css', 's0-review-v1.57.css', 's0-launch-v1.58.css', 's0-rulebook-v2.9-review-v1.58.css', 's0-mobile-header-v1.63.css', 's0-filter-layout-v1.64.css', 's0-validation-tooltip-v1.64.css', 's0-filter-parity-v1.64.css', 's0-filter-responsive-fix-v1.65.css', 's0-card-image-loader-v1.68.css', 's0-ui-polish-v1.66.css', 's0-toast-feedback.css'];
+  var files=['rc44-review-current.css'];
   function escape(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
-  // Deck Builder v1.66 is the authoritative Review presentation data. Gameplay
-  // continues to use VS AI's canonical engine card definitions independently.
+  // Card Review and gameplay both consume the same RC44 R4.0 active definitions.
+  // The legacy Deck Builder-style renderer is presentation-only.
   function getCard(id){return g.GL_DB166_REVIEW_CARDS?.[id]||null;}
   function documentHtml(c,progressionIds){
     var base=escape(new URL('./',g.document.baseURI).href);
-    // Website: reuse the additional canonical Deck Builder styles instead of duplicating files.
-    var sharedStyles=['s0-mobile-header-v1.63.css', 's0-filter-layout-v1.64.css', 's0-validation-tooltip-v1.64.css', 's0-filter-parity-v1.64.css', 's0-filter-responsive-fix-v1.65.css', 's0-card-image-loader-v1.68.css', 's0-ui-polish-v1.66.css', 's0-toast-feedback.css'];
-    var styles=files.map(function(f){var folder=sharedStyles.indexOf(f)>=0?'deck-builder/css/':'assets/review-db158/css/';return '<link rel="stylesheet" href="'+folder+f+'">';}).join('');
+    var styles=files.map(function(f){return '<link rel="stylesheet" href="assets/review-db158/css/'+f+'?v=rc44-cleanup-20261127">';}).join('');
     var lineage=Array.isArray(progressionIds)&&c.family==='Hero'?progressionIds.map(function(id){return getCard(id);}).filter(Boolean):[];
     var serializedLineage=JSON.stringify(lineage.map(function(x){return {id:x.id,name:x.name,image:x.image};})).replace(/</g,'\\u003c').replace(/>/g,'\\u003e').replace(/&/g,'\\u0026');
     var serialized=JSON.stringify(c).replace(/</g,'\\u003c').replace(/>/g,'\\u003e').replace(/&/g,'\\u0026');
@@ -23,10 +21,10 @@
       '<div id="reviewProgression" class="review-progression" hidden><span>HERO LINEAGES</span><div id="reviewProgressionCards" class="review-progression-cards"></div></div></div></dialog>'+
       '<script>if(parent.GL_CARD_ART)parent.GL_CARD_ART.attach(document);<\/script>'+
       '<script src="assets/review-db158/js/s0-review-clarity.js?v=rc40-p5-review166-mana-terms"><\/script><script src="assets/review-db158/js/review-renderer-v158.js?v=rc40-p5-review166"><\/script><script src="deck-builder/js/s0-ui-v1.49.js"><\/script>'+
-      '<script>(function(){const card='+serialized+';const lineage='+serializedLineage+';window.GL_S0_REVIEW_RENDER(card);document.getElementById("cardReviewDialog").showModal();if(lineage.length){const panel=document.getElementById("reviewProgression"),host=document.getElementById("reviewProgressionCards");panel.hidden=false;lineage.forEach(function(x){const b=document.createElement("button");b.type="button";b.className="review-progression-card"+(x.id===card.id?" active":"");b.dataset.reviewRankId=x.id;b.setAttribute("aria-label","Review "+x.name);const img=document.createElement("img");if(parent.GL_CARD_ART)parent.GL_CARD_ART.set(img,x.image);else img.src=x.image;img.alt=x.name;img.draggable=false;b.appendChild(img);b.addEventListener("click",function(){parent.postMessage({kind:"GL_S0_REVIEW_RANK",cardId:x.id},"*")});host.appendChild(b);});}function close(){parent.postMessage({kind:"GL_S0_REVIEW_CLOSE"},"*")}document.getElementById("reviewClose").addEventListener("click",close);document.addEventListener("keydown",function(e){if(e.key==="Escape"){e.preventDefault();close();}});function reportHeight(){var card=document.querySelector("#cardReviewDialog .review-card");if(!card)return;parent.postMessage({kind:"GL_S0_REVIEW_FIT",height:Math.ceil(card.getBoundingClientRect().bottom)},"*");}requestAnimationFrame(reportHeight);setTimeout(reportHeight,80);document.fonts.ready.then(reportHeight);var img=document.getElementById("reviewArt");if(img&&!img.complete)img.addEventListener("load",reportHeight,{once:true});if(window.ResizeObserver)new ResizeObserver(reportHeight).observe(document.querySelector(".review-card"));window.addEventListener("resize",reportHeight);var readySent=false;function reportReady(){if(readySent)return;readySent=true;reportHeight();parent.postMessage({kind:"GL_S0_REVIEW_READY"},"*");}function afterArt(){Promise.resolve(document.fonts.ready).then(function(){requestAnimationFrame(function(){requestAnimationFrame(reportReady);});});}if(img&&!img.complete){img.addEventListener("load",afterArt,{once:true});img.addEventListener("error",afterArt,{once:true});}else afterArt();setTimeout(reportReady,1800);})();<\/script></body></html>';
+      '<script>(function(){const card='+serialized+';const lineage='+serializedLineage+';window.GL_S0_REVIEW_RENDER(card);document.getElementById("cardReviewDialog").showModal();if(lineage.length){const panel=document.getElementById("reviewProgression"),host=document.getElementById("reviewProgressionCards");panel.hidden=false;lineage.forEach(function(x){const b=document.createElement("button");b.type="button";b.className="review-progression-card"+(x.id===card.id?" active":"");b.dataset.reviewRankId=x.id;b.setAttribute("aria-label","Review "+x.name);const img=document.createElement("img");if(parent.GL_CARD_ART)parent.GL_CARD_ART.set(img,x.image);else img.src=x.image;img.alt=x.name;img.draggable=false;b.appendChild(img);b.addEventListener("click",function(){parent.postMessage({kind:"GL_S0_REVIEW_RANK",cardId:x.id},"*")});host.appendChild(b);});}function close(){parent.postMessage({kind:"GL_S0_REVIEW_CLOSE"},"*")}document.getElementById("reviewClose").addEventListener("click",close);document.addEventListener("keydown",function(e){if(e.key==="Escape"){e.preventDefault();close();}});function reportHeight(){var card=document.querySelector("#cardReviewDialog .review-card");if(!card)return;parent.postMessage({kind:"GL_S0_REVIEW_FIT",height:Math.ceil(card.getBoundingClientRect().bottom)},"*");}requestAnimationFrame(reportHeight);setTimeout(reportHeight,80);document.fonts.ready.then(reportHeight);var img=document.getElementById("reviewArt");if(img&&!img.complete)img.addEventListener("load",reportHeight,{once:true});if(window.ResizeObserver)new ResizeObserver(reportHeight).observe(document.querySelector(".review-card"));window.addEventListener("resize",reportHeight);var readySent=false;function reportReady(){if(readySent)return;readySent=true;reportHeight();parent.postMessage({kind:"GL_S0_REVIEW_READY"},"*");}requestAnimationFrame(function(){requestAnimationFrame(reportReady);});})();<\/script></body></html>';
   }
   // Reuse the same iframe for all reviews. Re-creating srcdoc on every
-  // double-click used to re-parse 19 stylesheet links and both JS renderers.
+  // double-click used to re-parse review styles and scripts.
   // This only changes presentation; the Deck Builder review data is unchanged.
   function lineageFor(c,ids){
     if(c.family!=='Hero'||!Array.isArray(ids))return [];
@@ -72,22 +70,19 @@
       });
     }
     var img=d.getElementById('reviewArt');
+    if(img&&g.GL_CARD_ART){
+      // The embedded thumbnail is synchronous; full-size loading proceeds in
+      // the background and must never block an opened Card Review.
+      g.GL_CARD_ART.set(img,c.image);
+    }
     function ready(){
       if(!frame.isConnected||frame.__glReviewRequest!==request)return;
       body.classList.add('gl-review-ready');
-
+      const cover=body.querySelector('.gl-review-instant-cover');if(cover)cover.hidden=true;
     }
-    // Show the review once the artwork is decoded; don't wait for a new iframe
-    // document, stylesheet downloads or unrelated battlefield rendering.
-    var imageReady=img&&img.complete&&img.naturalWidth>0;
-    var decoded=imageReady?Promise.resolve():img&&typeof img.decode==='function'
-      ?img.decode().catch(function(){})
-      :new Promise(function(resolve){if(!img)return resolve();img.addEventListener('load',resolve,{once:true});img.addEventListener('error',resolve,{once:true});});
-    Promise.race([Promise.all([decoded,d.fonts?.ready||Promise.resolve()]),
-      new Promise(function(resolve){g.setTimeout(resolve,1600);})]).then(function(){
-      if(!frame.isConnected||frame.__glReviewRequest!==request)return;
-      w.requestAnimationFrame(function(){w.requestAnimationFrame(ready);});
-    });
+    // The DOM and thumbnail are already present. Reveal on the next paint,
+    // without waiting for full-resolution artwork, fonts, or audio.
+    w.requestAnimationFrame(function(){w.requestAnimationFrame(ready);});
     return true;
   }
   function mount(el,cardId,progressionIds){
@@ -132,5 +127,5 @@
   else scheduleWarmReview();
   g.addEventListener('resize',function(){g.requestAnimationFrame(function(){syncMobileReview(g.document.querySelector('.gl-db158-review-frame'));});},{passive:true});
   g.GL_DB158_REVIEW={syncMobileReview:syncMobileReview,mount:mount,getCard:getCard,documentHtml:documentHtml,warm:warmReviewShell,
-    source:'Main Deck R4.0 / Legacy Deck R4.0',view:'Deck Builder-derived canonical review',heroFooter:'lobby-only'};
+    source:'Main Deck R4.0 / Legacy Deck R4.0',view:'Deck Builder-style v1.70 data',heroFooter:'lobby-only'};
 })(window);

@@ -119,7 +119,7 @@ function scheduleReconnect(delay=state.reconnectDelay){if(state.fatalBuildMismat
 function bridge(){return window.GL_LOCAL_AI_BRIDGE||null}
 function nativeEngine(){return window.GL_GAME_ENGINE||null}
 function presentation(){return window.GL_V6914_PVP_PRESENTATION||null}
-function starters(){return window.GL_S0_LOBBY_STARTERS||{}}
+function starters(){return window.GL_ACTIVE_STARTER_DECKS||{}}
 function optionKeys(){return Object.keys(starters())}
 function starterDeck(k){return starters()?.[k]?.deck||null}
 function local(){return state.snapshot?.local||null}
@@ -151,7 +151,7 @@ function validateImportedSeason0Deck(raw){
 function baseFormation(deck=currentDeck()){const f=deck?.default_formation||{};return{LEFT:String(f.LEFT||''),CENTER:String(f.CENTER||''),RIGHT:String(f.RIGHT||'')}}
 function formationValid(deck,f){const lanes=['LEFT','CENTER','RIGHT'],a=lanes.map(l=>String((deck?.default_formation||{})[l]||'')).sort(),b=lanes.map(l=>String(f?.[l]||'')).sort();return a.every(Boolean)&&b.every(Boolean)&&new Set(b).size===3&&a.join('|')===b.join('|')}
 function currentFormation(){const d=currentDeck();return state.formation&&formationValid(d,state.formation)?clone(state.formation):baseFormation(d)}
-function cardDef(id){const d=window.GL_S0_LOBBY_CARD_DEFINITIONS||{};if(!cardDef.m)cardDef.m=new Map((d.cards||[]).filter(Boolean).map(c=>[String(c.card_id),c]));return cardDef.m.get(String(id))||null}
+function cardDef(id){const c=window.GL_DB166_REVIEW_CARDS?.[String(id)];return c?{card_id:c.id,name:c.name,family:c.family,rank_numeric:c.rankNumeric||c.rank||0,classification:c.classification,card_type:c.family}:null}
 function cardName(id){const c=cardDef(id);return c?.name||c?.card_name||id||'Unknown'}
 function localCardArt(id){const raw=String(id||'').trim();return typeof window.GL_PVP_CARD_ART_URL==='function'?window.GL_PVP_CARD_ART_URL(raw):(/^S0-[A-Z0-9-]+$/.test(raw)?('/card-art/'+encodeURIComponent(raw)+'.webp'):'')}
 function cardSrc(id){return localCardArt(id)}
